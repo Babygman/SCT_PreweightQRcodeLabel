@@ -45,6 +45,7 @@ def create_app(config_name="development"):
 
     from .auth import bp as auth_bp
     from .auth.decorators import roles_required, station_required
+    from .auth.uat_bypass import register_uat_bypass
     from .master_data import bp as master_data_bp
     from .mock_erp import bp as mock_erp_bp
     from .preparation import bp as preparation_bp
@@ -55,6 +56,7 @@ def create_app(config_name="development"):
     app.register_blueprint(mock_erp_bp)
     app.register_blueprint(preparation_bp)
     app.register_blueprint(weighing_bp)
+    register_uat_bypass(app)
 
     @app.context_processor
     def application_context():

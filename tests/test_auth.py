@@ -3,6 +3,7 @@ from werkzeug.security import generate_password_hash
 from app.auth.decorators import roles_required
 from app.extensions import db
 from app.models import AuditLog, Role, Station, User
+from config import Config, DevelopmentConfig, TestingConfig
 
 
 def create_identity(active=True, role_code="OPERATOR"):
@@ -143,3 +144,62 @@ def test_logout_requires_csrf_when_protection_is_enabled(app, client):
     app.config["WTF_CSRF_ENABLED"] = True
     response = client.post("/auth/logout")
     assert response.status_code == 400
+
+
+def test_uat_bypass_is_hard_disabled_outside_development():
+    assert Config.UAT_AUTO_LOGIN is False
+    assert TestingConfig.UAT_AUTO_LOGIN is False
+    assert DevelopmentConfig.UAT_AUTO_LOGIN is True
+
+
+def test_development_uat_bypass_sets_admin_and_station_without_login(app):
+    with app.app_context():
+        role = Role(code="ADMIN", name="Administrator")
+        user = User(
+            username="uat_admin",
+            password_hash=generate_password_hash("Unused-In-Bypass!"),
+            display_name="UAT Administrator",
+            roles=[role],
+        )
+        station = Station(code="UAT-ST01", name="UAT Station")
+        db.session.add_all([role, user, station])
+        db.session.commit()
+
+    app.config.update(
+        UAT_AUTO_LOGIN=True,
+        UAT_AUTO_USERNAME="uat_admin",
+        UAT_AUTO_STATION_CODE="UAT-ST01",
+    )
+    first_browser = app.test_client()
+    response = first_browser.get("/")
+    assert response.status_code == 200
+    assert b"UAT Administrator" in response.data
+    assert b"UAT-ST01" in response.data
+    assert first_browser.get("/mock-erp/").status_code == 200
+
+    fresh_browser = app.test_client()
+    response = fresh_browser.get("/")
+    assert response.status_code == 200
+    assert b"UAT-ST01" in response.data
+
+
+def test_uat_bypass_redirects_login_and_station_pages_to_home(app, client):
+    with app.app_context():
+        role = Role(code="ADMIN", name="Administrator")
+        user = User(
+            username="uat_admin",
+            password_hash=generate_password_hash("Unused-In-Bypass!"),
+            display_name="UAT Administrator",
+            roles=[role],
+        )
+        station = Station(code="UAT-ST01", name="UAT Station")
+        db.session.add_all([role, user, station])
+        db.session.commit()
+    app.config.update(
+        UAT_AUTO_LOGIN=True,
+        UAT_AUTO_USERNAME="uat_admin",
+        UAT_AUTO_STATION_CODE="UAT-ST01",
+    )
+    response = client.get("/auth/login")
+    assert response.status_code == 302
+    assert response.headers["Location"] == "/"

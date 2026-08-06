@@ -10,6 +10,7 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     WTF_CSRF_ENABLED = True
     APP_TIMEZONE = os.environ.get("APP_TIMEZONE", "Asia/Bangkok")
+    UAT_AUTO_LOGIN = False
 
     @classmethod
     def validate(cls):
@@ -26,6 +27,9 @@ class DevelopmentConfig(Config):
     )
     DEBUG = True
     MOCK_ERP_ENABLED = True
+    UAT_AUTO_LOGIN = True
+    UAT_AUTO_USERNAME = "uat_admin"
+    UAT_AUTO_STATION_CODE = "UAT-ST01"
 
 
 class TestingConfig(Config):
