@@ -11,7 +11,7 @@ from flask import (
     url_for,
 )
 from flask_login import current_user, login_required, login_user, logout_user
-from sqlalchemy import func, select
+from sqlalchemy import func, select, true
 from werkzeug.security import check_password_hash
 
 from app.extensions import db
@@ -20,6 +20,10 @@ from app.models import AuditLog, Station, User, utcnow
 from .forms import LoginForm, StationForm
 
 bp = Blueprint("auth", __name__, url_prefix="/auth")
+
+
+def _active_stations_statement():
+    return select(Station).where(Station.is_active == true()).order_by(Station.code)
 
 
 def _safe_next(target):
@@ -77,9 +81,7 @@ def login():
 @login_required
 def select_station():
     form = StationForm()
-    stations = db.session.scalars(
-        select(Station).where(Station.is_active.is_(True)).order_by(Station.code)
-    ).all()
+    stations = db.session.scalars(_active_stations_statement()).all()
     form.station_id.choices = [
         (station.id, f"{station.code} — {station.name}") for station in stations
     ]
