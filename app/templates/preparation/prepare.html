@@ -5,7 +5,8 @@
   <div class="col-lg-7">
     <div class="card shadow-sm">
       <div class="card-body p-4">
-        <h1 class="h3 mb-4">Prepare Production Order + Formula</h1>
+        <h1 class="h3 mb-2">Scan Production Order + Formula Sheet</h1>
+        <p class="text-muted">Scan the QR on each printed document. The system validates the 1:1 Production Order / Formula Sheet relationship before weighing.</p>
         <form method="post" novalidate>
           {{ form.hidden_tag() }}
           <div class="mb-3">
@@ -27,6 +28,9 @@
           <dt class="col-sm-4">Production Lot</dt><dd class="col-sm-8">{{ result.production_order.production_lot }}</dd>
           <dt class="col-sm-4">Status</dt><dd class="col-sm-8">{{ result.production_order.status }}</dd>
         </dl>
+        {% if result.success %}
+        <a class="btn btn-success mt-3" href="{{ url_for('weighing.order', po_id=result.production_order.id) }}">Start Weighing</a>
+        {% endif %}
         {% endif %}
       </div>
     </div>

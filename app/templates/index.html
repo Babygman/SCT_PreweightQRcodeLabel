@@ -10,6 +10,9 @@
     {% if 'OPERATOR' in role_codes or 'SUPERVISOR' in role_codes or 'ADMIN' in role_codes %}
     <a class="btn btn-primary" href="{{ url_for('preparation.prepare') }}">Prepare PO + Formula</a>
     {% endif %}
+    {% if config.MOCK_ERP_ENABLED and ('SUPERVISOR' in role_codes or 'ADMIN' in role_codes) %}
+    <a class="btn btn-warning" href="{{ url_for('mock_erp.index') }}">Mock ERP / Print QR Documents</a>
+    {% endif %}
     {% if 'ADMIN' in role_codes %}
     <a class="btn btn-outline-secondary" href="{{ url_for('master_data.index') }}">Master Data</a>
     {% endif %}

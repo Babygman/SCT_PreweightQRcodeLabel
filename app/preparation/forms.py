@@ -4,6 +4,8 @@ from wtforms.validators import DataRequired, Length
 
 
 class PreparationForm(FlaskForm):
-    po_no = StringField("Production Order", validators=[DataRequired(), Length(max=50)])
-    formula_code = StringField("Formula", validators=[DataRequired(), Length(max=50)])
-    submit = SubmitField("Validate and Prepare")
+    po_no = StringField("Scan Production Order QR", validators=[DataRequired(), Length(max=120)])
+    formula_code = StringField(
+        "Scan Formula Sheet QR", validators=[DataRequired(), Length(max=120)]
+    )
+    submit = SubmitField("Validate PO + Formula Sheet")

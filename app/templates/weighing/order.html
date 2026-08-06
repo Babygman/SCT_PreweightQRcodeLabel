@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Weighing {{ order.po_no }}{% endblock %}
+{% block content %}
+<div class="card shadow-sm mb-4">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+      <div>
+        <h1 class="h3 mb-2">Weighing — {{ order.po_no }}</h1>
+        <div>{{ order.product.code }} — {{ order.product.name }}</div>
+        <div>Production Lot: <strong>{{ order.production_lot }}</strong> · Formula Sheet: <strong>{{ order.formula.code }}</strong></div>
+      </div>
+      <span class="badge text-bg-success fs-6">PO + FORMULA MATCHED</span>
+    </div>
+  </div>
+</div>
+<div class="card shadow-sm">
+  <div class="card-body">
+    <h2 class="h5">Formula Items</h2>
+    <p class="text-muted">Material Tag scan and actual-weight entry are handled in the next weighing step. QC status, Vendor Lot existence and remaining bag quantity are not revalidated by Preweight.</p>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead><tr><th>Line</th><th>Material</th><th>Name</th><th class="text-end">Target</th><th>Unit</th><th>Status</th></tr></thead>
+        <tbody>
+          {% for item in order.formula.items|sort(attribute='line_no') %}
+          <tr><td>{{ item.line_no }}</td><td>{{ item.material.code }}</td><td>{{ item.material.name }}</td><td class="text-end">{{ item.target_weight }}</td><td>{{ item.unit }}</td><td><span class="badge text-bg-secondary">PENDING</span></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <a class="btn btn-outline-secondary" href="{{ url_for('preparation.prepare') }}">Back to PO + Formula Scan</a>
+  </div>
+</div>
+{% endblock %}

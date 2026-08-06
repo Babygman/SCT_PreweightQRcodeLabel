@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{% block document_title %}Mock Production Document{% endblock %}</title>
+  <style>
+    @page { size: A4; margin: 12mm; }
+    body { font-family: Arial, sans-serif; color: #111; margin: 0 auto; max-width: 190mm; font-size: 12px; }
+    .toolbar { margin-bottom: 12px; }
+    .toolbar button { padding: 8px 16px; }
+    .header { border-bottom: 3px solid #111; padding-bottom: 8px; margin-bottom: 14px; }
+    .header h1 { margin: 0; font-size: 24px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px 24px; margin-bottom: 16px; }
+    .label { color: #555; font-size: 10px; text-transform: uppercase; }
+    .value { font-size: 14px; font-weight: bold; }
+    .qr { width: 150px; height: 150px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #888; padding: 4px 6px; text-align: left; }
+    th { background: #eee; }
+    .right { text-align: right; }
+    .footer-note { margin-top: 12px; color: #666; }
+    @media print { .toolbar { display: none; } body { max-width: none; } }
+  </style>
+</head>
+<body>
+  <div class="toolbar"><button type="button" onclick="window.print()">Print A4</button></div>
+  {% block document %}{% endblock %}
+</body>
+</html>

@@ -25,6 +25,7 @@ class DevelopmentConfig(Config):
         "DATABASE_URL", f"sqlite:///{BASE_DIR / 'instance' / 'app.db'}"
     )
     DEBUG = True
+    MOCK_ERP_ENABLED = True
 
 
 class TestingConfig(Config):
@@ -32,6 +33,7 @@ class TestingConfig(Config):
     TESTING = True
     WTF_CSRF_ENABLED = False
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
+    MOCK_ERP_ENABLED = True
 
 
 CONFIGS = {

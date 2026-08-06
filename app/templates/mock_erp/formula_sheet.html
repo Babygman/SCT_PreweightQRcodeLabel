@@ -1,0 +1,22 @@
+{% extends "mock_erp/document_base.html" %}
+{% block document_title %}Formula Sheet {{ order.formula.code }}{% endblock %}
+{% block document %}
+<div class="header"><h1>FORMULA SHEET</h1><div>MOCK ERP — DEVELOPMENT / UAT</div></div>
+<div class="grid">
+  <div><div class="label">Formula Sheet No.</div><div class="value">{{ order.formula.code }}</div></div>
+  <div><div class="label">Production Order No.</div><div class="value">{{ order.po_no }}</div></div>
+  <div><div class="label">Finished Good</div><div class="value">{{ order.product.code }} — {{ order.product.name }}</div></div>
+  <div><div class="label">Production Lot No.</div><div class="value">{{ order.formula.production_lot }}</div></div>
+  <div><div class="label">Quantity</div><div class="value">{{ order.formula.batch_quantity }} KG</div></div>
+  <div><img class="qr" src="{{ url_for('mock_erp.qr_image', kind='formula', record_id=order.formula.id) }}" alt="Formula Sheet QR"></div>
+</div>
+<table>
+  <thead><tr><th>Line</th><th>Item Code</th><th>Item Name</th><th class="right">Target Weight</th><th>Unit</th></tr></thead>
+  <tbody>
+    {% for item in order.formula.items|sort(attribute='line_no') %}
+    <tr><td>{{ item.line_no }}</td><td>{{ item.material.code }}</td><td>{{ item.material.name }}</td><td class="right">{{ item.target_weight }}</td><td>{{ item.unit }}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+<p class="footer-note">30 raw-material lines and their target weights are generated automatically for UAT. Total target weight = {{ order.formula.batch_quantity }} KG.</p>
+{% endblock %}

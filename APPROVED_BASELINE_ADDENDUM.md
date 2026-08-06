@@ -4,6 +4,30 @@ Status: **APPROVED — 2026-08-06**
 Date: 2026-08-06
 Purpose: Close the documentation gaps that block Codex Stage 1. This addendum does not create Phase 7 and does not reopen the approved Version 1 business scope from Phases 1–6.
 
+### Product Owner correction — Stage 4 (2026-08-06)
+
+The Product Owner corrected the physical production workflow during Stage 4 UAT. This correction
+supersedes only the conflicting raw-material-centric Stage 4 rules below; Stage 1–3 approved work
+remains intact.
+
+- Production Order and Formula Sheet are physical documents related 1:1 for the production job.
+  The operator scans both QR codes before weighing. Product, Production Lot and the exact linked
+  Formula Sheet must match. A mismatch is blocked and audit-logged.
+- Version 1 includes a Development/UAT-only Mock ERP / Document Generator. The user enters PO No.,
+  Finished Good code/name, Production Lot, production quantity, Formula Sheet No., Production Date,
+  and Expected Finish Date. The generator creates about 30 raw-material lines and distributes target
+  weights so their total equals the production quantity, then produces printable A4 PO and Formula
+  Sheet documents with scannable QR identifiers.
+- A Material Tag is 1:1 with one physical material bag. The same tag may be scanned repeatedly while
+  that bag is used; this is normal and is not a duplicate condition.
+- Material Tag data includes Item Code, Item Name, Vendor Lot No., and Expire Date. Preweight retains
+  these values for weighing traceability. It does not create any lot number.
+- Preweight does not validate Vendor Lot existence, QC HOLD/REJECT, expiry, or remaining bag
+  quantity. Those controls occur upstream in ERP/Material Receiving/QC before the Material Tag is
+  printed. Expire Date is retained as tag data and does not block weighing in Version 1.
+- During weighing, the required Preweight validation is that the scanned Material Item Code matches
+  the Formula Item being weighed. A wrong material scan is blocked and audit-logged.
+
 ## 1. Authority and precedence
 
 1. `PROJECT_STANDARD.md` remains mandatory for engineering workflow, quality, testing, security, documentation, Git, and Definition of Done.
@@ -135,7 +159,9 @@ There is no Material-to-Station mapping.
 - `is_active` BIT NOT NULL DEFAULT 1
 - UNIQUE (`material_id`, `lot_no`)
 
-Only `PASS`, active, non-expired lots may be used for weighing.
+This table is retained for compatibility with the already-approved foundation, but after the Stage 4
+Product Owner correction it is not a weighing validation authority. Preweight must not block a
+Material Tag by QC status, expiry, or Vendor Lot lookup in this table.
 
 ### 5.7 `products`
 
@@ -247,7 +273,9 @@ Use this for security/business audit events that are not already completely repr
 These rules restate the frozen Phase 4–6 behavior so the technical schema cannot be interpreted incorrectly:
 
 1. PO + Formula must match before the PO becomes ready for weighing.
-2. Scanning a raw-material lot shows only Ready POs whose pending formula line requires that material.
+2. After the Production Order and its exact 1:1 Formula Sheet are scanned and matched, the Weighing
+   screen loads that Formula's lines. A scanned Material Tag must match the Formula Item code being
+   weighed; Vendor Lot/QC/expiry lookup is not a blocking rule.
 3. One PO formula line may have only one active `COMPLETED`/`CONSUMED` weighing transaction.
 4. Save the weighing transaction and commit successfully before attempting label printing.
 5. Actual weight is manually entered, numeric, and greater than zero; there is no tolerance blocking in Version 1.
@@ -291,7 +319,8 @@ Stage 1 must seed only enough clearly marked test data to exercise the approved 
 - The four Version 1 roles
 - At least one test user per role
 - At least two stations
-- Multiple materials and raw-material lots including PASS/HOLD/REJECT and an expired example
+- Multiple materials and legacy raw-material-lot examples may remain for regression compatibility;
+  HOLD/REJECT/expired values are not Stage 4 blocking cases after the Product Owner correction
 - At least two products/formulas with formula items
 - Multiple OPEN production orders so later UAT can test one material required by more than one PO
 

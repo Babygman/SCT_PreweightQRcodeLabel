@@ -16,3 +16,9 @@
 - Admin-only Basic Master Data visibility for approved core records.
 - Production Order and Formula preparation with server-side status, availability, and product checks.
 - Idempotent Stage 3 UAT seed supplement for cancelled, completed, and inactive-formula cases.
+- Redesigned Stage 4 Production Order / Formula Sheet scan with exact-pair and Production Lot checks.
+- Failed PO / Formula scans retained in the business audit log.
+- Development/UAT Mock ERP generator with user-defined production job fields, 30 automatic raw
+  materials, balanced target weights, printable A4 Production Order / Formula Sheet, and QR codes.
+- READY-order Weighing screen showing the matched production context and formula lines.
+- Migration for production quantity/date fields and Formula Sheet production-lot/batch snapshots.

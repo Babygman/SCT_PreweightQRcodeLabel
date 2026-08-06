@@ -11,6 +11,7 @@ from app.extensions import db
 UTC_DATETIME = db.DateTime().with_variant(mssql.DATETIME2(), "mssql")
 SQL_DATE = db.Date().with_variant(mssql.DATE(), "mssql")
 MAX_UNICODE = db.UnicodeText().with_variant(mssql.NVARCHAR(None), "mssql")
+BIGINT_ID = db.BigInteger().with_variant(db.Integer(), "sqlite")
 
 
 def utcnow():
@@ -92,6 +93,8 @@ class Formula(db.Model):
     code: Mapped[str] = mapped_column(db.Unicode(50), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(db.Unicode(200), nullable=False)
     product_id: Mapped[int] = mapped_column(db.ForeignKey("products.id"), nullable=False)
+    production_lot: Mapped[str | None] = mapped_column(db.Unicode(100))
+    batch_quantity: Mapped[Decimal | None] = mapped_column(db.Numeric(18, 3))
     is_active: Mapped[bool] = mapped_column(default=True, server_default=text("1"), nullable=False)
     product: Mapped[Product] = relationship()
     items: Mapped[list["FormulaItem"]] = relationship(back_populates="formula")
@@ -122,6 +125,9 @@ class ProductionOrder(db.Model):
     po_no: Mapped[str] = mapped_column(db.Unicode(50), unique=True, nullable=False)
     product_id: Mapped[int] = mapped_column(db.ForeignKey("products.id"), nullable=False)
     production_lot: Mapped[str] = mapped_column(db.Unicode(100), nullable=False)
+    quantity: Mapped[Decimal | None] = mapped_column(db.Numeric(18, 3))
+    production_date: Mapped[date | None] = mapped_column(SQL_DATE)
+    expected_finish_date: Mapped[date | None] = mapped_column(SQL_DATE)
     formula_id: Mapped[int | None] = mapped_column(db.ForeignKey("formulas.id"))
     status: Mapped[str] = mapped_column(db.Unicode(20), nullable=False)
     prepared_by_user_id: Mapped[int | None] = mapped_column(db.ForeignKey("users.id"))
@@ -206,7 +212,7 @@ class VerificationLog(db.Model):
 
 class AuditLog(db.Model):
     __tablename__ = "audit_logs"
-    id: Mapped[int] = mapped_column(db.BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(BIGINT_ID, primary_key=True, autoincrement=True)
     event_type: Mapped[str] = mapped_column(db.Unicode(50), nullable=False)
     entity_type: Mapped[str] = mapped_column(db.Unicode(50), nullable=False)
     entity_id: Mapped[str | None] = mapped_column(db.Unicode(100))

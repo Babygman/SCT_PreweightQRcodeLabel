@@ -54,3 +54,23 @@ APP_ENV=development .venv/bin/flask --app run.py seed-stage3
 
 The command is idempotent. Stage 3 preparation is available from Home for Operator, Supervisor,
 and Admin accounts. The Basic Master Data view is Admin-only.
+
+## Redesigned Stage 4 UAT — Mock ERP and document scanning
+
+The approved Stage 4 correction uses Production Order + Formula Sheet as a 1:1 pair before
+weighing. Development enables a separate **Mock ERP / Document Generator** for Supervisor/Admin.
+
+1. Sign in and select a station.
+2. Open `Mock ERP / Print QR Documents`.
+3. Enter Production Order No., Finished Good code/name, Production Lot, Quantity (KG), Formula
+   Sheet No., Production Date, and Expected Finish Date.
+4. The generator automatically creates 30 mock raw-material lines. Their target weights sum to
+   the entered production quantity.
+5. Open/print the A4 Production Order and Formula Sheet. Each document contains a scannable QR.
+6. Open `Prepare PO + Formula`, scan both printed QR codes, and validate them.
+7. A matched pair becomes READY and may open the Weighing screen; a mismatched scan is blocked
+   and retained in the audit log.
+
+The Mock ERP is disabled by default in production configuration. It does not replace future ERP
+integration. Raw-material Vendor Lot/QC/expiry validation from the superseded Stage 4 design is
+not performed here; those values belong to the upstream Material Tag/ERP receiving process.

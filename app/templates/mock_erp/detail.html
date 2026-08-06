@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Mock Documents {{ order.po_no }}{% endblock %}
+{% block content %}
+<div class="card shadow-sm">
+  <div class="card-body p-4">
+    <h1 class="h3">Mock Documents Ready</h1>
+    <dl class="row">
+      <dt class="col-sm-3">Production Order</dt><dd class="col-sm-9">{{ order.po_no }}</dd>
+      <dt class="col-sm-3">Formula Sheet</dt><dd class="col-sm-9">{{ order.formula.code }}</dd>
+      <dt class="col-sm-3">Finished Good</dt><dd class="col-sm-9">{{ order.product.code }} — {{ order.product.name }}</dd>
+      <dt class="col-sm-3">Production Lot</dt><dd class="col-sm-9">{{ order.production_lot }}</dd>
+      <dt class="col-sm-3">Quantity</dt><dd class="col-sm-9">{{ order.quantity }} kg</dd>
+      <dt class="col-sm-3">Raw Materials</dt><dd class="col-sm-9">{{ order.formula.items|length }} auto-generated lines</dd>
+    </dl>
+    <a class="btn btn-primary" target="_blank" href="{{ url_for('mock_erp.production_order_document', po_id=order.id) }}">Open / Print Production Order</a>
+    <a class="btn btn-primary" target="_blank" href="{{ url_for('mock_erp.formula_sheet_document', po_id=order.id) }}">Open / Print Formula Sheet</a>
+    <a class="btn btn-outline-secondary" href="{{ url_for('mock_erp.index') }}">Create Another</a>
+  </div>
+</div>
+{% endblock %}

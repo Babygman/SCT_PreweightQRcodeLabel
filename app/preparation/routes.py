@@ -1,4 +1,4 @@
-from flask import Blueprint, flash, render_template
+from flask import Blueprint, flash, render_template, session
 from flask_login import current_user, login_required
 
 from app.auth.decorators import roles_required, station_required
@@ -18,7 +18,10 @@ def prepare():
     result = None
     if form.validate_on_submit():
         result = prepare_production_order(
-            form.po_no.data.strip(), form.formula_code.data.strip(), current_user.id
+            form.po_no.data.strip(),
+            form.formula_code.data.strip(),
+            current_user.id,
+            session.get("station_id"),
         )
         flash(result.message, "success" if result.success else "danger")
     return render_template("preparation/prepare.html", form=form, result=result)

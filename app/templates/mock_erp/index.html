@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Mock ERP / Document Generator{% endblock %}
+{% block content %}
+<div class="row g-4">
+  <div class="col-xl-7">
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <h1 class="h3">Mock ERP / Document Generator</h1>
+        <p class="text-muted">Development/UAT only. The system creates 30 mock raw materials and distributes the production quantity across their target weights automatically.</p>
+        <form method="post" novalidate>
+          {{ form.hidden_tag() }}
+          <div class="row g-3">
+            {% for field in [form.po_no, form.formula_code, form.product_code, form.product_name, form.production_lot, form.quantity, form.production_date, form.expected_finish_date] %}
+            <div class="col-md-6">
+              {{ field.label(class="form-label") }}
+              {{ field(class="form-control", autocomplete="off") }}
+              {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+            {% endfor %}
+          </div>
+          <div class="mt-4">
+            {{ form.submit(class="btn btn-primary") }}
+            <a class="btn btn-outline-secondary" href="{{ url_for('index') }}">Back</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-5">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h2 class="h5">Generated Mock Jobs</h2>
+        <div class="list-group list-group-flush">
+          {% for order in orders %}
+          <a class="list-group-item list-group-item-action" href="{{ url_for('mock_erp.detail', po_id=order.id) }}">
+            <strong>{{ order.po_no }}</strong> · {{ order.formula.code }}<br>
+            <small>{{ order.product.code }} / Lot {{ order.production_lot }} / {{ order.quantity }} kg</small>
+          </a>
+          {% else %}
+          <p class="text-muted mb-0">No mock jobs created yet.</p>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
