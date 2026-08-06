@@ -4,7 +4,8 @@
 <section class="card shadow-sm">
   <div class="card-body">
     <h1 class="h3">SCT Preweight QR Code Label</h1>
-    <p class="mb-0">Application foundation is ready.</p>
+    <p class="mb-1">User: {{ current_user.display_name }}</p>
+    <p class="mb-0">Station: {{ selected_station.code }} — {{ selected_station.name }}</p>
   </div>
 </section>
 {% endblock %}

@@ -1,7 +1,8 @@
 from logging.config import dictConfig
 from pathlib import Path
 
-from flask import Flask, render_template
+from flask import Flask, render_template, session
+from flask_login import current_user, login_required
 
 from config import CONFIGS
 
@@ -32,17 +33,38 @@ def create_app(config_name="development"):
     db.init_app(app)
     migrate.init_app(app, db, compare_type=True)
     login_manager.init_app(app)
+    login_manager.login_view = "auth.login"
     csrf.init_app(app)
 
-    from .models import User
+    from .models import Station, User
 
     @login_manager.user_loader
     def load_user(user_id):
-        return db.session.get(User, int(user_id))
+        user = db.session.get(User, int(user_id))
+        return user if user is not None and user.is_active else None
+
+    from .auth import bp as auth_bp
+    from .auth.decorators import roles_required, station_required
+
+    app.register_blueprint(auth_bp)
+
+    @app.context_processor
+    def application_context():
+        station = None
+        if current_user.is_authenticated and session.get("station_id"):
+            station = db.session.get(Station, session["station_id"])
+        return {"selected_station": station}
 
     @app.get("/")
+    @login_required
+    @station_required
+    @roles_required("OPERATOR", "PRODUCTION", "SUPERVISOR", "ADMIN")
     def index():
         return render_template("index.html")
+
+    @app.errorhandler(403)
+    def forbidden(_error):
+        return render_template("errors/403.html"), 403
 
     @app.errorhandler(404)
     def not_found(_error):

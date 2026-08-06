@@ -6,8 +6,8 @@ from app.models import Role, User
 
 def test_home_page_opens(client):
     response = client.get("/")
-    assert response.status_code == 200
-    assert b"SCT Preweight QR Code Label" in response.data
+    assert response.status_code == 302
+    assert "/auth/login" in response.headers["Location"]
 
 
 def test_error_page(client):

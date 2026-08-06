@@ -36,3 +36,10 @@ APP_ENV=testing .venv/bin/flask --app run.py db upgrade
 APP_ENV=testing .venv/bin/flask --app run.py db downgrade
 APP_ENV=testing .venv/bin/flask --app run.py db upgrade
 ```
+
+## Stage 2 UAT
+
+After migration and `seed-uat`, start the application and open `http://127.0.0.1:5000`.
+Use the development/UAT accounts above to verify valid and invalid login, inactive-user blocking,
+station selection, session persistence, and logout. Stage 2 authorization is enforced in server-side
+route decorators; later role-specific screens will use the same control.
