@@ -12,9 +12,22 @@
       <dt class="col-sm-3">Quantity</dt><dd class="col-sm-9">{{ order.quantity }} kg</dd>
       <dt class="col-sm-3">Raw Materials</dt><dd class="col-sm-9">{{ order.formula.items|length }} auto-generated lines</dd>
     </dl>
-    <a class="btn btn-primary" target="_blank" href="{{ url_for('mock_erp.production_order_document', po_id=order.id) }}">Open / Print Production Order</a>
-    <a class="btn btn-primary" target="_blank" href="{{ url_for('mock_erp.formula_sheet_document', po_id=order.id) }}">Open / Print Formula Sheet</a>
+    <a class="btn btn-primary" target="mock-po-{{ order.id }}" rel="noopener" onclick="return openPrintWindow(this)" href="{{ url_for('mock_erp.production_order_document', po_id=order.id) }}">Open / Print Production Order</a>
+    <a class="btn btn-primary" target="mock-formula-{{ order.id }}" rel="noopener" onclick="return openPrintWindow(this)" href="{{ url_for('mock_erp.formula_sheet_document', po_id=order.id) }}">Open / Print Formula Sheet</a>
     <a class="btn btn-outline-secondary" href="{{ url_for('mock_erp.index') }}">Create Another</a>
   </div>
 </div>
+<script>
+  function openPrintWindow(link) {
+    const printWindow = window.open(
+      link.href,
+      link.target,
+      "popup=yes,width=1100,height=850,resizable=yes,scrollbars=yes"
+    );
+    if (printWindow) {
+      printWindow.opener = null;
+    }
+    return false;
+  }
+</script>
 {% endblock %}

@@ -130,6 +130,33 @@ def test_mock_erp_page_generates_printable_qr_documents(app, client):
     assert formula_qr.content_type == "image/png"
 
 
+def test_print_links_open_separate_windows_without_losing_session(app, client):
+    with app.app_context():
+        _, station = seed_user("ADMIN")
+        order = build_order()
+        station_id = station.id
+        po_id = order.id
+    authenticate(client, station_id)
+
+    detail = client.get(f"/mock-erp/{po_id}")
+    assert detail.status_code == 200
+    assert b"openPrintWindow(this)" in detail.data
+    assert f'target="mock-po-{po_id}"'.encode() in detail.data
+    assert f'target="mock-formula-{po_id}"'.encode() in detail.data
+    assert b"window.open" in detail.data
+
+    po_document = client.get(f"/mock-erp/{po_id}/production-order")
+    formula_document = client.get(f"/mock-erp/{po_id}/formula-sheet")
+    assert b"Print A4" in po_document.data
+    assert b"Print A4" in formula_document.data
+    assert b"window.print()" in po_document.data
+    assert b"window.print()" in formula_document.data
+
+    home = client.get("/")
+    assert home.status_code == 200
+    assert b"MOCK-ST" in home.data
+
+
 def test_operator_cannot_access_mock_erp(app, client):
     with app.app_context():
         _, station = seed_user("OPERATOR")
