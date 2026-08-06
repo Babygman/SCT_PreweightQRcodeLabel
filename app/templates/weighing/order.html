@@ -16,13 +16,40 @@
 <div class="card shadow-sm">
   <div class="card-body">
     <h2 class="h5">Formula Items</h2>
-    <p class="text-muted">Material Tag scan and actual-weight entry are handled in the next weighing step. QC status, Vendor Lot existence and remaining bag quantity are not revalidated by Preweight.</p>
+    <p class="text-muted">Scan the 11-field Material Tag and enter the actual weight. Vendor Lot, QC status, expiry and remaining bag quantity do not block weighing.</p>
     <div class="table-responsive">
       <table class="table table-sm align-middle">
-        <thead><tr><th>Line</th><th>Material</th><th>Name</th><th class="text-end">Target</th><th>Unit</th><th>Status</th></tr></thead>
+        <thead><tr><th>Line</th><th>Material</th><th>Name</th><th class="text-end">Target</th><th>Unit</th><th>Status / Weigh</th></tr></thead>
         <tbody>
           {% for item in order.formula.items|sort(attribute='line_no') %}
-          <tr><td>{{ item.line_no }}</td><td>{{ item.material.code }}</td><td>{{ item.material.name }}</td><td class="text-end">{{ item.target_weight }}</td><td>{{ item.unit }}</td><td><span class="badge text-bg-secondary">PENDING</span></td></tr>
+          {% set transaction = transactions_by_item.get(item.id) %}
+          <tr>
+            <td>{{ item.line_no }}</td>
+            <td>{{ item.material.code }}</td>
+            <td>{{ item.material.name }}</td>
+            <td class="text-end">{{ item.target_weight }}</td>
+            <td>{{ item.unit }}</td>
+            <td class="w-50">
+              {% if transaction %}
+              <span class="badge text-bg-success">{{ transaction.status }}</span>
+              <strong class="ms-2">{{ transaction.preweight_id }}</strong>
+              <div class="small text-muted">Actual: {{ transaction.actual_weight }} {{ transaction.unit_snapshot }}</div>
+              {% else %}
+              <form method="post" action="{{ url_for('weighing.weigh_line', po_id=order.id, formula_item_id=item.id) }}" class="row g-2">
+                {{ form.hidden_tag() }}
+                <div class="col-12">
+                  {{ form.material_tag(class="form-control form-control-sm", placeholder="Scan Material Tag QR", autocomplete="off") }}
+                </div>
+                <div class="col-sm-7">
+                  {{ form.actual_weight(class="form-control form-control-sm", placeholder="Actual Weight", min="0.001", step="0.001") }}
+                </div>
+                <div class="col-sm-5 d-grid">
+                  {{ form.submit(class="btn btn-primary btn-sm") }}
+                </div>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
           {% endfor %}
         </tbody>
       </table>

@@ -156,9 +156,21 @@ class WeighingTransaction(db.Model):
         db.ForeignKey("production_orders.id"), nullable=False
     )
     formula_item_id: Mapped[int] = mapped_column(db.ForeignKey("formula_items.id"), nullable=False)
-    raw_material_lot_id: Mapped[int] = mapped_column(
-        db.ForeignKey("raw_material_lots.id"), nullable=False
+    raw_material_lot_id: Mapped[int | None] = mapped_column(
+        db.ForeignKey("raw_material_lots.id"), nullable=True
     )
+    material_tag_raw_payload: Mapped[str | None] = mapped_column(MAX_UNICODE)
+    receiving_date_snapshot: Mapped[date | None] = mapped_column(SQL_DATE)
+    purchase_order_snapshot: Mapped[str | None] = mapped_column(db.Unicode(100))
+    purchase_order_line_snapshot: Mapped[str | None] = mapped_column(db.Unicode(30))
+    material_code_snapshot: Mapped[str | None] = mapped_column(db.Unicode(50))
+    delivery_invoice_snapshot: Mapped[str | None] = mapped_column(db.Unicode(100))
+    vendor_lot_snapshot: Mapped[str | None] = mapped_column(db.Unicode(100))
+    supplier_snapshot: Mapped[str | None] = mapped_column(db.Unicode(100))
+    comment_snapshot: Mapped[str | None] = mapped_column(db.Unicode(200))
+    warehouse_snapshot: Mapped[str | None] = mapped_column(db.Unicode(50))
+    location_snapshot: Mapped[str | None] = mapped_column(db.Unicode(50))
+    shelf_snapshot: Mapped[str | None] = mapped_column(db.Unicode(50))
     target_weight_snapshot: Mapped[Decimal] = mapped_column(db.Numeric(18, 3), nullable=False)
     actual_weight: Mapped[Decimal] = mapped_column(db.Numeric(18, 3), nullable=False)
     unit_snapshot: Mapped[str] = mapped_column(db.Unicode(20), nullable=False)

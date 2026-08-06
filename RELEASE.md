@@ -8,3 +8,5 @@
 - Stage 4: Redesigned after Product Owner workflow correction; Mock ERP + printable QR documents,
   exact PO / Formula Sheet validation, audit logging, and initial Weighing screen implemented.
   Automated technical verification complete; awaiting Product Owner UAT before push.
+- Weighing Workflow: Material Tag validation and completed transaction persistence implemented
+  locally; printing remains out of scope pending database-save UAT approval.

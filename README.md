@@ -74,3 +74,19 @@ weighing. Development enables a separate **Mock ERP / Document Generator** for S
 The Mock ERP is disabled by default in production configuration. It does not replace future ERP
 integration. Raw-material Vendor Lot/QC/expiry validation from the superseded Stage 4 design is
 not performed here; those values belong to the upstream Material Tag/ERP receiving process.
+
+## Weighing Workflow UAT
+
+After applying the current migration to a UAT database, prepare a PO + Formula pair so the PO is
+`READY`, then open its Weighing screen.
+
+1. Select a pending Formula line.
+2. Scan an 11-field Material Tag QR.
+3. Confirm that the QR Material Code matches the required Formula-line Material Code.
+4. Enter an Actual Weight greater than zero and save.
+5. Confirm the line displays `COMPLETED` and a unique `PW-YYYYMMDD-NNNNNN` identifier.
+6. Confirm the same Formula line cannot be weighed twice.
+7. Confirm the same Material Tag can be used for another applicable Formula line.
+
+Vendor Lot, QC status, expiry and remaining quantity do not authorize or block this workflow.
+Printing and Preweight Label generation are not part of this stage.

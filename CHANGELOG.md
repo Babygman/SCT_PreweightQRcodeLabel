@@ -21,4 +21,6 @@
 - Development/UAT Mock ERP generator with user-defined production job fields, 30 automatic raw
   materials, balanced target weights, printable A4 Production Order / Formula Sheet, and QR codes.
 - READY-order Weighing screen showing the matched production context and formula lines.
+- Material Tag parsing, material-code validation, actual-weight capture, traceability snapshots,
+  concurrency-safe Preweight IDs, and completed Weighing transactions.
 - Migration for production quantity/date fields and Formula Sheet production-lot/batch snapshots.
