@@ -13,3 +13,6 @@
 - Active station selection stored in session context.
 - CSRF-protected logout and authentication audit records.
 - Reusable server-side station and role authorization decorators.
+- Admin-only Basic Master Data visibility for approved core records.
+- Production Order and Formula preparation with server-side status, availability, and product checks.
+- Idempotent Stage 3 UAT seed supplement for cancelled, completed, and inactive-formula cases.

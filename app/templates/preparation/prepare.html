@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Prepare PO + Formula{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <h1 class="h3 mb-4">Prepare Production Order + Formula</h1>
+        <form method="post" novalidate>
+          {{ form.hidden_tag() }}
+          <div class="mb-3">
+            {{ form.po_no.label(class="form-label") }}
+            {{ form.po_no(class="form-control", autofocus=true, autocomplete="off") }}
+          </div>
+          <div class="mb-3">
+            {{ form.formula_code.label(class="form-label") }}
+            {{ form.formula_code(class="form-control", autocomplete="off") }}
+          </div>
+          {{ form.submit(class="btn btn-primary") }}
+          <a class="btn btn-outline-secondary" href="{{ url_for('index') }}">Back</a>
+        </form>
+        {% if result and result.production_order %}
+        <hr>
+        <dl class="row mb-0">
+          <dt class="col-sm-4">Production Order</dt><dd class="col-sm-8">{{ result.production_order.po_no }}</dd>
+          <dt class="col-sm-4">Product</dt><dd class="col-sm-8">{{ result.production_order.product.code }}</dd>
+          <dt class="col-sm-4">Production Lot</dt><dd class="col-sm-8">{{ result.production_order.production_lot }}</dd>
+          <dt class="col-sm-4">Status</dt><dd class="col-sm-8">{{ result.production_order.status }}</dd>
+        </dl>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

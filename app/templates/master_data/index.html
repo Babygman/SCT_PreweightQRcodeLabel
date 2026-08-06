@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Master Data{% endblock %}
+{% macro table(title, rows, columns) %}
+<section class="card shadow-sm mb-4">
+  <div class="card-body">
+    <h2 class="h5">{{ title }}</h2>
+    <div class="table-responsive">
+      <table class="table table-sm mb-0">
+        <thead><tr>{% for label, field in columns %}<th>{{ label }}</th>{% endfor %}</tr></thead>
+        <tbody>
+        {% for row in rows %}<tr>{% for label, field in columns %}<td>{{ row | attr(field) }}</td>{% endfor %}</tr>{% else %}<tr><td colspan="{{ columns|length }}">No data</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+{% endmacro %}
+{% block content %}
+<h1 class="h3 mb-4">Master Data</h1>
+{{ table('Users', users, [('Username','username'),('Display name','display_name'),('Active','is_active')]) }}
+{{ table('Stations', stations, [('Code','code'),('Name','name'),('Active','is_active')]) }}
+{{ table('Materials', materials, [('Code','code'),('Name','name'),('Unit','unit'),('Active','is_active')]) }}
+{{ table('Raw Material Lots', raw_material_lots, [('Lot','lot_no'),('QC','qc_status'),('Expiry','expiry_date'),('Active','is_active')]) }}
+{{ table('Products', products, [('Code','code'),('Name','name'),('Active','is_active')]) }}
+{{ table('Formulas', formulas, [('Code','code'),('Name','name'),('Active','is_active')]) }}
+{{ table('Formula Items', formula_items, [('Formula ID','formula_id'),('Line','line_no'),('Material ID','material_id'),('Target','target_weight'),('Unit','unit')]) }}
+{{ table('Production Orders', production_orders, [('PO','po_no'),('Lot','production_lot'),('Status','status')]) }}
+{% endblock %}

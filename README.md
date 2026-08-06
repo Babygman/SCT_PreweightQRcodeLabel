@@ -43,3 +43,14 @@ After migration and `seed-uat`, start the application and open `http://127.0.0.1
 Use the development/UAT accounts above to verify valid and invalid login, inactive-user blocking,
 station selection, session persistence, and logout. Stage 2 authorization is enforced in server-side
 route decorators; later role-specific screens will use the same control.
+
+## Stage 3 UAT data
+
+For an existing UAT database created before Stage 3, add the approved negative cases once:
+
+```bash
+APP_ENV=development .venv/bin/flask --app run.py seed-stage3
+```
+
+The command is idempotent. Stage 3 preparation is available from Home for Operator, Supervisor,
+and Admin accounts. The Basic Master Data view is Admin-only.

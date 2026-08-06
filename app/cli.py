@@ -21,6 +21,7 @@ from app.models import (
 
 def register_commands(app):
     app.cli.add_command(seed_uat)
+    app.cli.add_command(seed_stage3)
 
 
 @click.command("seed-uat")
@@ -97,6 +98,12 @@ def seed_uat():
     formulas = [
         Formula(code="UAT-FM001", name="UAT Formula A", product=products[0]),
         Formula(code="UAT-FM002", name="UAT Formula B", product=products[1]),
+        Formula(
+            code="UAT-FM-INACTIVE",
+            name="UAT Inactive Formula",
+            product=products[0],
+            is_active=False,
+        ),
     ]
     items = [
         FormulaItem(
@@ -131,6 +138,18 @@ def seed_uat():
         ProductionOrder(
             po_no="UAT-PO003", product=products[1], production_lot="UAT-LOT-B1", status="OPEN"
         ),
+        ProductionOrder(
+            po_no="UAT-PO-CANCELLED",
+            product=products[0],
+            production_lot="UAT-LOT-CANCELLED",
+            status="CANCELLED",
+        ),
+        ProductionOrder(
+            po_no="UAT-PO-COMPLETED",
+            product=products[0],
+            production_lot="UAT-LOT-COMPLETED",
+            status="COMPLETED",
+        ),
     ]
 
     db.session.add_all(
@@ -149,3 +168,38 @@ def seed_uat():
     db.session.commit()
     current_app.logger.info("UAT seed data loaded")
     click.echo("UAT seed data loaded. Credentials are documented in README.md.")
+
+
+@click.command("seed-stage3")
+def seed_stage3():
+    """Add Stage 3 UAT cases to an existing Stage 1/2 UAT database."""
+    product = Product.query.filter_by(code="UAT-FG001").one_or_none()
+    if product is None:
+        raise click.ClickException("Run seed-uat before seed-stage3")
+
+    additions = []
+    if Formula.query.filter_by(code="UAT-FM-INACTIVE").one_or_none() is None:
+        additions.append(
+            Formula(
+                code="UAT-FM-INACTIVE",
+                name="UAT Inactive Formula",
+                product=product,
+                is_active=False,
+            )
+        )
+    for po_no, production_lot, status in (
+        ("UAT-PO-CANCELLED", "UAT-LOT-CANCELLED", "CANCELLED"),
+        ("UAT-PO-COMPLETED", "UAT-LOT-COMPLETED", "COMPLETED"),
+    ):
+        if ProductionOrder.query.filter_by(po_no=po_no).one_or_none() is None:
+            additions.append(
+                ProductionOrder(
+                    po_no=po_no,
+                    product=product,
+                    production_lot=production_lot,
+                    status=status,
+                )
+            )
+    db.session.add_all(additions)
+    db.session.commit()
+    click.echo(f"Stage 3 UAT data ready ({len(additions)} record(s) added).")

@@ -45,8 +45,12 @@ def create_app(config_name="development"):
 
     from .auth import bp as auth_bp
     from .auth.decorators import roles_required, station_required
+    from .master_data import bp as master_data_bp
+    from .preparation import bp as preparation_bp
 
     app.register_blueprint(auth_bp)
+    app.register_blueprint(master_data_bp)
+    app.register_blueprint(preparation_bp)
 
     @app.context_processor
     def application_context():

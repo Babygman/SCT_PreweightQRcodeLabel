@@ -1,7 +1,7 @@
 from sqlalchemy import inspect
 
 from app.extensions import db
-from app.models import Role, User
+from app.models import Formula, ProductionOrder, Role, User
 
 
 def test_home_page_opens(client):
@@ -46,3 +46,14 @@ def test_seed_command_is_idempotency_safe(app):
     with app.app_context():
         assert Role.query.count() == 4
         assert User.query.count() == 4
+
+
+def test_stage3_seed_supplement_is_idempotent(app):
+    runner = app.test_cli_runner()
+    assert runner.invoke(args=["seed-uat"]).exit_code == 0
+    assert runner.invoke(args=["seed-stage3"]).exit_code == 0
+    assert runner.invoke(args=["seed-stage3"]).exit_code == 0
+    with app.app_context():
+        assert Formula.query.filter_by(code="UAT-FM-INACTIVE").count() == 1
+        assert ProductionOrder.query.filter_by(po_no="UAT-PO-CANCELLED").count() == 1
+        assert ProductionOrder.query.filter_by(po_no="UAT-PO-COMPLETED").count() == 1
