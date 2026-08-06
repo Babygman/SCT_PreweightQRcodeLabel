@@ -239,3 +239,17 @@ Timeline:
 Out of Scope:
 
 Success Criteria:
+
+## Development and Deployment Work Location
+
+| งาน                                     | ทำที่ไหน                           |
+| --------------------------------------- | ---------------------------------- |
+| เขียน/แก้ Code                          | Codex บน MacBook Air               |
+| Git / Commit / Push                     | Codex + GitHub                     |
+| Automated Test / pytest / Ruff          | MacBook Air / Codex                |
+| รัน Flask ระหว่าง Development           | MacBook Air → VS Code Terminal     |
+| เปิดเว็บเพื่อทดสอบ                      | MacBook Air → Browser              |
+| Database                                | `WEBSERVER01`                      |
+| Migration / Seed ที่กระทบ Database จริง | เชื่อมไป Database บน `WEBSERVER01` |
+| Production Deployment                   | `WEBSERVER01` เฉพาะตอน Deploy      |
+| Production Web Service                  | `WEBSERVER01`                      |
