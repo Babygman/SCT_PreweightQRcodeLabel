@@ -1,7 +1,7 @@
 # PROJECT_STANDARD.md
 
-Version: 2.0
-Last Updated: 2026-08-05
+Version: 2.1
+Last Updated: 2026-08-07
 
 # Core Principles
 
@@ -92,6 +92,54 @@ Requirement
 9. Roadmap
 10. รออนุมัติ
 
+## Runtime Architecture
+
+ก่อน Coding ต้องกำหนดให้ชัดเจนว่าแต่ละ Component ทำงานที่ใด และสื่อสารกันอย่างไร
+
+- Development Application ต้องรันบน Developer Machine ผ่าน IDE หรือ Terminal ของ Project
+- Database Server โดยปกติให้บริการ Database เท่านั้น
+- Development ต้องไม่จำเป็นต้องใช้ Remote Desktop เข้า Database Server เพียงเพื่อรัน Application
+- ห้ามสมมติว่า Database Server เป็น Application Server ด้วย
+- Developer Machine, Application Server และ Database Server เป็น Architectural Role ที่แยกจากกัน แม้บาง Environment อาจวางอยู่บนเครื่องเดียวกันเมื่อมีเหตุผลและได้รับอนุมัติ
+
+Development Flow:
+
+Developer Machine → Application → Database Driver/ORM → Network → Database Server
+
+Production Flow:
+
+User → Application Server → Database Server
+
+## Environment Definition
+
+ต้องกำหนด DEV / UAT / PROD ก่อนเริ่ม Implementation โดยแต่ละ Environment ต้องระบุ
+
+- Application Runtime Location
+- Database Server
+- Database Name
+- TCP Port
+- Authentication Method
+- Application Service Account
+- Network และ Firewall Requirement
+- Configuration Management
+- Deployment Method
+
+## Infrastructure Readiness Gate
+
+ก่อนเริ่ม Feature Development ต้องตรวจสอบและบันทึกหลักฐานว่า
+
+- Repository พร้อมใช้งาน
+- Virtual Environment หรือ Runtime Environment พร้อมใช้งาน
+- Dependencies ติดตั้งครบ
+- Environment Configuration พร้อมใช้งาน
+- Secrets ถูกแยกออกจาก Git
+- Network Connectivity ผ่าน
+- Database Port ผ่าน
+- Database Service Account ใช้งานได้
+- Database Permissions ถูกต้อง
+- Direct Database Connection ผ่าน
+- ORM Connection ผ่าน
+
 ---
 
 # 4. Git Standard
@@ -114,6 +162,20 @@ Push เมื่อ
 - ใช้ Alembic Migration
 - ห้ามแก้ Production Schema ตรง
 - ทดสอบ Upgrade → Downgrade → Upgrade
+
+## Database Connectivity Validation
+
+ต้องตรวจสอบการเชื่อมต่อตามลำดับ และเก็บผลของแต่ละ Layer เป็นหลักฐาน
+
+1. Network
+2. TCP Port
+3. Database Server
+4. Database Login
+5. Database Permissions
+6. Database Driver
+7. Direct Driver Connection
+8. ORM Connection
+9. Application Connection
 
 ---
 
@@ -154,6 +216,22 @@ Codex:
 - Authorization
 - Secret Management
 
+## Authentication Separation
+
+- Database Service Account ใช้โดย Application สำหรับเชื่อมต่อ Database
+- Application User Account ใช้โดยบุคคลสำหรับ Login เข้า Application
+- ห้ามสรุปว่า Application Login ล้มเหลวเพราะ Database Login ล้มเหลวโดยอัตโนมัติ ต้องตรวจสอบแต่ละ Authentication Layer แยกกัน
+
+## Configuration and Secret Management
+
+- ห้าม Hard-code Password, Connection String, API Key, Secret Key หรือ Production Credential
+- ใช้ `.env` หรือ Secret-management Mechanism ที่เหมาะสมกับ Environment
+- `.env` ที่มี Secret ต้องถูก exclude ด้วย `.gitignore`
+- ห้าม Commit Credential จริงลง Source Control
+- Credential อาจมี Reserved Character เช่น `@`, `:`, `/`, `?`, `#`, `%`, `&` และ `+`
+- URL-based Connection String ต้อง Encode Reserved Character อย่างถูกต้อง
+- ห้ามเปลี่ยน Password เพียงเพราะมี Special Character เว้นแต่มีหลักฐานยืนยันว่าเป็นสาเหตุ
+
 ---
 
 # 9. Performance
@@ -175,6 +253,12 @@ Codex:
 - CHANGELOG.md (ถ้ามี)
 - เอกสารที่เกี่ยวข้อง
 
+## Dependency Baseline
+
+- กำหนดและบันทึก Dependency ทั้งหมดของ Project
+- Dependency ต้องติดตั้งซ้ำได้จาก Dependency File ของ Project เช่น `requirements.txt`, lockfile หรือ Manifest ที่เทียบเท่า
+- ห้ามพึ่งพา Package ที่ติดตั้งด้วยตนเองแต่ไม่มีการบันทึกไว้
+
 ---
 
 # 11. Environment Rule
@@ -185,6 +269,20 @@ Codex:
 - Terminal
 - Database
 - Git Branch
+
+Execution Location ต้องระบุให้ชัดเจนในทุกคำสั่งและ Troubleshooting Instruction เช่น
+
+- Developer Machine → IDE → Project Terminal → Virtual Environment
+- Application Server → System Shell
+- Database Server → Database Administration Tool
+
+## Evidence-Based Troubleshooting
+
+ตรวจสอบปัญหาทีละ Layer ตามลำดับ
+
+Network → Port → Database Server → Database Account → Driver → ORM → Application → Authentication → Business Logic → UI
+
+เมื่อ Layer ใดพิสูจน์แล้วว่าทำงานถูกต้อง ห้ามแก้ไข Layer นั้นอีกโดยไม่มีหลักฐานใหม่ที่ชี้ว่าปัญหาอยู่ใน Layer ดังกล่าว
 
 ---
 
@@ -239,6 +337,34 @@ Timeline:
 Out of Scope:
 
 Success Criteria:
+
+DEV Environment:
+
+UAT Environment:
+
+PROD Environment:
+
+Application Runtime Location:
+
+Database Server / Name / TCP Port:
+
+Database Authentication Method:
+
+Application Service Account:
+
+Network / Firewall Requirements:
+
+Configuration Management:
+
+Deployment Method:
+
+Dependency File:
+
+## Production Architecture
+
+- Production Deployment Architecture ต้องออกแบบและได้รับอนุมัติก่อน Deploy
+- ห้ามใช้ Development Server เช่น Flask Development Server เป็น Production Server
+- Production Application ต้องรันด้วย Production-grade Runtime หรือ Application Server ที่เหมาะสมกับ Technology Stack
 
 ## Development and Deployment Work Location
 
