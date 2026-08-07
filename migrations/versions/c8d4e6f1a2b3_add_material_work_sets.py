@@ -20,7 +20,7 @@ def upgrade():
                 "material_classifications",
                 sa.Unicode(length=500),
                 server_default=sa.text("'GENERAL'"),
-                nullable=False,
+                nullable=True,
             )
         )
     with op.batch_alter_table("materials") as batch_op:
@@ -29,14 +29,14 @@ def upgrade():
                 "classification",
                 sa.Unicode(length=50),
                 server_default=sa.text("'GENERAL'"),
-                nullable=False,
+                nullable=True,
             )
         )
     with op.batch_alter_table("production_orders") as batch_op:
         batch_op.add_column(sa.Column("work_set_station_id", sa.Integer(), nullable=True))
         batch_op.add_column(sa.Column("work_set_code", sa.Unicode(length=40), nullable=True))
         batch_op.add_column(
-            sa.Column("work_set_active", sa.Boolean(), server_default=sa.text("0"), nullable=False)
+            sa.Column("work_set_active", sa.Boolean(), server_default=sa.text("0"), nullable=True)
         )
         batch_op.add_column(sa.Column("work_set_added_at_utc", sa.DateTime(), nullable=True))
         batch_op.create_foreign_key(

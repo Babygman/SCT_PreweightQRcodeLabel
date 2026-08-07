@@ -52,8 +52,8 @@ class Station(db.Model):
     code: Mapped[str] = mapped_column(db.Unicode(30), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(db.Unicode(100), nullable=False)
     printer_name: Mapped[str | None] = mapped_column(db.Unicode(255))
-    material_classifications: Mapped[str] = mapped_column(
-        db.Unicode(500), default="GENERAL", server_default=text("'GENERAL'"), nullable=False
+    material_classifications: Mapped[str | None] = mapped_column(
+        db.Unicode(500), default="GENERAL", server_default=text("'GENERAL'"), nullable=True
     )
     is_active: Mapped[bool] = mapped_column(default=True, server_default=text("1"), nullable=False)
 
@@ -64,8 +64,8 @@ class Material(db.Model):
     code: Mapped[str] = mapped_column(db.Unicode(50), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(db.Unicode(200), nullable=False)
     unit: Mapped[str] = mapped_column(db.Unicode(20), nullable=False)
-    classification: Mapped[str] = mapped_column(
-        db.Unicode(50), default="GENERAL", server_default=text("'GENERAL'"), nullable=False
+    classification: Mapped[str | None] = mapped_column(
+        db.Unicode(50), default="GENERAL", server_default=text("'GENERAL'"), nullable=True
     )
     is_active: Mapped[bool] = mapped_column(default=True, server_default=text("1"), nullable=False)
 
@@ -140,8 +140,8 @@ class ProductionOrder(db.Model):
     prepared_at_utc: Mapped[datetime | None] = mapped_column(UTC_DATETIME)
     work_set_station_id: Mapped[int | None] = mapped_column(db.ForeignKey("stations.id"))
     work_set_code: Mapped[str | None] = mapped_column(db.Unicode(40))
-    work_set_active: Mapped[bool] = mapped_column(
-        default=False, server_default=text("0"), nullable=False
+    work_set_active: Mapped[bool | None] = mapped_column(
+        default=False, server_default=text("0"), nullable=True
     )
     work_set_added_at_utc: Mapped[datetime | None] = mapped_column(UTC_DATETIME)
     product: Mapped[Product] = relationship()

@@ -7,7 +7,7 @@ from app.models import Material, Station
 def station_classifications(station):
     return {
         value.strip().upper()
-        for value in station.material_classifications.split(",")
+        for value in (station.material_classifications or "GENERAL").split(",")
         if value.strip()
     }
 
@@ -18,4 +18,5 @@ def station_can_weigh_material(station_id, material: Material):
     )
     if station is None or not material.is_active:
         return False
-    return material.classification.strip().upper() in station_classifications(station)
+    material_classification = (material.classification or "GENERAL").strip().upper()
+    return material_classification in station_classifications(station)
