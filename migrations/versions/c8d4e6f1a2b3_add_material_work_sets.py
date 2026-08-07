@@ -40,12 +40,6 @@ def upgrade():
         with op.batch_alter_table("production_orders") as batch_op:
             for column in order_columns:
                 batch_op.add_column(column)
-            batch_op.create_foreign_key(
-                "fk_production_orders_work_set_station_id_stations",
-                "stations",
-                ["work_set_station_id"],
-                ["id"],
-            )
             batch_op.create_index(
                 "ix_production_orders_active_work_set",
                 ["work_set_station_id", "work_set_active"],
@@ -57,13 +51,6 @@ def upgrade():
     op.add_column("materials", material_column)
     for column in order_columns:
         op.add_column("production_orders", column)
-    op.create_foreign_key(
-        "fk_production_orders_work_set_station_id_stations",
-        "production_orders",
-        "stations",
-        ["work_set_station_id"],
-        ["id"],
-    )
     op.create_index(
         "ix_production_orders_active_work_set",
         "production_orders",
@@ -76,9 +63,6 @@ def downgrade():
     if op.get_bind().dialect.name == "sqlite":
         with op.batch_alter_table("production_orders") as batch_op:
             batch_op.drop_index("ix_production_orders_active_work_set")
-            batch_op.drop_constraint(
-                "fk_production_orders_work_set_station_id_stations", type_="foreignkey"
-            )
             batch_op.drop_column("work_set_added_at_utc")
             batch_op.drop_column("work_set_active")
             batch_op.drop_column("work_set_code")
@@ -90,11 +74,6 @@ def downgrade():
         return
 
     op.drop_index("ix_production_orders_active_work_set", table_name="production_orders")
-    op.drop_constraint(
-        "fk_production_orders_work_set_station_id_stations",
-        "production_orders",
-        type_="foreignkey",
-    )
     op.drop_column("production_orders", "work_set_added_at_utc")
     op.drop_column("production_orders", "work_set_active")
     op.drop_column("production_orders", "work_set_code")

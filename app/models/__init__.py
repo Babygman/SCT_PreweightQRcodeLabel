@@ -138,7 +138,7 @@ class ProductionOrder(db.Model):
     status: Mapped[str] = mapped_column(db.Unicode(20), nullable=False)
     prepared_by_user_id: Mapped[int | None] = mapped_column(db.ForeignKey("users.id"))
     prepared_at_utc: Mapped[datetime | None] = mapped_column(UTC_DATETIME)
-    work_set_station_id: Mapped[int | None] = mapped_column(db.ForeignKey("stations.id"))
+    work_set_station_id: Mapped[int | None] = mapped_column()
     work_set_code: Mapped[str | None] = mapped_column(db.Unicode(40))
     work_set_active: Mapped[bool | None] = mapped_column(
         default=False, server_default=text("0"), nullable=True
