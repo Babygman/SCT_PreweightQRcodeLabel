@@ -379,3 +379,44 @@ Dependency File:
 | Migration / Seed ที่กระทบ Database จริง | เชื่อมไป Database บน `WEBSERVER01` |
 | Production Deployment                   | `WEBSERVER01` เฉพาะตอน Deploy      |
 | Production Web Service                  | `WEBSERVER01`                      |
+
+---
+
+# 15. Permanent Delivery Responsibilities
+
+## Project Owner
+
+- Defines requirements and approves business decisions and scope.
+- Performs final manual UAT and reports UAT results.
+- Is not responsible for source editing, Terminal commands, Git operations, database work,
+  migrations, deployment, or technical setup.
+
+## ChatGPT
+
+- Maintains project and business context.
+- Analyzes requirements and UAT feedback, including distinguishing defects from missing
+  requirements.
+- Designs the implementation direction and produces complete Codex prompts.
+- Reviews Codex results and guides the Project Owner through browser UAT.
+- Does not transfer technical implementation work to the Project Owner.
+
+## Codex
+
+- Operates on the real repository and implements source changes.
+- Handles Terminal, Git, database, migrations, automated tests, and technical verification.
+- Prepares UAT/mock data and handles application restart, deployment, and setup as applicable.
+- Leaves the system ready for the Project Owner's final manual UAT.
+
+## Standard Delivery Workflow
+
+Requirement
+→ ChatGPT analysis/design
+→ Project Owner approval where required by this standard
+→ ChatGPT produces Codex Prompt
+→ Codex implements, verifies, and prepares UAT
+→ Project Owner performs browser UAT
+→ ChatGPT evaluates the UAT result
+→ Next approved cycle
+
+Technical tasks assigned to Codex must never be transferred back to the Project Owner merely
+because Codex can provide commands for the Project Owner to run.
