@@ -23,7 +23,7 @@ MATERIAL_A_TAG = "07/08/2026|PC-A|10|MAT-A|INV-A|LOT-A|SUP|UAT|MAT|1|1"
 MATERIAL_B_TAG = "07/08/2026|PC-B|10|MAT-B|INV-B|LOT-B|SUP|UAT|MAT|1|1"
 
 
-def seed_material_workflow(order_count=6):
+def seed_material_workflow(order_count=6, material_codes=("MAT-A", "MAT-B")):
     role = Role(code="OPERATOR", name="Operator")
     user = User(
         username="material_operator",
@@ -39,8 +39,12 @@ def seed_material_workflow(order_count=6):
     unauthorized_station = Station(
         code="OTHER-ST", name="Other Station", material_classifications="OTHER"
     )
-    material_a = Material(code="MAT-A", name="Material A", unit="kg", classification="POWDER")
-    material_b = Material(code="MAT-B", name="Material B", unit="kg", classification="LIQUID")
+    material_a = Material(
+        code=material_codes[0], name="Material A", unit="kg", classification="POWDER"
+    )
+    material_b = Material(
+        code=material_codes[1], name="Material B", unit="kg", classification="LIQUID"
+    )
     orders = []
     items_a = []
     items_b = []

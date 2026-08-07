@@ -17,11 +17,31 @@ from app.models import (
     Station,
     User,
 )
+from scripts.uat_material_tags import generate_uat_material_tag_sheet
 
 
 def register_commands(app):
     app.cli.add_command(seed_uat)
     app.cli.add_command(seed_stage3)
+    app.cli.add_command(generate_uat_material_tags)
+
+
+@click.command("generate-uat-material-tags")
+@click.option(
+    "--output-directory",
+    type=click.Path(file_okay=False, path_type=str),
+    default="instance/uat_material_tags",
+)
+def generate_uat_material_tags(output_directory):
+    """Generate an isolated screen/print sheet for approved UAT scans."""
+    try:
+        sheet_path = generate_uat_material_tag_sheet(
+            output_directory,
+            uat_enabled=bool(current_app.config.get("UAT_AUTO_LOGIN")),
+        )
+    except RuntimeError as exc:
+        raise click.ClickException(str(exc)) from exc
+    click.echo(f"UAT Material Tag sheet generated at {sheet_path.resolve()}")
 
 
 @click.command("seed-uat")
