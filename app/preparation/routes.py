@@ -29,6 +29,9 @@ def prepare():
             session.get("station_id"),
         )
         flash(result.message, "success" if result.success else "danger")
+        if result.success:
+            form.po_no.data = ""
+            form.formula_code.data = ""
     prepared_orders = active_work_set_orders(session["station_id"])
     progress = {order.id: work_set_progress(order) for order in prepared_orders}
     return render_template(
@@ -48,5 +51,5 @@ def close_work_set():
     count = close_active_work_set(session["station_id"])
     session.pop("active_material_tag", None)
     session.pop("weighing_mode", None)
-    flash(f"Closed active work set ({count} Production Order(s)).", "success")
+    flash(f"Closed Active Work Set ({count} Production Order(s)).", "success")
     return redirect(url_for("preparation.prepare"))

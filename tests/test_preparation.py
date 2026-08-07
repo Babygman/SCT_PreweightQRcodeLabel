@@ -110,8 +110,79 @@ def test_preparation_page_workflow(app, client):
     authenticate(client, station_id)
     response = client.post("/preparation/", data={"po_no": "PO-OPEN", "formula_code": "FM-A"})
     assert response.status_code == 200
-    assert b"added to the active work set" in response.data
+    assert b"added to the Active Work Set" in response.data
     assert b"READY" in response.data
+    assert b'id="po_no"' in response.data
+    assert b'id="formula_code"' in response.data
+    assert b'value="PO-OPEN"' not in response.data
+    assert b'value="FM-A"' not in response.data
+    assert b'document.getElementById("po_no").focus()' in response.data
+
+    with app.app_context():
+        order = db.session.scalar(
+            db.select(ProductionOrder).where(ProductionOrder.po_no == "PO-OPEN")
+        )
+        assert order.work_set_active is True
+
+
+def test_failed_preparation_preserves_scan_values_and_does_not_add_order(app, client):
+    with app.app_context():
+        _, station, _, _ = seed_preparation_data()
+        station_id = station.id
+    authenticate(client, station_id)
+
+    response = client.post(
+        "/preparation/",
+        data={"po_no": "PO-OPEN", "formula_code": "FM-B"},
+    )
+
+    assert response.status_code == 200
+    assert b'value="PO-OPEN"' in response.data
+    assert b'value="FM-B"' in response.data
+    assert b'document.getElementById("po_no").focus()' not in response.data
+    with app.app_context():
+        order = db.session.scalar(
+            db.select(ProductionOrder).where(ProductionOrder.po_no == "PO-OPEN")
+        )
+        assert order.status == "OPEN"
+        assert not order.work_set_active
+
+
+def test_material_preparation_uses_active_work_set_terms_without_po_action(app, client):
+    with app.app_context():
+        _, station, _, _ = seed_preparation_data()
+        station_id = station.id
+    authenticate(client, station_id)
+
+    response = client.get("/preparation/")
+
+    assert response.status_code == 200
+    assert b"Active Work Set" in response.data
+    assert b"Production Orders prepared for the current weighing session" in response.data
+    assert b"Active Prepared Production Orders" not in response.data
+    assert b"Optional: Weigh this PO" not in response.data
+    assert b"/weighing/order/" not in response.data
+
+
+def test_active_work_set_controls_and_formula_centric_regression(app, client):
+    with app.app_context():
+        _, station, _, _ = seed_preparation_data()
+        station_id = station.id
+    authenticate(client, station_id)
+    client.post("/preparation/", data={"po_no": "PO-OPEN", "formula_code": "FM-A"})
+
+    preparation = client.get("/preparation/")
+    home = client.get("/")
+    with app.app_context():
+        order = db.session.scalar(
+            db.select(ProductionOrder).where(ProductionOrder.po_no == "PO-OPEN")
+        )
+        order_id = order.id
+
+    assert b"Close Active Work Set" in preparation.data
+    assert b"Continue to Material-centric Weighing" in preparation.data
+    assert b"Formula / PO-centric (Optional)" in home.data
+    assert client.get(f"/weighing/order/{order_id}").status_code == 200
 
 
 def test_production_role_cannot_prepare(app, client):

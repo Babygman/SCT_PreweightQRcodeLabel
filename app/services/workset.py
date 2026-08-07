@@ -50,14 +50,14 @@ def prepare_work_set_order(po_qr, formula_qr, user_id, station_id):
         return WorkSetResult(
             False,
             "DUPLICATE_PREPARATION",
-            "Production Order is already loaded in the active work set.",
+            "Production Order is already in the Active Work Set.",
             order,
         )
     if order.work_set_active and order.work_set_station_id != station_id:
         return WorkSetResult(
             False,
             "PO_IN_ANOTHER_WORK_SET",
-            "Production Order is already active at another weighing station.",
+            "Production Order is already in another station's Active Work Set.",
             order,
         )
 
@@ -70,7 +70,7 @@ def prepare_work_set_order(po_qr, formula_qr, user_id, station_id):
     return WorkSetResult(
         True,
         "WORK_SET_ADDED",
-        "Production Order and Formula matched and were added to the active work set.",
+        "Production Order and Formula matched and were added to the Active Work Set.",
         order,
     )
 

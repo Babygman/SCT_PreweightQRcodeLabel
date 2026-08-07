@@ -81,7 +81,7 @@ def build_material_queue(station_id, material_tag_payload, require_pending=True)
         return MaterialQueueResult(
             False,
             "MATERIAL_NOT_REQUIRED",
-            "UN-MATCH — Material is not required by the active work set.",
+            "UN-MATCH — Material is not required by the Active Work Set.",
             tag,
             material,
         )
