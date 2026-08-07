@@ -110,7 +110,7 @@ def test_preparation_page_workflow(app, client):
     authenticate(client, station_id)
     response = client.post("/preparation/", data={"po_no": "PO-OPEN", "formula_code": "FM-A"})
     assert response.status_code == 200
-    assert b"ready for weighing" in response.data
+    assert b"added to the active work set" in response.data
     assert b"READY" in response.data
 
 

@@ -14,6 +14,7 @@ from app.models import (
     WeighingTransaction,
     utcnow,
 )
+from app.services.station_capability import station_can_weigh_material
 
 
 class MaterialTagError(ValueError):
@@ -108,7 +109,7 @@ def _wrong_material_audit(po, item, tag, user_id, station_id):
     db.session.commit()
 
 
-def validate_material_tag(po_id, formula_item_id, material_tag_payload):
+def validate_material_tag(po_id, formula_item_id, material_tag_payload, station_id=None):
     try:
         tag = parse_material_tag(material_tag_payload)
     except MaterialTagError as exc:
@@ -120,6 +121,12 @@ def validate_material_tag(po_id, formula_item_id, material_tag_payload):
         return WeighingResult(False, "PO_NOT_READY", "Production Order is not ready for weighing.")
     if item is None or item.formula_id != po.formula_id:
         return WeighingResult(False, "FORMULA_LINE_MISMATCH", "Formula line is unavailable.")
+    if station_id is not None and not station_can_weigh_material(station_id, item.material):
+        return WeighingResult(
+            False,
+            "STATION_NOT_AUTHORIZED",
+            f"Current station cannot weigh {item.material.code}.",
+        )
     if tag.material_code != item.material.code:
         return WeighingResult(
             False,
@@ -145,6 +152,12 @@ def save_weighing(po_id, formula_item_id, material_tag_payload, actual_weight, u
         return WeighingResult(False, "PO_NOT_READY", "Production Order is not ready for weighing.")
     if item is None or item.formula_id != po.formula_id:
         return WeighingResult(False, "FORMULA_LINE_MISMATCH", "Formula line is unavailable.")
+    if not station_can_weigh_material(station_id, item.material):
+        return WeighingResult(
+            False,
+            "STATION_NOT_AUTHORIZED",
+            f"Current station cannot weigh {item.material.code}.",
+        )
     if tag.material_code != item.material.code:
         _wrong_material_audit(po, item, tag, user_id, station_id)
         return WeighingResult(

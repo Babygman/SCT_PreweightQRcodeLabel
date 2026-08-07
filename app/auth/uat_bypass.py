@@ -32,6 +32,9 @@ def register_uat_bypass(app):
 
         if not current_user.is_authenticated or current_user.id != user.id:
             login_user(user)
+        if session.get("station_id") not in {None, station.id}:
+            session.pop("active_material_tag", None)
+            session.pop("weighing_mode", None)
         session["station_id"] = station.id
 
         if request.endpoint in {"auth.login", "auth.select_station"}:

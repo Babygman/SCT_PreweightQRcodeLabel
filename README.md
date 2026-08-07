@@ -77,8 +77,13 @@ not performed here; those values belong to the upstream Material Tag/ERP receivi
 
 ## Weighing Workflow UAT
 
-After applying the current migration to a UAT database, prepare a PO + Formula pair so the PO is
-`READY`, then open its Weighing screen.
+The primary production workflow is **Material-centric**. Prepare multiple PO + Formula pairs into
+the station's active work set, scan one Material Tag, and weigh that material continuously across
+every applicable prepared Production Order. The validated tag remains active between queue items.
+
+The existing **Formula / Production Order-centric** screen remains available as an optional mode.
+Both modes enforce station material capability, server-side Material Tag validation, positive
+Actual Weight, duplicate prevention, immutable transaction traceability, and sticker reprint.
 
 1. Select a pending Formula line.
 2. Scan an 11-field Material Tag QR and confirm the immediate `MATCH` result.
@@ -91,3 +96,6 @@ After applying the current migration to a UAT database, prepare a PO + Formula p
 Vendor Lot, QC status, expiry and remaining quantity do not authorize or block this workflow.
 The immutable ERP QR payload is stored with the completed transaction so Reprint reproduces the
 same QR content. ERP consumption remains outside this application's scope.
+
+The current versioned JSON ERP QR format is intentionally preserved. Redesigning that payload is
+deferred until a later approved requirement defines the target ERP format.

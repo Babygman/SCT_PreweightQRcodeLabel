@@ -25,4 +25,7 @@
   concurrency-safe Preweight IDs, and completed Weighing transactions.
 - Immediate Material Tag MATCH/UN-MATCH feedback, guarded Actual Weight entry, and printable
   Preweight Stickers with immutable versioned ERP QR payloads and reprint support.
+- Primary Material-centric work sets and queues for weighing one validated material continuously
+  across multiple Production Orders, with station material-classification enforcement.
+- Optional Formula / Production Order-centric weighing retained alongside operational progress.
 - Migration for production quantity/date fields and Formula Sheet production-lot/batch snapshots.

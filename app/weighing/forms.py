@@ -11,3 +11,10 @@ class WeighingForm(FlaskForm):
         "Actual Weight", places=3, validators=[DataRequired(), NumberRange(min=0.001)]
     )
     submit = SubmitField("Save Weighing")
+
+
+class MaterialQueueWeightForm(FlaskForm):
+    actual_weight = DecimalField(
+        "Actual Weight", places=3, validators=[DataRequired(), NumberRange(min=0.001)]
+    )
+    submit = SubmitField("Save Weighing")

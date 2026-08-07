@@ -9,3 +9,6 @@
   exact PO / Formula Sheet validation, audit logging, and Weighing workflow implemented.
 - Core Preweight Sticker Workflow: Immediate material validation, guarded weight entry, immutable
   ERP QR payload persistence, automatic print dialog, and reprint support are ready for UAT.
+- Material-centric Workflow: Primary multi-PO work-set queue, persistent Material Tag session,
+  station capabilities, and per-material/per-order progress implemented for UAT. Formula-centric
+  weighing remains optional. ERP QR payload redesign is deferred.

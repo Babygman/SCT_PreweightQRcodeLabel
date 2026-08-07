@@ -18,8 +18,8 @@
 {% block content %}
 <h1 class="h3 mb-4">Master Data</h1>
 {{ table('Users', users, [('Username','username'),('Display name','display_name'),('Active','is_active')]) }}
-{{ table('Stations', stations, [('Code','code'),('Name','name'),('Active','is_active')]) }}
-{{ table('Materials', materials, [('Code','code'),('Name','name'),('Unit','unit'),('Active','is_active')]) }}
+{{ table('Stations', stations, [('Code','code'),('Name','name'),('Material capabilities','material_classifications'),('Active','is_active')]) }}
+{{ table('Materials', materials, [('Code','code'),('Name','name'),('Classification','classification'),('Unit','unit'),('Active','is_active')]) }}
 {{ table('Raw Material Lots', raw_material_lots, [('Lot','lot_no'),('QC','qc_status'),('Expiry','expiry_date'),('Active','is_active')]) }}
 {{ table('Products', products, [('Code','code'),('Name','name'),('Active','is_active')]) }}
 {{ table('Formulas', formulas, [('Code','code'),('Name','name'),('Active','is_active')]) }}

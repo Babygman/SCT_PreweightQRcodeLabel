@@ -29,7 +29,11 @@
 </div>
 <div class="print-actions text-center mt-3">
   <button class="btn btn-primary" type="button" onclick="window.print()">Reprint</button>
+  {% if material_mode %}
+  <a class="btn btn-success" href="{{ url_for('weighing.material_mode') }}">Continue Material Queue</a>
+  {% else %}
   <a class="btn btn-outline-secondary" href="{{ url_for('weighing.order', po_id=transaction.production_order_id) }}">Back to Weighing</a>
+  {% endif %}
 </div>
 <script>window.addEventListener("load", () => window.print());</script>
 {% endblock %}

@@ -91,6 +91,9 @@ def select_station():
         if station is None or not station.is_active:
             flash("Selected station is unavailable.", "danger")
         else:
+            if session.get("station_id") != station.id:
+                session.pop("active_material_tag", None)
+                session.pop("weighing_mode", None)
             session["station_id"] = station.id
             _audit("STATION_SELECTED", user_id=current_user.id, station_id=station.id)
             return redirect(_safe_next(request.args.get("next")) or url_for("index"))

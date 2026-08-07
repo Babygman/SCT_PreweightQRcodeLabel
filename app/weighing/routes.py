@@ -19,10 +19,11 @@ from sqlalchemy import select
 from app.auth.decorators import roles_required, station_required
 from app.extensions import db
 from app.models import ProductionOrder, WeighingTransaction
+from app.services.material_workflow import build_material_queue, save_material_queue_item
 from app.services.weighing import save_weighing, validate_material_tag
 
 from . import bp
-from .forms import WeighingForm
+from .forms import MaterialQueueWeightForm, WeighingForm
 
 
 @bp.get("/order/<int:po_id>")
@@ -67,6 +68,7 @@ def weigh_line(po_id, formula_item_id):
         )
         flash(result.message, "success" if result.success else "danger")
         if result.success:
+            session["weighing_mode"] = "formula"
             return redirect(url_for("weighing.sticker", transaction_id=result.transaction.id))
     else:
         for messages in form.errors.values():
@@ -81,7 +83,9 @@ def weigh_line(po_id, formula_item_id):
 @roles_required("OPERATOR", "SUPERVISOR", "ADMIN")
 def validate_material(po_id, formula_item_id):
     payload = request.get_json(silent=True) or {}
-    result = validate_material_tag(po_id, formula_item_id, payload.get("material_tag"))
+    result = validate_material_tag(
+        po_id, formula_item_id, payload.get("material_tag"), session["station_id"]
+    )
     return jsonify(
         {
             "result": "MATCH" if result.success else "UN-MATCH",
@@ -103,6 +107,7 @@ def sticker(transaction_id):
         "weighing/sticker.html",
         transaction=transaction,
         payload=json.loads(transaction.erp_qr_payload),
+        material_mode=session.get("weighing_mode") == "material",
     )
 
 
@@ -119,3 +124,88 @@ def sticker_qr(transaction_id):
     image.save(stream, format="PNG")
     stream.seek(0)
     return send_file(stream, mimetype="image/png", max_age=0)
+
+
+@bp.get("/material")
+@login_required
+@station_required
+@roles_required("OPERATOR", "SUPERVISOR", "ADMIN")
+def material_mode():
+    active_payload = session.get("active_material_tag")
+    queue = (
+        build_material_queue(session["station_id"], active_payload, require_pending=False)
+        if active_payload
+        else None
+    )
+    if queue is not None and not queue.success:
+        session.pop("active_material_tag", None)
+        queue = None
+    return render_template(
+        "weighing/material.html",
+        queue=queue,
+        weight_form=MaterialQueueWeightForm(),
+    )
+
+
+@bp.post("/material/validate")
+@login_required
+@station_required
+@roles_required("OPERATOR", "SUPERVISOR", "ADMIN")
+def validate_material_mode():
+    payload = request.get_json(silent=True) or {}
+    material_tag = payload.get("material_tag")
+    queue = build_material_queue(session["station_id"], material_tag)
+    if queue.success:
+        session["active_material_tag"] = queue.tag.raw_payload
+        session["weighing_mode"] = "material"
+    else:
+        session.pop("active_material_tag", None)
+    return jsonify(
+        {
+            "result": "MATCH" if queue.success else "UN-MATCH",
+            "code": queue.code,
+            "message": queue.message,
+            "queue_count": len(queue.items),
+        }
+    )
+
+
+@bp.post("/material/order/<int:po_id>/line/<int:formula_item_id>")
+@login_required
+@station_required
+@roles_required("OPERATOR", "SUPERVISOR", "ADMIN")
+def weigh_material_queue_item(po_id, formula_item_id):
+    form = MaterialQueueWeightForm()
+    active_payload = session.get("active_material_tag")
+    if not active_payload:
+        flash("Scan and validate a Material Tag before weighing.", "danger")
+        return redirect(url_for("weighing.material_mode"))
+    if form.validate_on_submit():
+        result = save_material_queue_item(
+            session["station_id"],
+            po_id,
+            formula_item_id,
+            active_payload,
+            form.actual_weight.data,
+            current_user.id,
+        )
+        flash(result.message, "success" if result.success else "danger")
+        if result.success:
+            session["weighing_mode"] = "material"
+            return redirect(url_for("weighing.sticker", transaction_id=result.transaction.id))
+    else:
+        for messages in form.errors.values():
+            for message in messages:
+                flash(message, "danger")
+    return redirect(url_for("weighing.material_mode"))
+
+
+@bp.post("/material/end")
+@login_required
+@station_required
+@roles_required("OPERATOR", "SUPERVISOR", "ADMIN")
+def end_material_session():
+    session.pop("active_material_tag", None)
+    session.pop("weighing_mode", None)
+    flash("Material session ended. Scan the next Material Tag.", "success")
+    return redirect(url_for("weighing.material_mode"))

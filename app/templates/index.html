@@ -8,7 +8,11 @@
     <p>Station: {{ selected_station.code }} — {{ selected_station.name }}</p>
     {% set role_codes = current_user.roles | map(attribute='code') | list %}
     {% if 'OPERATOR' in role_codes or 'SUPERVISOR' in role_codes or 'ADMIN' in role_codes %}
-    <a class="btn btn-primary" href="{{ url_for('preparation.prepare') }}">Prepare PO + Formula</a>
+    <div class="d-flex gap-2 flex-wrap">
+      <a class="btn btn-primary" href="{{ url_for('preparation.prepare') }}">Prepare Work Set</a>
+      <a class="btn btn-success" href="{{ url_for('weighing.material_mode') }}">Material-centric Weighing (Primary)</a>
+      <a class="btn btn-outline-primary" href="{{ url_for('preparation.prepare') }}">Formula / PO-centric (Optional)</a>
+    </div>
     {% endif %}
     {% if config.MOCK_ERP_ENABLED and ('SUPERVISOR' in role_codes or 'ADMIN' in role_codes) %}
     <a class="btn btn-warning" href="{{ url_for('mock_erp.index') }}">Mock ERP / Print QR Documents</a>
