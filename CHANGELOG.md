@@ -23,4 +23,6 @@
 - READY-order Weighing screen showing the matched production context and formula lines.
 - Material Tag parsing, material-code validation, actual-weight capture, traceability snapshots,
   concurrency-safe Preweight IDs, and completed Weighing transactions.
+- Immediate Material Tag MATCH/UN-MATCH feedback, guarded Actual Weight entry, and printable
+  Preweight Stickers with immutable versioned ERP QR payloads and reprint support.
 - Migration for production quantity/date fields and Formula Sheet production-lot/batch snapshots.

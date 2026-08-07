@@ -81,12 +81,13 @@ After applying the current migration to a UAT database, prepare a PO + Formula p
 `READY`, then open its Weighing screen.
 
 1. Select a pending Formula line.
-2. Scan an 11-field Material Tag QR.
-3. Confirm that the QR Material Code matches the required Formula-line Material Code.
-4. Enter an Actual Weight greater than zero and save.
-5. Confirm the line displays `COMPLETED` and a unique `PW-YYYYMMDD-NNNNNN` identifier.
+2. Scan an 11-field Material Tag QR and confirm the immediate `MATCH` result.
+3. Confirm Actual Weight remains disabled for invalid or `UN-MATCH` tags.
+4. After `MATCH`, enter an Actual Weight greater than zero and save.
+5. Confirm the printable Preweight Sticker opens with its ERP QR and print dialog.
 6. Confirm the same Formula line cannot be weighed twice.
 7. Confirm the same Material Tag can be used for another applicable Formula line.
 
 Vendor Lot, QC status, expiry and remaining quantity do not authorize or block this workflow.
-Printing and Preweight Label generation are not part of this stage.
+The immutable ERP QR payload is stored with the completed transaction so Reprint reproduces the
+same QR content. ERP consumption remains outside this application's scope.

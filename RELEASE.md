@@ -6,7 +6,6 @@
 - Stage 2: Approved and pushed to `origin/main`.
 - Stage 3: Approved and pushed to `origin/main`.
 - Stage 4: Redesigned after Product Owner workflow correction; Mock ERP + printable QR documents,
-  exact PO / Formula Sheet validation, audit logging, and initial Weighing screen implemented.
-  Automated technical verification complete; awaiting Product Owner UAT before push.
-- Weighing Workflow: Material Tag validation and completed transaction persistence implemented
-  locally; printing remains out of scope pending database-save UAT approval.
+  exact PO / Formula Sheet validation, audit logging, and Weighing workflow implemented.
+- Core Preweight Sticker Workflow: Immediate material validation, guarded weight entry, immutable
+  ERP QR payload persistence, automatic print dialog, and reprint support are ready for UAT.

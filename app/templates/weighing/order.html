@@ -35,16 +35,17 @@
               <strong class="ms-2">{{ transaction.preweight_id }}</strong>
               <div class="small text-muted">Actual: {{ transaction.actual_weight }} {{ transaction.unit_snapshot }}</div>
               {% else %}
-              <form method="post" action="{{ url_for('weighing.weigh_line', po_id=order.id, formula_item_id=item.id) }}" class="row g-2">
-                {{ form.hidden_tag() }}
+              <form method="post" action="{{ url_for('weighing.weigh_line', po_id=order.id, formula_item_id=item.id) }}" class="row g-2 weighing-form" data-validate-url="{{ url_for('weighing.validate_material', po_id=order.id, formula_item_id=item.id) }}" data-matched="false">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="col-12">
-                  {{ form.material_tag(class="form-control form-control-sm", placeholder="Scan Material Tag QR", autocomplete="off") }}
+                  <input class="form-control form-control-sm material-tag-input" id="material-tag-{{ item.id }}" name="material_tag" placeholder="Scan Material Tag QR" autocomplete="off" required maxlength="2000">
+                  <div class="material-validation small fw-bold mt-1 text-muted" aria-live="polite">Scan Material Tag to validate</div>
                 </div>
                 <div class="col-sm-7">
-                  {{ form.actual_weight(class="form-control form-control-sm", placeholder="Actual Weight", min="0.001", step="0.001") }}
+                  <input class="form-control form-control-sm actual-weight-input" id="actual-weight-{{ item.id }}" name="actual_weight" type="number" placeholder="Actual Weight" min="0.001" step="0.001" required disabled>
                 </div>
                 <div class="col-sm-5 d-grid">
-                  {{ form.submit(class="btn btn-primary btn-sm") }}
+                  <button class="btn btn-primary btn-sm save-weighing" type="submit" disabled>Save Weighing</button>
                 </div>
               </form>
               {% endif %}
@@ -57,4 +58,71 @@
     <a class="btn btn-outline-secondary" href="{{ url_for('preparation.prepare') }}">Back to PO + Formula Scan</a>
   </div>
 </div>
+<script>
+document.querySelectorAll(".weighing-form").forEach((form) => {
+  const tagInput = form.querySelector(".material-tag-input");
+  const weightInput = form.querySelector(".actual-weight-input");
+  const saveButton = form.querySelector(".save-weighing");
+  const result = form.querySelector(".material-validation");
+  let validationTimer;
+
+  const resetMatch = () => {
+    form.dataset.matched = "false";
+    weightInput.disabled = true;
+    weightInput.value = "";
+    saveButton.disabled = true;
+  };
+  const updateSave = () => {
+    saveButton.disabled = form.dataset.matched !== "true" || !(Number(weightInput.value) > 0);
+  };
+  const validateTag = async () => {
+    const materialTag = tagInput.value.trim();
+    resetMatch();
+    if (!materialTag) {
+      result.className = "material-validation small fw-bold mt-1 text-muted";
+      result.textContent = "Scan Material Tag to validate";
+      return;
+    }
+    result.className = "material-validation small fw-bold mt-1 text-muted";
+    result.textContent = "Validating…";
+    try {
+      const response = await fetch(form.dataset.validateUrl, {
+        method: "POST",
+        headers: {"Content-Type": "application/json", "X-CSRFToken": form.elements.csrf_token.value},
+        body: JSON.stringify({material_tag: materialTag})
+      });
+      const validation = await response.json();
+      if (tagInput.value.trim() !== materialTag) return;
+      if (response.ok && validation.result === "MATCH") {
+        form.dataset.matched = "true";
+        weightInput.disabled = false;
+        result.className = "material-validation small fw-bold mt-1 text-success";
+        result.textContent = validation.message;
+        weightInput.focus();
+      } else {
+        result.className = "material-validation small fw-bold mt-1 text-danger";
+        result.textContent = `UN-MATCH — ${validation.message || "Invalid Material Tag"}`;
+      }
+    } catch (_error) {
+      result.className = "material-validation small fw-bold mt-1 text-danger";
+      result.textContent = "UN-MATCH — Material validation unavailable";
+    }
+    updateSave();
+  };
+
+  tagInput.addEventListener("input", () => {
+    clearTimeout(validationTimer);
+    resetMatch();
+    validationTimer = setTimeout(validateTag, 250);
+  });
+  tagInput.addEventListener("change", () => {
+    clearTimeout(validationTimer);
+    validateTag();
+  });
+  weightInput.addEventListener("input", updateSave);
+  form.addEventListener("submit", (event) => {
+    if (form.dataset.matched !== "true" || !(Number(weightInput.value) > 0)) event.preventDefault();
+  });
+});
+</script>
 {% endblock %}

@@ -171,6 +171,7 @@ class WeighingTransaction(db.Model):
     warehouse_snapshot: Mapped[str | None] = mapped_column(db.Unicode(50))
     location_snapshot: Mapped[str | None] = mapped_column(db.Unicode(50))
     shelf_snapshot: Mapped[str | None] = mapped_column(db.Unicode(50))
+    erp_qr_payload: Mapped[str | None] = mapped_column(MAX_UNICODE)
     target_weight_snapshot: Mapped[Decimal] = mapped_column(db.Numeric(18, 3), nullable=False)
     actual_weight: Mapped[Decimal] = mapped_column(db.Numeric(18, 3), nullable=False)
     unit_snapshot: Mapped[str] = mapped_column(db.Unicode(20), nullable=False)

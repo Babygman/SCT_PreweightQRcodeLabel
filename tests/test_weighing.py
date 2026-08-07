@@ -1,3 +1,4 @@
+import json
 from datetime import date
 from decimal import Decimal
 
@@ -17,7 +18,12 @@ from app.models import (
     User,
     WeighingTransaction,
 )
-from app.services.weighing import MaterialTagError, parse_material_tag, save_weighing
+from app.services.weighing import (
+    MaterialTagError,
+    parse_material_tag,
+    save_weighing,
+    validate_material_tag,
+)
 
 MATERIAL_TAG = "05/08/2026|PC26/07-0137|10|R07047S1|1370009994|0508-P12675|5250|06|MAT|1|1"
 
@@ -126,6 +132,19 @@ def test_successful_weighing_stores_completed_transaction_and_traceability(app):
         assert transaction.warehouse_snapshot == "MAT"
         assert transaction.location_snapshot == "1"
         assert transaction.shelf_snapshot == "1"
+        payload = json.loads(transaction.erp_qr_payload)
+        assert payload == {
+            "type": "SCT_PREWEIGHT",
+            "version": 1,
+            "preweight_id": transaction.preweight_id,
+            "production_order": "PO-WEIGH",
+            "production_lot": "LOT-W",
+            "formula_sheet": "FM-W",
+            "item_code": "R07047S1",
+            "item_name": "Required Material",
+            "actual_weight": "5.125",
+            "unit": "kg",
+        }
 
 
 def test_wrong_material_is_blocked_and_audited(app):
@@ -198,3 +217,121 @@ def test_weighing_page_saves_line_and_displays_preweight_id(app, client):
     assert response.status_code == 200
     assert b"Weighing completed as PW-" in response.data
     assert b"COMPLETED" in response.data
+    assert b"SCT PREWEIGHT" in response.data
+    assert b"window.print()" in response.data
+
+
+def _login_for_weighing(client, station_id):
+    client.post("/auth/login", data={"username": "weigher", "password": "Weigh-Only!"})
+    client.post("/auth/station", data={"station_id": station_id})
+
+
+def test_actual_weight_and_save_are_disabled_before_material_validation(app, client):
+    with app.app_context():
+        _, station, order, items = seed_weighing_data()
+        station_id = station.id
+        order_id = order.id
+        item_id = items[0].id
+    _login_for_weighing(client, station_id)
+    response = client.get(f"/weighing/order/{order_id}")
+    assert response.status_code == 200
+    assert f'id="actual-weight-{item_id}"'.encode() in response.data
+    assert b'name="actual_weight" type="number"' in response.data
+    assert b'required disabled' in response.data
+    assert b'class="btn btn-primary btn-sm save-weighing" type="submit" disabled' in response.data
+
+
+def test_immediate_material_validation_returns_match_and_unmatch(app, client):
+    with app.app_context():
+        _, station, order, items = seed_weighing_data()
+        station_id = station.id
+        order_id = order.id
+        correct_item_id = items[0].id
+        wrong_item_id = items[2].id
+    _login_for_weighing(client, station_id)
+
+    match = client.post(
+        f"/weighing/order/{order_id}/line/{correct_item_id}/validate-material",
+        json={"material_tag": MATERIAL_TAG},
+    )
+    assert match.status_code == 200
+    assert match.get_json() == {
+        "result": "MATCH",
+        "code": "MATCH",
+        "message": "MATCH — R07047S1",
+    }
+
+    unmatch = client.post(
+        f"/weighing/order/{order_id}/line/{wrong_item_id}/validate-material",
+        json={"material_tag": MATERIAL_TAG},
+    )
+    assert unmatch.status_code == 200
+    assert unmatch.get_json()["result"] == "UN-MATCH"
+    assert unmatch.get_json()["code"] == "WRONG_MATERIAL"
+    with app.app_context():
+        assert WeighingTransaction.query.count() == 0
+
+
+def test_save_revalidates_material_when_client_validation_is_bypassed(app, client):
+    with app.app_context():
+        _, station, order, items = seed_weighing_data()
+        station_id = station.id
+        order_id = order.id
+        wrong_item_id = items[2].id
+    _login_for_weighing(client, station_id)
+    response = client.post(
+        f"/weighing/order/{order_id}/line/{wrong_item_id}",
+        data={"material_tag": MATERIAL_TAG, "actual_weight": "2.000"},
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+    assert b"Wrong Material" in response.data
+    with app.app_context():
+        assert WeighingTransaction.query.count() == 0
+
+
+def test_validation_service_rejects_invalid_tag_without_database_write(app):
+    with app.app_context():
+        _, _, order, items = seed_weighing_data()
+        result = validate_material_tag(order.id, items[0].id, "invalid")
+        assert (result.success, result.code) == (False, "INVALID_MATERIAL_TAG")
+        assert WeighingTransaction.query.count() == 0
+        assert AuditLog.query.count() == 0
+
+
+def test_sticker_and_reprint_use_the_stored_immutable_payload(app, client):
+    with app.app_context():
+        _, station, order, items = seed_weighing_data()
+        result = save_weighing(
+            order.id, items[0].id, MATERIAL_TAG, "5.125", 1, station.id
+        )
+        transaction_id = result.transaction.id
+        original_payload = result.transaction.erp_qr_payload
+        items[0].material.name = "Changed Master Name"
+        db.session.commit()
+        station_id = station.id
+    _login_for_weighing(client, station_id)
+
+    sticker = client.get(f"/weighing/transaction/{transaction_id}/sticker")
+    first_qr = client.get(f"/weighing/transaction/{transaction_id}/qr.png")
+    reprint_qr = client.get(f"/weighing/transaction/{transaction_id}/qr.png")
+
+    assert sticker.status_code == 200
+    for expected in (
+        b"PO-WEIGH",
+        b"LOT-W",
+        b"FM-W",
+        b"R07047S1",
+        b"Required Material",
+        b"5.125 kg",
+        b"Reprint",
+        b"window.print()",
+    ):
+        assert expected in sticker.data
+    assert b"Changed Master Name" not in sticker.data
+    assert first_qr.status_code == 200
+    assert first_qr.mimetype == "image/png"
+    assert first_qr.data == reprint_qr.data
+    with app.app_context():
+        transaction = db.session.get(WeighingTransaction, transaction_id)
+        assert transaction.erp_qr_payload == original_payload

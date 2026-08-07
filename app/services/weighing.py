@@ -1,3 +1,4 @@
+import json
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
@@ -107,6 +108,27 @@ def _wrong_material_audit(po, item, tag, user_id, station_id):
     db.session.commit()
 
 
+def validate_material_tag(po_id, formula_item_id, material_tag_payload):
+    try:
+        tag = parse_material_tag(material_tag_payload)
+    except MaterialTagError as exc:
+        return WeighingResult(False, "INVALID_MATERIAL_TAG", str(exc))
+
+    po = db.session.get(ProductionOrder, po_id)
+    item = db.session.get(FormulaItem, formula_item_id)
+    if po is None or po.status != "READY" or po.formula_id is None:
+        return WeighingResult(False, "PO_NOT_READY", "Production Order is not ready for weighing.")
+    if item is None or item.formula_id != po.formula_id:
+        return WeighingResult(False, "FORMULA_LINE_MISMATCH", "Formula line is unavailable.")
+    if tag.material_code != item.material.code:
+        return WeighingResult(
+            False,
+            "WRONG_MATERIAL",
+            f"Wrong Material: expected {item.material.code}, scanned {tag.material_code}.",
+        )
+    return WeighingResult(True, "MATCH", f"MATCH — {item.material.code}")
+
+
 def save_weighing(po_id, formula_item_id, material_tag_payload, actual_weight, user_id, station_id):
     try:
         tag = parse_material_tag(material_tag_payload)
@@ -147,8 +169,25 @@ def save_weighing(po_id, formula_item_id, material_tag_payload, actual_weight, u
         )
 
     weighed_at = utcnow()
+    preweight_id = _next_preweight_id(weighed_at)
+    erp_qr_payload = json.dumps(
+        {
+            "type": "SCT_PREWEIGHT",
+            "version": 1,
+            "preweight_id": preweight_id,
+            "production_order": po.po_no,
+            "production_lot": po.production_lot,
+            "formula_sheet": po.formula.code,
+            "item_code": item.material.code,
+            "item_name": item.material.name,
+            "actual_weight": f"{weight:.3f}",
+            "unit": item.unit,
+        },
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
     transaction = WeighingTransaction(
-        preweight_id=_next_preweight_id(weighed_at),
+        preweight_id=preweight_id,
         production_order_id=po.id,
         formula_item_id=item.id,
         raw_material_lot_id=None,
@@ -164,6 +203,7 @@ def save_weighing(po_id, formula_item_id, material_tag_payload, actual_weight, u
         warehouse_snapshot=tag.warehouse,
         location_snapshot=tag.location,
         shelf_snapshot=tag.shelf,
+        erp_qr_payload=erp_qr_payload,
         target_weight_snapshot=item.target_weight,
         actual_weight=weight,
         unit_snapshot=item.unit,
