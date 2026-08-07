@@ -420,3 +420,13 @@ Requirement
 
 Technical tasks assigned to Codex must never be transferred back to the Project Owner merely
 because Codex can provide commands for the Project Owner to run.
+
+## Recurring Technical Credentials
+
+- Recurring technical credentials must use secure machine-local credential storage appropriate
+  to the operating environment.
+- Codex must not repeatedly transfer password-entry tasks to the Project Owner.
+- Secrets must never be printed, logged, committed to source control, or placed in project
+  documentation.
+- If a required credential is absent, the operation must stop and report the missing credential
+  as a blocker instead of bypassing authentication or weakening security controls.
