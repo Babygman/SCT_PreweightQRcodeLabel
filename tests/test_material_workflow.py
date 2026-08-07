@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from sqlalchemy import true
 from werkzeug.security import generate_password_hash
 
 from app.extensions import db
@@ -196,8 +197,36 @@ def test_material_mode_ui_gates_weight_and_keeps_active_tag_in_session(app, clie
     before = client.get("/weighing/material")
     assert before.status_code == 200
     assert b"Material-centric Weighing" in before.data
+    assert (
+        b"Scan a material and record its weight for the prepared Production Orders."
+        in before.data
+    )
+    assert b"2. Weigh Materials" in before.data
+    assert b'aria-current="step"' in before.data
+    assert b"Production Orders for This Weighing Session" in before.data
+    assert b"2 Production Order(s)" in before.data
+    assert b"PD001" in before.data and b"PD002" in before.data
+    assert b"FG-01" in before.data and b"LOT-001" in before.data
+    assert b"FM-01" in before.data
+    assert b"Overall progress 0 / 4" in before.data
+    assert b"Materials to Weigh" in before.data
+    assert b"MAT-A" in before.data and b"Material A" in before.data
+    assert b"0 / 2" in before.data
+    assert b"Ready to scan" in before.data
+    assert b"Scan the QR code on the physical material container." in before.data
+    assert b"Back to Production Order Preparation" in before.data
+    assert b"PRIMARY" not in before.data
+    assert b"Active Work Set" not in before.data
     assert b"Actual Weight" in before.data
     assert b"disabled" in before.data
+    with app.app_context():
+        assert WeighingTransaction.query.count() == 0
+        statuses = db.session.scalars(
+            db.select(ProductionOrder.status).where(
+                ProductionOrder.po_no.in_(("PD001", "PD002"))
+            )
+        ).all()
+        assert statuses == ["READY", "READY"]
 
     match = client.post("/weighing/material/validate", json={"material_tag": MATERIAL_A_TAG})
     assert match.get_json()["result"] == "MATCH"
@@ -205,6 +234,38 @@ def test_material_mode_ui_gates_weight_and_keeps_active_tag_in_session(app, clie
     queue = client.get("/weighing/material")
     assert b"0 / 2 Production Order requirement(s) completed" in queue.data
     assert b"PD001" in queue.data and b"PD002" in queue.data
+
+
+def test_continuous_preparation_keeps_prior_orders_and_failed_values(app, client):
+    with app.app_context():
+        _, station, _, _, _, orders, _, _ = seed_material_workflow(2)
+        station_id = station.id
+    login(client, station_id)
+
+    first = client.post(
+        "/preparation/", data={"po_no": "PD001", "formula_code": "FM-01"}
+    )
+    second = client.post(
+        "/preparation/", data={"po_no": "PD002", "formula_code": "FM-02"}
+    )
+    failed = client.post(
+        "/preparation/", data={"po_no": "PD999", "formula_code": "FM-99"}
+    )
+
+    assert b'value="PD001"' not in first.data
+    assert b'document.getElementById("po_no").focus()' in first.data
+    assert b"PD001" in second.data and b"PD002" in second.data
+    assert b'value="PD002"' not in second.data
+    assert b'value="PD999"' in failed.data and b'value="FM-99"' in failed.data
+    assert b"PD001" in failed.data and b"PD002" in failed.data
+    with app.app_context():
+        active_count = db.session.scalar(
+            db.select(db.func.count())
+            .select_from(ProductionOrder)
+            .where(ProductionOrder.work_set_active == true())
+        )
+        assert active_count == 2
+        assert WeighingTransaction.query.count() == 0
 
 
 def test_formula_centric_mode_remains_available(app, client):

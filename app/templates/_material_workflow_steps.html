@@ -1,0 +1,16 @@
+<nav aria-label="Material-centric workflow progress" class="mb-4">
+  <ol class="list-group list-group-horizontal-md">
+    <li class="list-group-item flex-fill{% if current_step == 1 %} active{% endif %}"
+        {% if current_step == 1 %}aria-current="step"{% endif %}>
+      {% if current_step == 1 %}<strong>{% endif %}1. Prepare Production Orders{% if current_step == 1 %}</strong>{% endif %}
+    </li>
+    <li class="list-group-item flex-fill{% if current_step == 2 %} active{% endif %}"
+        {% if current_step == 2 %}aria-current="step"{% endif %}>
+      {% if current_step == 2 %}<strong>{% endif %}2. Weigh Materials{% if current_step == 2 %}</strong>{% endif %}
+    </li>
+    <li class="list-group-item flex-fill{% if current_step == 3 %} active{% endif %}"
+        {% if current_step == 3 %}aria-current="step"{% endif %}>
+      {% if current_step == 3 %}<strong>{% endif %}3. Complete{% if current_step == 3 %}</strong>{% endif %}
+    </li>
+  </ol>
+</nav>

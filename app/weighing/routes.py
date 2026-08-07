@@ -21,6 +21,7 @@ from app.extensions import db
 from app.models import ProductionOrder, WeighingTransaction
 from app.services.material_workflow import build_material_queue, save_material_queue_item
 from app.services.weighing import save_weighing, validate_material_tag
+from app.services.workset import active_work_set_overview
 
 from . import bp
 from .forms import MaterialQueueWeightForm, WeighingForm
@@ -131,6 +132,7 @@ def sticker_qr(transaction_id):
 @station_required
 @roles_required("OPERATOR", "SUPERVISOR", "ADMIN")
 def material_mode():
+    overview = active_work_set_overview(session["station_id"])
     active_payload = session.get("active_material_tag")
     queue = (
         build_material_queue(session["station_id"], active_payload, require_pending=False)
@@ -143,6 +145,7 @@ def material_mode():
     return render_template(
         "weighing/material.html",
         queue=queue,
+        overview=overview,
         weight_form=MaterialQueueWeightForm(),
     )
 

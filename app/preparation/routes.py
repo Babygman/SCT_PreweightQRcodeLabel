@@ -3,10 +3,9 @@ from flask_login import current_user, login_required
 
 from app.auth.decorators import roles_required, station_required
 from app.services.workset import (
-    active_work_set_orders,
+    active_work_set_overview,
     close_active_work_set,
     prepare_work_set_order,
-    work_set_progress,
 )
 
 from .forms import PreparationForm
@@ -32,14 +31,13 @@ def prepare():
         if result.success:
             form.po_no.data = ""
             form.formula_code.data = ""
-    prepared_orders = active_work_set_orders(session["station_id"])
-    progress = {order.id: work_set_progress(order) for order in prepared_orders}
+    overview = active_work_set_overview(session["station_id"])
     return render_template(
         "preparation/prepare.html",
         form=form,
         result=result,
-        prepared_orders=prepared_orders,
-        progress=progress,
+        prepared_orders=overview.orders,
+        progress=overview.progress,
     )
 
 
@@ -51,5 +49,9 @@ def close_work_set():
     count = close_active_work_set(session["station_id"])
     session.pop("active_material_tag", None)
     session.pop("weighing_mode", None)
-    flash(f"Closed Active Work Set ({count} Production Order(s)).", "success")
+    flash(
+        f"Cancelled this weighing session ({count} Production Order(s) removed). "
+        "Production Order statuses and weighing records were not changed.",
+        "success",
+    )
     return redirect(url_for("preparation.prepare"))

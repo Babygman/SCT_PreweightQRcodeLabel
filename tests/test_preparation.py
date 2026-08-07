@@ -1,7 +1,7 @@
 from werkzeug.security import generate_password_hash
 
 from app.extensions import db
-from app.models import Formula, Product, ProductionOrder, Role, Station, User
+from app.models import Formula, Product, ProductionOrder, Role, Station, User, WeighingTransaction
 from app.services.preparation import prepare_production_order
 
 
@@ -110,7 +110,7 @@ def test_preparation_page_workflow(app, client):
     authenticate(client, station_id)
     response = client.post("/preparation/", data={"po_no": "PO-OPEN", "formula_code": "FM-A"})
     assert response.status_code == 200
-    assert b"added to the Active Work Set" in response.data
+    assert b"added to this weighing session" in response.data
     assert b"READY" in response.data
     assert b'id="po_no"' in response.data
     assert b'id="formula_code"' in response.data
@@ -148,7 +148,7 @@ def test_failed_preparation_preserves_scan_values_and_does_not_add_order(app, cl
         assert not order.work_set_active
 
 
-def test_material_preparation_uses_active_work_set_terms_without_po_action(app, client):
+def test_material_preparation_uses_operator_terms_without_po_action(app, client):
     with app.app_context():
         _, station, _, _ = seed_preparation_data()
         station_id = station.id
@@ -157,14 +157,21 @@ def test_material_preparation_uses_active_work_set_terms_without_po_action(app, 
     response = client.get("/preparation/")
 
     assert response.status_code == 200
-    assert b"Active Work Set" in response.data
-    assert b"Production Orders prepared for the current weighing session" in response.data
-    assert b"Active Prepared Production Orders" not in response.data
+    assert b"Material-centric Preparation" in response.data
+    assert b"Prepare Production Orders before weighing materials." in response.data
+    assert b"1. Prepare Production Orders" in response.data
+    assert b'aria-current="step"' in response.data
+    assert b"Production Orders for This Weighing Session" in response.data
+    assert (
+        b"These Production Orders will be processed together during material weighing."
+        in response.data
+    )
+    assert b"Active Work Set" not in response.data
     assert b"Optional: Weigh this PO" not in response.data
     assert b"/weighing/order/" not in response.data
 
 
-def test_active_work_set_controls_and_formula_centric_regression(app, client):
+def test_session_controls_and_formula_centric_regression(app, client):
     with app.app_context():
         _, station, _, _ = seed_preparation_data()
         station_id = station.id
@@ -179,10 +186,34 @@ def test_active_work_set_controls_and_formula_centric_regression(app, client):
         )
         order_id = order.id
 
-    assert b"Close Active Work Set" in preparation.data
-    assert b"Continue to Material-centric Weighing" in preparation.data
+    assert b"Cancel This Weighing Session" in preparation.data
+    assert (
+        b"Removes the current group of Production Orders from this weighing session"
+        in preparation.data
+    )
+    assert b"Keep Session" in preparation.data
+    assert b"Continue to Material Weighing" in preparation.data
     assert b"Formula / PO-centric (Optional)" in home.data
     assert client.get(f"/weighing/order/{order_id}").status_code == 200
+
+
+def test_cancel_session_keeps_po_status_and_weighing_records(app, client):
+    with app.app_context():
+        _, station, _, _ = seed_preparation_data()
+        station_id = station.id
+    authenticate(client, station_id)
+    client.post("/preparation/", data={"po_no": "PO-OPEN", "formula_code": "FM-A"})
+
+    response = client.post("/preparation/work-set/close", follow_redirects=True)
+
+    assert b"Cancelled this weighing session" in response.data
+    with app.app_context():
+        order = db.session.scalar(
+            db.select(ProductionOrder).where(ProductionOrder.po_no == "PO-OPEN")
+        )
+        assert order.status == "READY"
+        assert order.work_set_active is False
+        assert WeighingTransaction.query.count() == 0
 
 
 def test_production_role_cannot_prepare(app, client):

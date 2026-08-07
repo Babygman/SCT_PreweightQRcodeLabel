@@ -1,12 +1,18 @@
 {% extends "base.html" %}
-{% block title %}Prepare PO + Formula{% endblock %}
+{% block title %}Material-centric Preparation{% endblock %}
 {% block content %}
+<header class="mb-3">
+  <h1 class="display-6 mb-2">Material-centric Preparation</h1>
+  <p class="lead text-muted mb-0">Prepare Production Orders before weighing materials.</p>
+</header>
+{% set current_step = 1 %}
+{% include "_material_workflow_steps.html" %}
 <div class="row justify-content-center">
   <div class="col-lg-7">
     <div class="card shadow-sm">
       <div class="card-body p-4">
-        <h1 class="h3 mb-2">Scan Production Order + Formula Sheet</h1>
-        <p class="text-muted">Scan each PO + Formula pair to add Production Orders to the Active Work Set.</p>
+        <h2 class="h4 mb-2">Scan Production Order + Formula Sheet</h2>
+        <p class="text-muted">Scan and validate each pair continuously. Every successful pair remains listed in this weighing session.</p>
         <form method="post" novalidate>
           {{ form.hidden_tag() }}
           <div class="mb-3">
@@ -31,18 +37,18 @@
         {% endif %}
       </div>
     </div>
-    <div class="card shadow-sm mt-4" aria-labelledby="active-work-set-heading">
+    <div class="card shadow-sm mt-4" aria-labelledby="session-orders-heading">
       <div class="card-body">
         <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap">
           <div>
-            <h2 class="h5 mb-1" id="active-work-set-heading">Active Work Set</h2>
-            <p class="text-muted mb-0">Production Orders prepared for the current weighing session</p>
+            <h2 class="h5 mb-1" id="session-orders-heading">Production Orders for This Weighing Session</h2>
+            <p class="text-muted mb-0">These Production Orders will be processed together during material weighing.</p>
           </div>
           {% if prepared_orders %}
-          <form method="post" action="{{ url_for('preparation.close_work_set') }}">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button class="btn btn-outline-danger btn-sm" type="submit" aria-label="Close Active Work Set">Close Active Work Set</button>
-          </form>
+          <button class="btn btn-outline-danger btn-sm" type="button"
+                  onclick="document.getElementById('cancel-session-dialog').showModal()">
+            Cancel This Weighing Session
+          </button>
           {% endif %}
         </div>
         {% if prepared_orders %}
@@ -53,12 +59,27 @@
             <td>{{ order.formula.code }}</td><td>{{ progress[order.id][0] }} / {{ progress[order.id][1] }}</td>
           </tr>{% endfor %}</tbody>
         </table></div>
-        <a class="btn btn-success" href="{{ url_for('weighing.material_mode') }}" aria-label="Continue to Material-centric Weighing">Continue to Material-centric Weighing</a>
-        {% else %}<p class="text-muted mt-3 mb-0">The Active Work Set has no Production Orders yet.</p>{% endif %}
+        <a class="btn btn-success" href="{{ url_for('weighing.material_mode') }}" aria-label="Continue to Material Weighing">Continue to Material Weighing</a>
+        {% else %}<p class="text-muted mt-3 mb-0">No Production Orders have been prepared for this weighing session yet.</p>{% endif %}
       </div>
     </div>
   </div>
 </div>
+{% if prepared_orders %}
+<dialog id="cancel-session-dialog" aria-labelledby="cancel-session-heading">
+  <h2 class="h5" id="cancel-session-heading">Cancel This Weighing Session?</h2>
+  <p>Removes the current group of Production Orders from this weighing session. No weighing records will be created.</p>
+  <p class="small text-muted">Production Order statuses and existing weighing records will not be changed. The current material selection will be cleared.</p>
+  <div class="d-flex gap-2 justify-content-end">
+    <button class="btn btn-secondary" type="button"
+            onclick="document.getElementById('cancel-session-dialog').close()">Keep Session</button>
+    <form method="post" action="{{ url_for('preparation.close_work_set') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn btn-danger" type="submit">Cancel This Weighing Session</button>
+    </form>
+  </div>
+</dialog>
+{% endif %}
 {% if result and result.success %}
 <script>
   document.getElementById("{{ form.po_no.id }}").focus();
