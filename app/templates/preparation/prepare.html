@@ -5,10 +5,15 @@
   <h1 class="display-6 mb-2">Material-centric Preparation</h1>
   <p class="lead text-muted mb-0">Prepare Production Orders before weighing materials.</p>
 </header>
-{% set current_step = 1 %}
+{% set current_step = 3 if overview.is_complete else 1 %}
 {% include "_material_workflow_steps.html" %}
+{% if overview.is_complete %}
+{% set completion_dialog_id = "complete-session-from-preparation" %}
+{% include "_complete_weighing_session.html" %}
+{% endif %}
 <div class="row justify-content-center">
   <div class="col-lg-7">
+    {% if not overview.is_complete %}
     <div class="card shadow-sm">
       <div class="card-body p-4">
         <h2 class="h4 mb-2">Scan Production Order + Formula Sheet</h2>
@@ -37,6 +42,7 @@
         {% endif %}
       </div>
     </div>
+    {% endif %}
     <div class="card shadow-sm mt-4" aria-labelledby="session-orders-heading">
       <div class="card-body">
         <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap">
@@ -44,7 +50,7 @@
             <h2 class="h5 mb-1" id="session-orders-heading">Production Orders for This Weighing Session</h2>
             <p class="text-muted mb-0">These Production Orders will be processed together during material weighing.</p>
           </div>
-          {% if prepared_orders %}
+          {% if prepared_orders and not overview.is_complete %}
           <button class="btn btn-outline-danger btn-sm" type="button"
                   onclick="document.getElementById('cancel-session-dialog').showModal()">
             Cancel This Weighing Session
@@ -59,13 +65,15 @@
             <td>{{ order.formula.code }}</td><td>{{ progress[order.id][0] }} / {{ progress[order.id][1] }}</td>
           </tr>{% endfor %}</tbody>
         </table></div>
+        {% if not overview.is_complete %}
         <a class="btn btn-success" href="{{ url_for('weighing.material_mode') }}" aria-label="Continue to Material Weighing">Continue to Material Weighing</a>
+        {% endif %}
         {% else %}<p class="text-muted mt-3 mb-0">No Production Orders have been prepared for this weighing session yet.</p>{% endif %}
       </div>
     </div>
   </div>
 </div>
-{% if prepared_orders %}
+{% if prepared_orders and not overview.is_complete %}
 <dialog id="cancel-session-dialog" aria-labelledby="cancel-session-heading">
   <h2 class="h5" id="cancel-session-heading">Cancel This Weighing Session?</h2>
   <p>Removes the current group of Production Orders from this weighing session. No weighing records will be created.</p>

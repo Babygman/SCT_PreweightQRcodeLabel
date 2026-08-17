@@ -210,5 +210,12 @@ def weigh_material_queue_item(po_id, formula_item_id):
 def end_material_session():
     session.pop("active_material_tag", None)
     session.pop("weighing_mode", None)
-    flash("Material session ended. Scan the next Material Tag.", "success")
+    overview = active_work_set_overview(session["station_id"])
+    if overview.is_complete:
+        flash(
+            "All required weighings are complete. Complete this weighing session.",
+            "success",
+        )
+    else:
+        flash("Material session ended. Scan the next Material Tag.", "success")
     return redirect(url_for("weighing.material_mode"))

@@ -8,7 +8,7 @@
   </div>
   <a class="btn btn-outline-secondary" href="{{ url_for('preparation.prepare') }}">Back to Production Order Preparation</a>
 </header>
-{% set current_step = 2 %}
+{% set current_step = 3 if overview.is_complete else 2 %}
 {% include "_material_workflow_steps.html" %}
 
 <section class="card shadow-sm mb-4" aria-labelledby="session-summary-heading">
@@ -53,7 +53,10 @@
   </div>
 </section>
 
-{% if not queue %}
+{% if overview.is_complete %}
+{% set completion_dialog_id = "complete-session-from-weighing" %}
+{% include "_complete_weighing_session.html" %}
+{% elif not queue %}
 <div class="card shadow-sm">
   <div class="card-body">
     <h2 class="h5">Scan Material Tag</h2>

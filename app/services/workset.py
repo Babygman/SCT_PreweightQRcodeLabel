@@ -1,9 +1,18 @@
 from dataclasses import dataclass
+from datetime import datetime
 
 from sqlalchemy import select, true
 
 from app.extensions import db
-from app.models import Material, ProductionOrder, WeighingTransaction, utcnow
+from app.models import (
+    AuditLog,
+    Material,
+    ProductionOrder,
+    Station,
+    User,
+    WeighingTransaction,
+    utcnow,
+)
 from app.services.preparation import PreparationResult, prepare_production_order
 
 
@@ -38,6 +47,31 @@ class WorkSetOverview:
     required_count: int
     materials: tuple[MaterialRequirementSummary, ...]
 
+    @property
+    def session_code(self):
+        return self.orders[0].work_set_code if self.orders else None
+
+    @property
+    def is_complete(self):
+        return self.required_count > 0 and self.completed_count == self.required_count
+
+
+@dataclass(frozen=True)
+class WorkSetCompletionResult:
+    success: bool
+    code: str
+    message: str
+    session_code: str | None = None
+
+
+@dataclass(frozen=True)
+class CompletedWorkSetSummary:
+    session_code: str
+    station: Station
+    completed_at_utc: datetime
+    completed_by: User
+    overview: WorkSetOverview
+
 
 def active_work_set_orders(station_id):
     return db.session.scalars(
@@ -50,8 +84,8 @@ def active_work_set_orders(station_id):
     ).all()
 
 
-def active_work_set_overview(station_id):
-    orders = tuple(active_work_set_orders(station_id))
+def work_set_overview(orders):
+    orders = tuple(orders)
     if not orders:
         return WorkSetOverview((), {}, 0, 0, ())
 
@@ -94,6 +128,10 @@ def active_work_set_overview(station_id):
     return WorkSetOverview(
         orders, progress, completed_count, required_count, materials
     )
+
+
+def active_work_set_overview(station_id):
+    return work_set_overview(active_work_set_orders(station_id))
 
 
 def _active_work_set_code(station_id):
@@ -145,12 +183,157 @@ def prepare_work_set_order(po_qr, formula_qr, user_id, station_id):
     )
 
 
-def close_active_work_set(station_id):
-    orders = active_work_set_orders(station_id)
+def cancel_active_work_set(station_id):
+    overview = active_work_set_overview(station_id)
+    if not overview.orders:
+        return WorkSetCompletionResult(
+            False, "SESSION_UNAVAILABLE", "No active weighing session is available."
+        )
+    if overview.completed_count:
+        return WorkSetCompletionResult(
+            False,
+            "SESSION_HAS_WEIGHINGS",
+            "This weighing session cannot be cancelled because weighing records already exist.",
+            overview.session_code,
+        )
+    orders = overview.orders
     for order in orders:
         order.work_set_active = False
     db.session.commit()
-    return len(orders)
+    return WorkSetCompletionResult(
+        True,
+        "SESSION_CANCELLED",
+        f"Cancelled this weighing session ({len(orders)} Production Order(s) removed). "
+        "Production Order statuses and weighing records were not changed.",
+        overview.session_code,
+    )
+
+
+def _session_orders_statement(session_code, station_id, *, lock=False):
+    statement = (
+        select(ProductionOrder)
+        .where(
+            ProductionOrder.work_set_code == session_code,
+            ProductionOrder.work_set_station_id == station_id,
+        )
+        .order_by(ProductionOrder.work_set_added_at_utc, ProductionOrder.id)
+    )
+    if lock and db.session.get_bind().dialect.name == "mssql":
+        statement = statement.with_hint(
+            ProductionOrder, "WITH (UPDLOCK, HOLDLOCK)", dialect_name="mssql"
+        )
+    return statement
+
+
+def complete_work_set(session_code, user_id, station_id):
+    orders = tuple(
+        db.session.scalars(
+            _session_orders_statement(session_code, station_id, lock=True)
+        ).all()
+    )
+    if not orders:
+        return WorkSetCompletionResult(
+            False, "SESSION_UNAVAILABLE", "Weighing session is unavailable."
+        )
+
+    existing_audit = db.session.scalar(
+        select(AuditLog).where(
+            AuditLog.event_type == "WEIGHING_SESSION_COMPLETED",
+            AuditLog.entity_type == "WorkSet",
+            AuditLog.entity_id == session_code,
+            AuditLog.station_id == station_id,
+        )
+    )
+    if existing_audit is not None and all(
+        order.status == "COMPLETED" and not order.work_set_active for order in orders
+    ):
+        return WorkSetCompletionResult(
+            True,
+            "ALREADY_COMPLETED",
+            "This weighing session is already completed.",
+            session_code,
+        )
+    if existing_audit is not None:
+        return WorkSetCompletionResult(
+            False,
+            "SESSION_INVALID",
+            "Weighing session completion state is inconsistent.",
+            session_code,
+        )
+    if not all(order.status == "READY" and order.work_set_active for order in orders):
+        return WorkSetCompletionResult(
+            False,
+            "SESSION_INVALID",
+            "Only an active, ready weighing session can be completed.",
+            session_code,
+        )
+
+    overview = work_set_overview(orders)
+    if not overview.is_complete:
+        return WorkSetCompletionResult(
+            False,
+            "SESSION_INCOMPLETE",
+            "Complete every required weighing before completing this weighing session.",
+            session_code,
+        )
+
+    completed_at = utcnow()
+    for order in orders:
+        order.status = "COMPLETED"
+        order.work_set_active = False
+    db.session.add(
+        AuditLog(
+            event_type="WEIGHING_SESSION_COMPLETED",
+            entity_type="WorkSet",
+            entity_id=session_code,
+            user_id=user_id,
+            station_id=station_id,
+            occurred_at_utc=completed_at,
+            detail=(
+                f"production_orders={len(orders)}; "
+                f"completed_weighings={overview.completed_count}; "
+                f"required_weighings={overview.required_count}"
+            ),
+        )
+    )
+    db.session.commit()
+    return WorkSetCompletionResult(
+        True,
+        "SESSION_COMPLETED",
+        "Weighing session completed.",
+        session_code,
+    )
+
+
+def completed_work_set_summary(session_code, station_id):
+    orders = tuple(
+        db.session.scalars(_session_orders_statement(session_code, station_id)).all()
+    )
+    if not orders or not all(
+        order.status == "COMPLETED" and not order.work_set_active for order in orders
+    ):
+        return None
+    audit = db.session.scalar(
+        select(AuditLog)
+        .where(
+            AuditLog.event_type == "WEIGHING_SESSION_COMPLETED",
+            AuditLog.entity_type == "WorkSet",
+            AuditLog.entity_id == session_code,
+            AuditLog.station_id == station_id,
+        )
+        .order_by(AuditLog.occurred_at_utc.desc(), AuditLog.id.desc())
+    )
+    if audit is None:
+        return None
+    station = db.session.get(Station, station_id)
+    user = db.session.get(User, audit.user_id)
+    return CompletedWorkSetSummary(
+        session_code,
+        station,
+        audit.occurred_at_utc,
+        user,
+        work_set_overview(orders),
+    )
 
 
 def work_set_progress(order):

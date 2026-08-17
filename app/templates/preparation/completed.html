@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Completed Weighing Session{% endblock %}
+{% block content %}
+<header class="mb-3">
+  <h1 class="display-6 mb-2">Weighing Session Complete</h1>
+  <p class="lead text-muted mb-0">This session is finalized and read-only.</p>
+</header>
+{% set current_step = 3 %}
+{% include "_material_workflow_steps.html" %}
+
+<section class="card shadow-sm mb-4" aria-labelledby="completion-summary-heading">
+  <div class="card-body">
+    <h2 class="h4" id="completion-summary-heading">Completion Summary</h2>
+    <dl class="row mb-0">
+      <dt class="col-sm-4">Session ID</dt><dd class="col-sm-8">{{ summary.session_code }}</dd>
+      <dt class="col-sm-4">Station</dt><dd class="col-sm-8">{{ summary.station.code }} — {{ summary.station.name }}</dd>
+      <dt class="col-sm-4">Status</dt><dd class="col-sm-8"><span class="badge text-bg-success">COMPLETED</span></dd>
+      <dt class="col-sm-4">Completed at</dt><dd class="col-sm-8">{{ summary.completed_at_utc }}</dd>
+      <dt class="col-sm-4">Completed by</dt><dd class="col-sm-8">{{ summary.completed_by.display_name }} ({{ summary.completed_by.username }})</dd>
+      <dt class="col-sm-4">Production Orders</dt><dd class="col-sm-8">{{ summary.overview.orders|length }}</dd>
+      <dt class="col-sm-4">Weighing progress</dt><dd class="col-sm-8">{{ summary.overview.completed_count }} / {{ summary.overview.required_count }}</dd>
+    </dl>
+  </div>
+</section>
+
+<section class="card shadow-sm" aria-labelledby="completed-orders-heading">
+  <div class="card-body">
+    <h2 class="h5" id="completed-orders-heading">Completed Production Orders</h2>
+    <div class="table-responsive"><table class="table table-sm align-middle mb-3">
+      <thead><tr><th>Production Order</th><th>Product</th><th>Production Lot</th><th>Formula</th><th>Progress</th><th>Status</th></tr></thead>
+      <tbody>{% for order in summary.overview.orders %}<tr>
+        <td>{{ order.po_no }}</td><td>{{ order.product.code }}</td><td>{{ order.production_lot }}</td>
+        <td>{{ order.formula.code }}</td>
+        <td>{{ summary.overview.progress[order.id][0] }} / {{ summary.overview.progress[order.id][1] }}</td>
+        <td><span class="badge text-bg-success">COMPLETED</span></td>
+      </tr>{% endfor %}</tbody>
+    </table></div>
+    <a class="btn btn-primary" href="{{ url_for('index') }}">Return Home</a>
+  </div>
+</section>
+{% endblock %}

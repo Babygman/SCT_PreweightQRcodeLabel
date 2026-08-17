@@ -1,0 +1,24 @@
+<div class="card border-success shadow-sm">
+  <div class="card-body">
+    <h2 class="h4 text-success">All required weighings are complete</h2>
+    <p>Complete this weighing session to finalize session <strong>{{ overview.session_code }}</strong>.</p>
+    <p class="text-muted">Completion closes this session and marks its Production Orders completed. Existing weighing records, Preweight IDs, weights, and traceability remain unchanged.</p>
+    <button class="btn btn-success" type="button"
+            onclick="document.getElementById('{{ completion_dialog_id }}').showModal()">
+      Complete Weighing Session
+    </button>
+  </div>
+</div>
+<dialog id="{{ completion_dialog_id }}" aria-labelledby="{{ completion_dialog_id }}-heading">
+  <h2 class="h5" id="{{ completion_dialog_id }}-heading">Complete Weighing Session?</h2>
+  <p>Finalize session <strong>{{ overview.session_code }}</strong> at station <strong>{{ selected_station.code }}</strong>.</p>
+  <p class="text-muted">All {{ overview.required_count }} required weighings are recorded. This session will become read-only and cannot be cancelled or reopened.</p>
+  <div class="d-flex gap-2 justify-content-end">
+    <button class="btn btn-secondary" type="button"
+            onclick="document.getElementById('{{ completion_dialog_id }}').close()">Review Session</button>
+    <form method="post" action="{{ url_for('preparation.complete_session', session_code=overview.session_code) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn btn-success" type="submit">Confirm and Complete Session</button>
+    </form>
+  </div>
+</dialog>
