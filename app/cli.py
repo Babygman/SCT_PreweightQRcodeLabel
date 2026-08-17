@@ -17,6 +17,11 @@ from app.models import (
     Station,
     User,
 )
+from scripts.uat_master_detail import (
+    UatMasterDetailError,
+    generate_master_detail_artifacts,
+    prepare_master_detail_uat,
+)
 from scripts.uat_material_tags import generate_uat_material_tag_sheet
 
 
@@ -24,6 +29,25 @@ def register_commands(app):
     app.cli.add_command(seed_uat)
     app.cli.add_command(seed_stage3)
     app.cli.add_command(generate_uat_material_tags)
+    app.cli.add_command(prepare_master_detail_workspace)
+
+
+@click.command("prepare-uat-master-detail")
+@click.option(
+    "--output-directory",
+    type=click.Path(file_okay=False, path_type=str),
+    default="instance/uat_master_detail",
+)
+def prepare_master_detail_workspace(output_directory):
+    """Prepare the controlled disposable master-detail UAT Work Set."""
+    enabled = bool(current_app.config.get("UAT_AUTO_LOGIN"))
+    try:
+        prepared = prepare_master_detail_uat(uat_enabled=enabled)
+        sheet = generate_master_detail_artifacts(output_directory, uat_enabled=enabled)
+    except UatMasterDetailError as exc:
+        raise click.ClickException(str(exc)) from exc
+    click.echo(f"Master-detail UAT Work Set ready: {prepared.work_set_code}")
+    click.echo(f"Material Tag sheet: {sheet.resolve()}")
 
 
 @click.command("generate-uat-material-tags")
