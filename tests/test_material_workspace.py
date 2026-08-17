@@ -89,6 +89,13 @@ def test_partial_material_resumes_and_completed_material_is_read_only(app, clien
     partial = client.get("/weighing/material?material=MAT-A")
     assert b"In progress" in partial.data
     assert b"1 of 2 Production Orders completed" in partial.data
+    client.post(
+        "/weighing/material/validate",
+        json={"material_tag": MATERIAL_A_TAG, "selected_material_code": "MAT-A"},
+    )
+    partial = client.get("/weighing/material")
+    assert b"Recorded Actual Weight" in partial.data
+    assert "Save Weighing — PD002".encode() in partial.data
     with app.app_context():
         from app.models import User
 
@@ -103,6 +110,9 @@ def test_partial_material_resumes_and_completed_material_is_read_only(app, clien
     assert b"2 of 2 Production Orders completed" in completed.data
     assert b"Pending tag scan" not in completed.data
     assert b'name="actual_weight"' not in completed.data
+    assert b"Recorded Actual Weight" in completed.data
+    assert b"Preweight ID:" in completed.data
+    assert "Save Weighing —".encode() not in completed.data
 
 
 def test_search_filter_ten_materials_and_unsaved_switch_warning_render(app, client):
@@ -139,6 +149,8 @@ def test_search_filter_ten_materials_and_unsaved_switch_warning_render(app, clie
     assert b"Filter by status" in page.data
     assert b"Changing Material will discard unsaved weight input" in page.data
     assert b"focus-visible" in page.data and b"@media (max-width: 991.98px)" in page.data
+    assert b"material-list" in page.data and b"overflow-y: auto" in page.data
+    assert b"queue-table" not in page.data
 
 
 def test_local_datetime_formats_naive_and_aware_utc_without_mutation():

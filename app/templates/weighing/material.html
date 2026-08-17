@@ -2,12 +2,21 @@
 {% block title %}Material-centric Weighing{% endblock %}
 {% block content %}
 <style>
-  .material-workspace { display: grid; grid-template-columns: minmax(16rem, 1fr) minmax(0, 2fr); gap: 1.5rem; }
+  .material-workspace { display: grid; grid-template-columns: minmax(20rem, 22rem) minmax(0, 1fr); gap: 1.5rem; align-items: start; }
+  .material-workspace > * { min-width: 0; }
+  .material-queue-pane { min-width: 0; }
+  .material-list { max-height: max(16rem, calc(100vh - 25rem)); overflow-y: auto; overscroll-behavior: contain; padding: .2rem; margin: -.2rem; }
+  .weighing-workspace { min-width: 0; overflow: hidden; }
   .material-choice { width: 100%; text-align: left; border: 1px solid var(--bs-border-color); background: white; }
   .material-choice[aria-current="true"] { border-color: var(--bs-primary); box-shadow: 0 0 0 .2rem rgba(13,110,253,.18); }
   .material-choice:focus-visible { outline: .2rem solid var(--bs-warning); outline-offset: .15rem; }
-  .queue-table { min-width: 58rem; }
-  @media (max-width: 991.98px) { .material-workspace { grid-template-columns: minmax(0, 1fr); } .queue-table { min-width: 0; } .queue-table thead { display: none; } .queue-table tr, .queue-table td { display: block; width: 100%; } .queue-table tr { border-bottom: 1px solid var(--bs-border-color); padding: .75rem 0; } .queue-table td { border: 0; padding: .2rem .5rem; } }
+  .po-work-card { min-width: 0; }
+  .po-details { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: .75rem 1rem; }
+  .po-action { display: grid; grid-template-columns: minmax(8rem, auto) minmax(14rem, 1fr); gap: 1rem; align-items: end; }
+  .weight-entry { display: grid; grid-template-columns: minmax(8rem, 1fr) auto; gap: .5rem; align-items: center; }
+  .weight-entry .form-control, .po-action .btn { min-width: 0; width: 100%; }
+  @media (max-width: 1199.98px) { .po-action { grid-template-columns: minmax(0, 1fr); } }
+  @media (max-width: 991.98px) { .material-workspace { grid-template-columns: minmax(0, 1fr); } .material-list { max-height: 24rem; } }
 </style>
 <header class="mb-3 d-flex justify-content-between align-items-start gap-3 flex-wrap">
   <div><h1 class="display-6 mb-2">Material-centric Weighing</h1><p class="lead text-muted mb-0">Choose a material, scan its physical tag, then weigh its prepared Production Orders.</p></div>
@@ -19,11 +28,11 @@
   <p class="text-muted mb-0">{{ overview.orders|length }} Production Order(s) · Overall progress {{ overview.completed_count }} / {{ overview.required_count }}</p>
 </div></section>
 <div class="material-workspace">
-  <aside class="card shadow-sm" aria-labelledby="materials-heading"><div class="card-body">
+  <aside class="card shadow-sm material-queue-pane" aria-labelledby="materials-heading"><div class="card-body">
     <h2 class="h5" id="materials-heading">Material Queue</h2>
     <label class="form-label" for="material-search">Search code or description</label><input class="form-control mb-2" id="material-search" type="search" autocomplete="off">
     <label class="form-label" for="material-filter">Filter by status</label><select class="form-select mb-3" id="material-filter"><option value="all">All</option><option value="not-started">Not started</option><option value="in-progress">In progress</option><option value="completed">Completed</option></select>
-    <div class="d-grid gap-2" id="material-list">
+    <div class="d-grid gap-2 material-list" id="material-list">
     {% for summary in overview.materials %}{% set status_key = 'completed' if summary.status == 'Completed' else ('in-progress' if summary.completed_count else 'not-started') %}
       <a class="btn material-choice p-3" href="{{ url_for('weighing.material_mode', material=summary.material.code) }}" data-material-choice data-search="{{ summary.material.code|lower }} {{ summary.material.name|lower }}" data-status="{{ status_key }}" data-selected="{{ 'true' if selection and selection.material.code == summary.material.code else 'false' }}" aria-current="{{ 'true' if selection and selection.material.code == summary.material.code else 'false' }}">
         <span class="d-flex justify-content-between gap-2"><strong>{{ summary.material.code }}</strong>{% if status_key == 'completed' %}<span class="badge text-bg-success">Completed</span>{% elif status_key == 'in-progress' %}<span class="badge text-bg-warning">In progress</span>{% else %}<span class="badge text-bg-secondary">Not started</span>{% endif %}</span>
@@ -31,7 +40,7 @@
       </a>
     {% endfor %}</div><p class="text-muted mt-3 mb-0 d-none" id="material-filter-empty">No materials match this search and filter.</p>
   </div></aside>
-  <section class="card shadow-sm" aria-labelledby="workspace-heading"><div class="card-body">
+  <section class="card shadow-sm weighing-workspace" aria-labelledby="workspace-heading"><div class="card-body">
   {% if overview.is_complete %}<h2 class="h4" id="workspace-heading">All required weighings are complete</h2><p>Session ID: <strong>{{ overview.session_code }}</strong></p>{% set completion_dialog_id = "complete-session-from-weighing" %}{% include "_complete_weighing_session.html" %}
   {% elif not selection %}<div class="text-center py-5"><h2 class="h4" id="workspace-heading">Select a Material to begin weighing.</h2><p class="text-muted mb-0">Choose any incomplete or partially completed Material from the queue.</p></div>
   {% elif selection.pending_count == 0 %}<h2 class="h4" id="workspace-heading">{{ selection.material.code }} — {{ selection.material.name }}</h2><p><span class="badge text-bg-success">Completed</span> {{ selection.completed_count }} of {{ selection.items|length }} Production Orders completed</p>{% set display_queue = selection %}{% include "weighing/_material_queue_table.html" %}

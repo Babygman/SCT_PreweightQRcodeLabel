@@ -236,6 +236,16 @@ def test_material_mode_ui_gates_weight_and_keeps_active_tag_in_session(app, clie
     queue = client.get("/weighing/material")
     assert b"0 of 2 Production Orders completed" in queue.data
     assert b"PD001" in queue.data and b"PD002" in queue.data
+    assert b'data-po-work-cards' in queue.data
+    assert b"Production Order PD001" in queue.data
+    assert b"Product" in queue.data and b"FG-01" in queue.data
+    assert b"Production Lot" in queue.data and b"LOT-001" in queue.data
+    assert b"Formula" in queue.data and b"FM-01" in queue.data
+    assert b"Material" in queue.data and b"MAT-A" in queue.data
+    assert b"Target Weight" in queue.data and b"1.000 kg" in queue.data
+    assert b'>Actual Weight</label>' in queue.data
+    assert "Save Weighing — PD001".encode() in queue.data
+    assert b'aria-label="Save Weighing for MAT-A and PD001"' in queue.data
 
 
 def test_continuous_preparation_keeps_prior_orders_and_failed_values(app, client):
