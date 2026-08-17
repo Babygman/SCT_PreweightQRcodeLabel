@@ -15,7 +15,7 @@
       <dt class="col-sm-4">Session ID</dt><dd class="col-sm-8">{{ summary.session_code }}</dd>
       <dt class="col-sm-4">Station</dt><dd class="col-sm-8">{{ summary.station.code }} — {{ summary.station.name }}</dd>
       <dt class="col-sm-4">Status</dt><dd class="col-sm-8"><span class="badge text-bg-success">COMPLETED</span></dd>
-      <dt class="col-sm-4">Completed at</dt><dd class="col-sm-8">{{ summary.completed_at_utc }}</dd>
+      <dt class="col-sm-4">Completed at</dt><dd class="col-sm-8">{{ summary.completed_at_utc|local_datetime }}</dd>
       <dt class="col-sm-4">Completed by</dt><dd class="col-sm-8">{{ summary.completed_by.display_name }} ({{ summary.completed_by.username }})</dd>
       <dt class="col-sm-4">Production Orders</dt><dd class="col-sm-8">{{ summary.overview.orders|length }}</dd>
       <dt class="col-sm-4">Weighing progress</dt><dd class="col-sm-8">{{ summary.overview.completed_count }} / {{ summary.overview.required_count }}</dd>

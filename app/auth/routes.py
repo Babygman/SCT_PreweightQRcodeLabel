@@ -93,6 +93,7 @@ def select_station():
         else:
             if session.get("station_id") != station.id:
                 session.pop("active_material_tag", None)
+                session.pop("selected_material_code", None)
                 session.pop("weighing_mode", None)
             session["station_id"] = station.id
             _audit("STATION_SELECTED", user_id=current_user.id, station_id=station.id)

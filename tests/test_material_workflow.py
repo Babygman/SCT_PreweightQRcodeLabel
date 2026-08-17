@@ -201,28 +201,21 @@ def test_material_mode_ui_gates_weight_and_keeps_active_tag_in_session(app, clie
     before = client.get("/weighing/material")
     assert before.status_code == 200
     assert b"Material-centric Weighing" in before.data
-    assert (
-        b"Scan a material and record its weight for the prepared Production Orders."
-        in before.data
-    )
+    assert b"Choose a material, scan its physical tag" in before.data
     assert b"2. Weigh Materials" in before.data
     assert b'aria-current="step"' in before.data
     assert b"Production Orders for This Weighing Session" in before.data
     assert b"2 Production Order(s)" in before.data
-    assert b"PD001" in before.data and b"PD002" in before.data
-    assert b"FG-01" in before.data and b"LOT-001" in before.data
-    assert b"FM-01" in before.data
     assert b"Overall progress 0 / 4" in before.data
-    assert b"Materials to Weigh" in before.data
+    assert b"Material Queue" in before.data
     assert b"MAT-A" in before.data and b"Material A" in before.data
-    assert b"0 / 2" in before.data
-    assert b"Ready to scan" in before.data
-    assert b"Scan the QR code on the physical material container." in before.data
+    assert b"0 of 2 Production Orders completed" in before.data
+    assert b"Not started" in before.data
+    assert b"Select a Material to begin weighing." in before.data
     assert b"Back to Production Order Preparation" in before.data
     assert b"PRIMARY" not in before.data
     assert b"Active Work Set" not in before.data
-    assert b"Actual Weight" in before.data
-    assert b"disabled" in before.data
+    assert b"Actual Weight" not in before.data
     with app.app_context():
         assert WeighingTransaction.query.count() == 0
         statuses = db.session.scalars(
@@ -232,11 +225,16 @@ def test_material_mode_ui_gates_weight_and_keeps_active_tag_in_session(app, clie
         ).all()
         assert statuses == ["READY", "READY"]
 
-    match = client.post("/weighing/material/validate", json={"material_tag": MATERIAL_A_TAG})
+    selected = client.get("/weighing/material?material=MAT-A")
+    assert b"Scan the physical Material Tag for the selected Material" in selected.data
+    match = client.post(
+        "/weighing/material/validate",
+        json={"material_tag": MATERIAL_A_TAG, "selected_material_code": "MAT-A"},
+    )
     assert match.get_json()["result"] == "MATCH"
     assert match.get_json()["queue_count"] == 2
     queue = client.get("/weighing/material")
-    assert b"0 / 2 Production Order requirement(s) completed" in queue.data
+    assert b"0 of 2 Production Orders completed" in queue.data
     assert b"PD001" in queue.data and b"PD002" in queue.data
 
 

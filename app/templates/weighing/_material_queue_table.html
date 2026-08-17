@@ -1,0 +1,12 @@
+<div class="table-responsive"><table class="table align-middle queue-table">
+  <thead><tr><th>Production Order</th><th>Product</th><th>Production Lot</th><th>Formula</th><th>Material</th><th>Target Weight</th><th>Actual Weight / Status</th></tr></thead>
+  <tbody>{% for queue_item in display_queue.items %}{% set order = queue_item.production_order %}{% set item = queue_item.formula_item %}
+  <tr><td><strong>{{ order.po_no }}</strong></td><td>{{ order.product.code }}</td><td>{{ order.production_lot }}</td><td>{{ order.formula.code }}</td><td>{{ item.material.code }}</td><td>{{ item.target_weight }} {{ item.unit }}</td><td>
+    {% if queue_item.transaction %}<span class="badge text-bg-success">Completed</span><br><span>{{ queue_item.transaction.actual_weight }} {{ queue_item.transaction.unit_snapshot }}</span><br><small>{{ queue_item.transaction.preweight_id }}</small>
+    {% elif queue %}<form class="row g-2 material-queue-form" method="post" action="{{ url_for('weighing.weigh_material_queue_item', po_id=order.id, formula_item_id=item.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><div class="col-xl-6"><input class="form-control actual-weight" aria-label="Actual Weight for {{ item.material.code }} and {{ order.po_no }}" name="actual_weight" type="number" min="0.001" step="0.001" placeholder="Actual Weight ({{ item.unit }})" required></div><div class="col-xl-6 d-grid"><button class="btn btn-primary save-weighing" type="submit" disabled>Save {{ item.material.code }} · {{ order.po_no }}</button></div></form>
+    {% else %}<span class="badge text-bg-secondary">Pending tag scan</span>{% endif %}
+  </td></tr>{% endfor %}</tbody>
+</table></div>
+{% if queue %}<script>
+document.querySelectorAll(".material-queue-form").forEach((form) => { const weight = form.querySelector(".actual-weight"); const save = form.querySelector(".save-weighing"); weight.addEventListener("input", () => { save.disabled = !(Number(weight.value) > 0); }); form.addEventListener("submit", (event) => { if (!(Number(weight.value) > 0)) event.preventDefault(); save.disabled = true; }); });
+</script>{% endif %}

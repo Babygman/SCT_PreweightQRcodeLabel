@@ -155,6 +155,7 @@ def test_complete_pages_replace_scan_loop_and_render_read_only_summary(app, clie
     assert b"4 / 4" in completed.data
     assert b"PD001" in completed.data and b"PD002" in completed.data
     assert b"Return Home" in completed.data
+    assert b"Thailand Time" in completed.data
     assert b"Cancel This Weighing Session" not in completed.data
     assert b"Actual Weight" not in completed.data
 
@@ -185,7 +186,7 @@ def test_completed_session_blocks_old_po_scan_material_and_cancel(app, client):
 
     assert b"Completed Production Order cannot start" in prepare.data
     assert scan.get_json()["result"] == "UN-MATCH"
-    assert b"Material is not required by this weighing session" in save.data
+    assert b"Scan and validate a Material Tag before weighing" in save.data
     assert b"No active weighing session is available" in cancel.data
     with app.app_context():
         assert transaction_snapshot() == before

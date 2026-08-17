@@ -34,6 +34,7 @@ def register_uat_bypass(app):
             login_user(user)
         if session.get("station_id") not in {None, station.id}:
             session.pop("active_material_tag", None)
+            session.pop("selected_material_code", None)
             session.pop("weighing_mode", None)
         session["station_id"] = station.id
 

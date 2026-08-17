@@ -19,7 +19,11 @@ from sqlalchemy import select
 from app.auth.decorators import roles_required, station_required
 from app.extensions import db
 from app.models import ProductionOrder, WeighingTransaction
-from app.services.material_workflow import build_material_queue, save_material_queue_item
+from app.services.material_workflow import (
+    build_material_queue,
+    build_material_selection,
+    save_material_queue_item,
+)
 from app.services.weighing import save_weighing, validate_material_tag
 from app.services.workset import active_work_set_overview
 
@@ -133,10 +137,38 @@ def sticker_qr(transaction_id):
 @roles_required("OPERATOR", "SUPERVISOR", "ADMIN")
 def material_mode():
     overview = active_work_set_overview(session["station_id"])
+    requested_material = request.args.get("material", type=str)
+    if requested_material is not None:
+        selection = build_material_selection(
+            session["station_id"], requested_material.strip()
+        )
+        if not selection.success:
+            abort(404)
+        previous_material = session.get("selected_material_code")
+        session["selected_material_code"] = selection.material.code
+        if previous_material != selection.material.code:
+            session.pop("active_material_tag", None)
+    else:
+        selected_code = session.get("selected_material_code")
+        selection = (
+            build_material_selection(session["station_id"], selected_code)
+            if selected_code
+            else None
+        )
+        if selection is not None and not selection.success:
+            session.pop("selected_material_code", None)
+            session.pop("active_material_tag", None)
+            selection = None
+
     active_payload = session.get("active_material_tag")
     queue = (
-        build_material_queue(session["station_id"], active_payload, require_pending=False)
-        if active_payload
+        build_material_queue(
+            session["station_id"],
+            active_payload,
+            require_pending=False,
+            expected_material_code=selection.material.code,
+        )
+        if active_payload and selection
         else None
     )
     if queue is not None and not queue.success:
@@ -145,6 +177,7 @@ def material_mode():
     return render_template(
         "weighing/material.html",
         queue=queue,
+        selection=selection,
         overview=overview,
         weight_form=MaterialQueueWeightForm(),
     )
@@ -157,8 +190,24 @@ def material_mode():
 def validate_material_mode():
     payload = request.get_json(silent=True) or {}
     material_tag = payload.get("material_tag")
-    queue = build_material_queue(session["station_id"], material_tag)
+    selected_code = payload.get("selected_material_code")
+    selection = build_material_selection(session["station_id"], selected_code)
+    if not selection.success:
+        session.pop("active_material_tag", None)
+        return jsonify(
+            {
+                "result": "UN-MATCH",
+                "code": selection.code,
+                "message": selection.message,
+            }
+        ), 400
+    queue = build_material_queue(
+        session["station_id"],
+        material_tag,
+        expected_material_code=selection.material.code,
+    )
     if queue.success:
+        session["selected_material_code"] = selection.material.code
         session["active_material_tag"] = queue.tag.raw_payload
         session["weighing_mode"] = "material"
     else:
@@ -169,6 +218,8 @@ def validate_material_mode():
             "code": queue.code,
             "message": queue.message,
             "queue_count": len(queue.items),
+            "selected_material_code": selection.material.code,
+            "scanned_material_code": queue.tag.material_code if queue.tag else None,
         }
     )
 
@@ -180,7 +231,8 @@ def validate_material_mode():
 def weigh_material_queue_item(po_id, formula_item_id):
     form = MaterialQueueWeightForm()
     active_payload = session.get("active_material_tag")
-    if not active_payload:
+    selected_code = session.get("selected_material_code")
+    if not active_payload or not selected_code:
         flash("Scan and validate a Material Tag before weighing.", "danger")
         return redirect(url_for("weighing.material_mode"))
     if form.validate_on_submit():
@@ -191,6 +243,7 @@ def weigh_material_queue_item(po_id, formula_item_id):
             active_payload,
             form.actual_weight.data,
             current_user.id,
+            expected_material_code=selected_code,
         )
         flash(result.message, "success" if result.success else "danger")
         if result.success:
@@ -209,6 +262,7 @@ def weigh_material_queue_item(po_id, formula_item_id):
 @roles_required("OPERATOR", "SUPERVISOR", "ADMIN")
 def end_material_session():
     session.pop("active_material_tag", None)
+    session.pop("selected_material_code", None)
     session.pop("weighing_mode", None)
     overview = active_work_set_overview(session["station_id"])
     if overview.is_complete:

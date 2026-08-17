@@ -7,6 +7,7 @@ from flask_login import current_user, login_required
 from config import CONFIGS
 
 from .extensions import csrf, db, login_manager, migrate
+from .presentation import format_local_datetime
 
 
 def create_app(config_name="development"):
@@ -35,6 +36,10 @@ def create_app(config_name="development"):
     login_manager.init_app(app)
     login_manager.login_view = "auth.login"
     csrf.init_app(app)
+
+    @app.template_filter("local_datetime")
+    def local_datetime_filter(value):
+        return format_local_datetime(value, app.config["APP_TIMEZONE"])
 
     from .models import Station, User
 

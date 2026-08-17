@@ -39,7 +39,60 @@ class MaterialQueueResult:
         return sum(item.transaction is None for item in self.items)
 
 
-def build_material_queue(station_id, material_tag_payload, require_pending=True):
+def _material_queue_items(station_id, material_id):
+    rows = db.session.execute(
+        select(ProductionOrder, FormulaItem, WeighingTransaction)
+        .join(FormulaItem, FormulaItem.formula_id == ProductionOrder.formula_id)
+        .outerjoin(
+            WeighingTransaction,
+            and_(
+                WeighingTransaction.production_order_id == ProductionOrder.id,
+                WeighingTransaction.formula_item_id == FormulaItem.id,
+                WeighingTransaction.status.in_(("COMPLETED", "CONSUMED")),
+            ),
+        )
+        .where(
+            ProductionOrder.work_set_station_id == station_id,
+            ProductionOrder.work_set_active == true(),
+            ProductionOrder.status == "READY",
+            FormulaItem.material_id == material_id,
+        )
+        .order_by(ProductionOrder.work_set_added_at_utc, ProductionOrder.id, FormulaItem.line_no)
+    ).all()
+    return tuple(MaterialQueueItem(*row) for row in rows)
+
+
+def build_material_selection(station_id, material_code):
+    material = db.session.scalar(select(Material).where(Material.code == material_code))
+    if material is None or not material.is_active:
+        return MaterialQueueResult(False, "MATERIAL_NOT_FOUND", "Material is unavailable.")
+    if not station_can_weigh_material(station_id, material):
+        return MaterialQueueResult(
+            False,
+            "STATION_NOT_AUTHORIZED",
+            f"Current station cannot weigh {material.code}.",
+            material=material,
+        )
+    items = _material_queue_items(station_id, material.id)
+    if not items:
+        return MaterialQueueResult(
+            False,
+            "MATERIAL_NOT_REQUIRED",
+            "Material is not required by this weighing session.",
+            material=material,
+        )
+    return MaterialQueueResult(
+        True,
+        "MATERIAL_SELECTED",
+        f"Selected {material.code}.",
+        material=material,
+        items=items,
+    )
+
+
+def build_material_queue(
+    station_id, material_tag_payload, require_pending=True, expected_material_code=None
+):
     try:
         tag = parse_material_tag(material_tag_payload)
     except MaterialTagError as exc:
@@ -56,27 +109,16 @@ def build_material_queue(station_id, material_tag_payload, require_pending=True)
             tag,
             material,
         )
+    if expected_material_code and tag.material_code != expected_material_code:
+        return MaterialQueueResult(
+            False,
+            "WRONG_SELECTED_MATERIAL",
+            "Scanned Material does not match the selected Material.",
+            tag,
+            material,
+        )
 
-    rows = db.session.execute(
-        select(ProductionOrder, FormulaItem, WeighingTransaction)
-        .join(FormulaItem, FormulaItem.formula_id == ProductionOrder.formula_id)
-        .outerjoin(
-            WeighingTransaction,
-            and_(
-                WeighingTransaction.production_order_id == ProductionOrder.id,
-                WeighingTransaction.formula_item_id == FormulaItem.id,
-                WeighingTransaction.status.in_(("COMPLETED", "CONSUMED")),
-            ),
-        )
-        .where(
-            ProductionOrder.work_set_station_id == station_id,
-            ProductionOrder.work_set_active == true(),
-            ProductionOrder.status == "READY",
-            FormulaItem.material_id == material.id,
-        )
-        .order_by(ProductionOrder.work_set_added_at_utc, ProductionOrder.id, FormulaItem.line_no)
-    ).all()
-    items = tuple(MaterialQueueItem(*row) for row in rows)
+    items = _material_queue_items(station_id, material.id)
     if not items:
         return MaterialQueueResult(
             False,
@@ -111,8 +153,14 @@ def save_material_queue_item(
     material_tag_payload,
     actual_weight,
     user_id,
+    expected_material_code=None,
 ):
-    queue = build_material_queue(station_id, material_tag_payload, require_pending=False)
+    queue = build_material_queue(
+        station_id,
+        material_tag_payload,
+        require_pending=False,
+        expected_material_code=expected_material_code,
+    )
     if not queue.success:
         return WeighingResult(False, queue.code, queue.message)
     queue_item = next(

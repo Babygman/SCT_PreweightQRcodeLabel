@@ -59,6 +59,7 @@ def close_work_set():
     result = cancel_active_work_set(session["station_id"])
     if result.success:
         session.pop("active_material_tag", None)
+        session.pop("selected_material_code", None)
         session.pop("weighing_mode", None)
     flash(result.message, "success" if result.success else "danger")
     return redirect(url_for("preparation.prepare"))
@@ -76,6 +77,7 @@ def complete_session(session_code):
     if not result.success:
         return redirect(url_for("preparation.prepare"))
     session.pop("active_material_tag", None)
+    session.pop("selected_material_code", None)
     session.pop("weighing_mode", None)
     return redirect(
         url_for("preparation.completed_session", session_code=session_code)
