@@ -1,14 +1,24 @@
 import calendar
 import json
+import secrets
 import unicodedata
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from decimal import ROUND_FLOOR, Decimal, InvalidOperation
+from uuid import uuid4
+from zoneinfo import ZoneInfo
 
+from flask import current_app
+from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
+
+from app.extensions import db
+from app.models import AuditLog, Material, MaterialTag, MaterialTagBatch, MaterialTagDraft, utcnow
 from app.services.weighing import MaterialTagError, parse_material_tag
 
 WEIGHT_QUANTUM = Decimal("0.001")
 DEFAULT_MAXIMUM_TAGS = 200
+MAX_BATCH_NUMBER_ATTEMPTS = 10
 
 
 class MaterialTagIssuanceError(ValueError):
@@ -149,3 +159,295 @@ def build_material_tag_qr_payload(
     if parsed.raw_payload != payload:
         raise MaterialTagIssuanceError("Generated Material Tag QR payload is not deterministic.")
     return payload
+
+
+def _date(value):
+    if type(value) is date:
+        parsed = value
+    else:
+        try:
+            parsed = datetime.strptime(str(value).strip(), "%Y-%m-%d").date()
+        except (TypeError, ValueError) as exc:
+            raise MaterialTagIssuanceError("Receiving Date must be a valid date.") from exc
+    if not date(2000, 1, 1) <= parsed <= date(2100, 12, 31):
+        raise MaterialTagIssuanceError("Receiving Date must be between 2000-01-01 and 2100-12-31.")
+    return parsed
+
+
+def _normalized_values(values, material):
+    receiving = _date(values.get("receiving_date"))
+    normalized = {
+        "receiving_date": receiving,
+        "purchase_order": _qr_text(values.get("purchase_order"), "Purchase Order", 100),
+        "purchase_order_line": _qr_text(values.get("purchase_order_line"), "PO Line", 30),
+        "material_code": _qr_text(material.code, "Material Code", 50, uppercase=True),
+        "delivery_invoice": _qr_text(values.get("delivery_invoice"), "Delivery Invoice", 100),
+        "vendor_lot": _qr_text(values.get("vendor_lot"), "Vendor Lot", 100),
+        "supplier": _qr_text(values.get("supplier"), "Supplier", 100),
+        "comment": _qr_text(values.get("comment"), "Comment", 200, optional=True),
+        "warehouse": _qr_text(values.get("warehouse"), "Warehouse", 50),
+        "location": _qr_text(values.get("location"), "Location", 50),
+        "shelf": _qr_text(values.get("shelf"), "Shelf", 50),
+    }
+    plan = calculate_container_weights(
+        values.get("total_received_weight"), values.get("standard_container_weight")
+    )
+    expiry = calculate_expiry_date(receiving)
+    payload = build_material_tag_qr_payload(**normalized)
+    return normalized, plan, expiry, payload
+
+
+def _material(material_id, *, lock=False):
+    try:
+        identifier = int(material_id)
+    except (TypeError, ValueError) as exc:
+        raise MaterialTagIssuanceError("Select a valid active Material.") from exc
+    statement = select(Material).where(Material.id == identifier)
+    if lock:
+        statement = statement.with_for_update().with_hint(
+            Material, "WITH (UPDLOCK, HOLDLOCK)", dialect_name="mssql"
+        )
+    material = db.session.scalar(statement)
+    if material is None or not material.is_active:
+        raise MaterialTagIssuanceError("Select a valid active Material.")
+    return material
+
+
+def _audit(event_type, entity_type, entity_id, user_id, station_id, metadata):
+    audit = AuditLog(
+        event_type=event_type,
+        entity_type=entity_type,
+        entity_id=str(entity_id),
+        user_id=user_id,
+        station_id=station_id,
+        occurred_at_utc=utcnow(),
+        detail=json.dumps(metadata, ensure_ascii=True, separators=(",", ":")),
+    )
+    if db.session.get_bind().dialect.name == "sqlite":
+        audit.id = db.session.scalar(select(func.coalesce(func.max(AuditLog.id), 0) + 1))
+    db.session.add(audit)
+
+
+def create_material_tag_draft(*, values, user_id, station_id, lifetime_minutes=60):
+    if (
+        isinstance(lifetime_minutes, bool)
+        or not isinstance(lifetime_minutes, int)
+        or lifetime_minutes < 1
+    ):
+        raise MaterialTagIssuanceError("Draft lifetime configuration is invalid.")
+    material = _material(values.get("material_id"))
+    normalized, plan, _expiry, _payload = _normalized_values(values, material)
+    now = utcnow()
+    draft = MaterialTagDraft(
+        draft_token=str(uuid4()),
+        idempotency_key=str(uuid4()),
+        material_id=material.id,
+        **normalized,
+        total_received_weight=plan.total_received_weight,
+        standard_container_weight=plan.standard_container_weight,
+        calculated_tag_count=plan.tag_count,
+        calculated_weights_json=plan.to_json(),
+        status="PREVIEWED",
+        created_by_user_id=user_id,
+        created_at_utc=now,
+        expires_at_utc=now + timedelta(minutes=lifetime_minutes),
+    )
+    db.session.add(draft)
+    db.session.flush()
+    _audit(
+        "MATERIAL_TAG_PREVIEWED",
+        "MATERIAL_TAG_DRAFT",
+        draft.id,
+        user_id,
+        station_id,
+        {
+            "draft_token": draft.draft_token,
+            "event": "MATERIAL_TAG_PREVIEWED",
+            "material_code": draft.material_code,
+            "vendor_lot": draft.vendor_lot,
+            "tag_count": draft.calculated_tag_count,
+            "total_weight": f"{draft.total_received_weight:.3f}",
+            "status": draft.status,
+        },
+    )
+    db.session.commit()
+    return draft
+
+
+def preview_details(draft):
+    material = draft.material
+    normalized, plan, expiry, payload = _normalized_values(
+        {
+            "receiving_date": draft.receiving_date,
+            "purchase_order": draft.purchase_order,
+            "purchase_order_line": draft.purchase_order_line,
+            "delivery_invoice": draft.delivery_invoice,
+            "vendor_lot": draft.vendor_lot,
+            "supplier": draft.supplier,
+            "comment": draft.comment,
+            "warehouse": draft.warehouse,
+            "location": draft.location,
+            "shelf": draft.shelf,
+            "total_received_weight": draft.total_received_weight,
+            "standard_container_weight": draft.standard_container_weight,
+        },
+        material,
+    )
+    if (
+        normalized["material_code"] != draft.material_code
+        or plan.tag_count != draft.calculated_tag_count
+        or plan.to_json() != draft.calculated_weights_json
+    ):
+        raise MaterialTagIssuanceError("Draft integrity validation failed.")
+    return {"plan": plan, "expiry": expiry, "qr_payload": payload}
+
+
+def _next_batch_number():
+    business_date = datetime.now(ZoneInfo(current_app.config["APP_TIMEZONE"])).date()
+    return f"MTB-{business_date.strftime('%Y%m%d')}-{secrets.randbelow(1_000_000):06d}"
+
+
+def _draft_for_issue_statement(token):
+    return (
+        select(MaterialTagDraft)
+        .where(MaterialTagDraft.draft_token == token)
+        .with_for_update()
+        .with_hint(MaterialTagDraft, "WITH (UPDLOCK, HOLDLOCK)", dialect_name="mssql")
+    )
+
+
+def issue_material_tag_draft(*, token, user_id, station_id, _collision_attempt=0):
+    try:
+        draft = db.session.scalar(_draft_for_issue_statement(token))
+        if draft is None:
+            raise MaterialTagIssuanceError("Material Tag draft was not found.")
+        if draft.created_by_user_id != user_id:
+            raise MaterialTagIssuanceError("Only the draft creator may confirm issuance.")
+        if draft.status == "ISSUED" and draft.issued_batch_id:
+            batch = db.session.get(MaterialTagBatch, draft.issued_batch_id)
+            db.session.commit()
+            return batch
+        if draft.status != "PREVIEWED":
+            raise MaterialTagIssuanceError("Only a previewed draft may be issued.")
+        if draft.expires_at_utc <= utcnow():
+            draft.status = "EXPIRED"
+            db.session.commit()
+            raise MaterialTagIssuanceError("This Material Tag draft has expired.")
+
+        material = _material(draft.material_id, lock=True)
+        details = preview_details(draft)
+        plan = details["plan"]
+        expiry = details["expiry"]
+        payload = details["qr_payload"]
+        if parse_material_tag(payload).raw_payload != payload:
+            raise MaterialTagIssuanceError("Generated QR payload failed validation.")
+
+        existing = db.session.scalar(
+            select(MaterialTagBatch).where(MaterialTagBatch.source_draft_token == token)
+        )
+        if existing is not None:
+            draft.status = "ISSUED"
+            draft.issued_batch_id = existing.id
+            db.session.commit()
+            return existing
+
+        batch = None
+        for _attempt in range(MAX_BATCH_NUMBER_ATTEMPTS):
+            candidate = _next_batch_number()
+            if (
+                db.session.scalar(
+                    select(MaterialTagBatch.id).where(MaterialTagBatch.batch_no == candidate)
+                )
+                is None
+            ):
+                candidate_batch = MaterialTagBatch(
+                    batch_no=candidate,
+                    material_id=material.id,
+                    material_code_snapshot=material.code,
+                    material_name_snapshot=material.name,
+                    unit_snapshot=material.unit,
+                    category_no_snapshot=material.source_category_no,
+                    receiving_date=draft.receiving_date,
+                    expiry_date=expiry,
+                    purchase_order=draft.purchase_order,
+                    purchase_order_line=draft.purchase_order_line,
+                    delivery_invoice=draft.delivery_invoice,
+                    vendor_lot=draft.vendor_lot,
+                    supplier=draft.supplier,
+                    comment=draft.comment,
+                    warehouse=draft.warehouse,
+                    location=draft.location,
+                    shelf=draft.shelf,
+                    total_received_weight=plan.total_received_weight,
+                    standard_container_weight=plan.standard_container_weight,
+                    tag_count=plan.tag_count,
+                    qr_payload=payload,
+                    issued_by_user_id=user_id,
+                    issued_at_utc=utcnow(),
+                    source_draft_token=draft.draft_token,
+                )
+                batch = candidate_batch
+                break
+        if batch is None:
+            raise MaterialTagIssuanceError(
+                "A unique Material Tag batch number could not be generated."
+            )
+        db.session.add(batch)
+        db.session.flush()
+        created = utcnow()
+        db.session.add_all(
+            [
+                MaterialTag(
+                    batch_id=batch.id,
+                    sequence_no=index,
+                    container_weight=weight,
+                    created_at_utc=created,
+                )
+                for index, weight in enumerate(plan.weights, 1)
+            ]
+        )
+        draft.status = "ISSUED"
+        draft.issued_batch_id = batch.id
+        _audit(
+            "MATERIAL_TAG_BATCH_ISSUED",
+            "MATERIAL_TAG_BATCH",
+            batch.id,
+            user_id,
+            station_id,
+            {
+                "batch_id": batch.id,
+                "batch_no": batch.batch_no,
+                "event": "MATERIAL_TAG_BATCH_ISSUED",
+                "material_code": batch.material_code_snapshot,
+                "vendor_lot": batch.vendor_lot,
+                "tag_count": batch.tag_count,
+                "total_weight": f"{batch.total_received_weight:.3f}",
+            },
+        )
+        db.session.commit()
+        return batch
+    except MaterialTagIssuanceError:
+        db.session.rollback()
+        raise
+    except IntegrityError as exc:
+        db.session.rollback()
+        existing = db.session.scalar(
+            select(MaterialTagBatch).where(MaterialTagBatch.source_draft_token == token)
+        )
+        if existing is not None:
+            return existing
+        if _collision_attempt + 1 < MAX_BATCH_NUMBER_ATTEMPTS:
+            return issue_material_tag_draft(
+                token=token,
+                user_id=user_id,
+                station_id=station_id,
+                _collision_attempt=_collision_attempt + 1,
+            )
+        raise MaterialTagIssuanceError(
+            "Material Tag issuance failed safely; no records were issued."
+        ) from exc
+    except Exception as exc:
+        db.session.rollback()
+        raise MaterialTagIssuanceError(
+            "Material Tag issuance failed safely; no records were issued."
+        ) from exc

@@ -52,12 +52,14 @@ def create_app(config_name="development"):
     from .auth.decorators import roles_required, station_required
     from .auth.uat_bypass import register_uat_bypass
     from .master_data import bp as master_data_bp
+    from .material_tags import bp as material_tags_bp
     from .mock_erp import bp as mock_erp_bp
     from .preparation import bp as preparation_bp
     from .weighing import bp as weighing_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(master_data_bp)
+    app.register_blueprint(material_tags_bp)
     app.register_blueprint(mock_erp_bp)
     app.register_blueprint(preparation_bp)
     app.register_blueprint(weighing_bp)

@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Select Material{% endblock %}
+{% block content %}
+<h1 class="h3">Select Material</h1>
+<form class="row g-2 mb-3" method="get">
+  <div class="col-md-8"><label class="form-label" for="q">Material Code or Name</label><input class="form-control" id="q" name="q" value="{{ query }}" autofocus></div>
+  <div class="col-md-4 d-flex align-items-end"><button class="btn btn-primary w-100">Search</button></div>
+</form>
+<div class="table-responsive"><table class="table table-striped align-middle">
+  <thead><tr><th>Code</th><th>Name</th><th>Unit</th><th>Classification</th><th></th></tr></thead>
+  <tbody>{% for material in materials %}<tr><td>{{ material.code }}</td><td>{{ material.name }}</td><td>{{ material.unit }}</td><td>{{ material.classification or '—' }}</td><td><a class="btn btn-sm btn-primary" href="{{ url_for('material_tags.new', material_id=material.id) }}">Select</a></td></tr>{% else %}<tr><td colspan="5">No active Materials found.</td></tr>{% endfor %}</tbody>
+</table></div>
+{% if pagination.pages > 1 %}<nav aria-label="Material pages"><div class="d-flex gap-2">{% if pagination.has_prev %}<a class="btn btn-outline-secondary" href="{{ url_for('material_tags.material_search', q=query, page=pagination.prev_num) }}">Previous</a>{% endif %}<span class="align-self-center">Page {{ pagination.page }} of {{ pagination.pages }}</span>{% if pagination.has_next %}<a class="btn btn-outline-secondary" href="{{ url_for('material_tags.material_search', q=query, page=pagination.next_num) }}">Next</a>{% endif %}</div></nav>{% endif %}
+{% endblock %}

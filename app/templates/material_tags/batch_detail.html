@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Issued Material Tag Batch{% endblock %}
+{% block content %}
+<h1 class="h3">Issued Material Tag Batch {{ batch.batch_no }}</h1>
+<div class="alert alert-info">Issued data is immutable. Printing will be available in the next approved Stage.</div>
+<dl class="row card card-body mx-0">
+{% for label, value in [('Batch Number', batch.batch_no), ('Material', batch.material_code_snapshot ~ ' — ' ~ batch.material_name_snapshot), ('Unit', batch.unit_snapshot), ('Receiving Date', batch.receiving_date.strftime('%d/%m/%Y')), ('Expiry Date', batch.expiry_date.strftime('%d/%m/%Y')), ('Purchase Order', batch.purchase_order), ('PO Line', batch.purchase_order_line), ('Delivery Invoice', batch.delivery_invoice), ('Vendor Lot', batch.vendor_lot), ('Supplier', batch.supplier), ('Comment', batch.comment or '—'), ('Warehouse', batch.warehouse), ('Location', batch.location), ('Shelf', batch.shelf), ('Tag count', batch.tag_count), ('QR payload', batch.qr_payload), ('Issued by', batch.issued_by.display_name), ('Issued at', batch.issued_at_utc|local_datetime ~ ' Thailand Time')] %}<dt class="col-sm-4">{{ label }}</dt><dd class="col-sm-8 text-break" style="overflow-wrap:anywhere; word-break:break-word">{{ value }}</dd>{% endfor %}
+<dt class="col-sm-4">Total / Standard</dt><dd class="col-sm-8">{{ '%.3f'|format(batch.total_received_weight) }} / {{ '%.3f'|format(batch.standard_container_weight) }} {{ batch.unit_snapshot }}</dd>
+<dt class="col-sm-4">Station</dt><dd class="col-sm-8">{{ station.code if station else '—' }}</dd>
+<dt class="col-sm-4">Reconciliation</dt><dd class="col-sm-8">{{ '%.3f'|format(batch.tags|sum(attribute='container_weight')) }} = {{ '%.3f'|format(batch.total_received_weight) }} {{ batch.unit_snapshot }}</dd>
+</dl>
+<div class="table-responsive"><table class="table table-striped"><thead><tr><th>Tag</th><th>Weight</th><th>Created</th></tr></thead><tbody>{% for tag in batch.tags|sort(attribute='sequence_no') %}<tr><td>Tag {{ tag.sequence_no }} of {{ batch.tag_count }}</td><td>{{ '%.3f'|format(tag.container_weight) }} {{ batch.unit_snapshot }}</td><td>{{ tag.created_at_utc|local_datetime }} Thailand Time</td></tr>{% endfor %}</tbody></table></div>
+{% endblock %}
