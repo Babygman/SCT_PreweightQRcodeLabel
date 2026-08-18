@@ -1,3 +1,4 @@
+from datetime import datetime
 from functools import wraps
 
 from flask import (
@@ -16,15 +17,30 @@ from sqlalchemy import or_, select
 
 from app.auth.decorators import roles_required, station_required
 from app.extensions import db
-from app.models import AuditLog, Material, MaterialTagBatch, MaterialTagDraft, Station
+from app.models import (
+    AuditLog,
+    Material,
+    MaterialTagBatch,
+    MaterialTagDraft,
+    MaterialTagPrintEvent,
+    Station,
+    User,
+)
 from app.services.material_tag_issuance import (
     MaterialTagIssuanceError,
     create_material_tag_draft,
+    create_print_event,
     issue_material_tag_draft,
+    material_tag_qr_data_uri,
     preview_details,
 )
 
-from .forms import MaterialTagConfirmForm, MaterialTagDraftForm
+from .forms import (
+    MaterialTagConfirmForm,
+    MaterialTagDraftForm,
+    MaterialTagPrintForm,
+    MaterialTagReprintForm,
+)
 
 bp = Blueprint("material_tags", __name__, url_prefix="/material-tags")
 
@@ -168,4 +184,176 @@ def batch_detail(batch_id):
         .order_by(AuditLog.occurred_at_utc.desc())
     )
     station = db.session.get(Station, audit.station_id) if audit and audit.station_id else None
-    return render_template("material_tags/batch_detail.html", batch=batch, station=station)
+    events = db.session.scalars(
+        select(MaterialTagPrintEvent)
+        .where(MaterialTagPrintEvent.batch_id == batch.id)
+        .order_by(MaterialTagPrintEvent.requested_at_utc.desc(), MaterialTagPrintEvent.id.desc())
+    ).all()
+    original_exists = any(
+        event.print_type == "ORIGINAL" and event.result == "RENDERED" for event in events
+    )
+    return render_template(
+        "material_tags/batch_detail.html",
+        batch=batch,
+        station=station,
+        events=events,
+        original_exists=original_exists,
+        print_form=MaterialTagPrintForm(),
+        reprint_form=MaterialTagReprintForm(),
+    )
+
+
+@bp.post("/batches/<int:batch_id>/print")
+@protected
+def print_batch(batch_id):
+    form = MaterialTagPrintForm()
+    if not form.validate_on_submit():
+        abort(400)
+    try:
+        event = create_print_event(
+            batch_id=batch_id,
+            user_id=current_user.id,
+            station_id=session["station_id"],
+            print_type="ORIGINAL",
+        )
+    except MaterialTagIssuanceError as exc:
+        flash(str(exc), "danger")
+        return redirect(url_for("material_tags.batch_detail", batch_id=batch_id))
+    return redirect(url_for("material_tags.print_event_view", event_id=event.id))
+
+
+@bp.post("/batches/<int:batch_id>/reprint")
+@protected
+def reprint_batch(batch_id):
+    form = MaterialTagReprintForm()
+    if not form.validate_on_submit():
+        flash("Reprint reason must contain 10 to 500 characters.", "danger")
+        return redirect(url_for("material_tags.batch_detail", batch_id=batch_id))
+    try:
+        event = create_print_event(
+            batch_id=batch_id,
+            user_id=current_user.id,
+            station_id=session["station_id"],
+            print_type="REPRINT",
+            reason=form.reason.data,
+        )
+    except MaterialTagIssuanceError as exc:
+        flash(str(exc), "danger")
+        return redirect(url_for("material_tags.batch_detail", batch_id=batch_id))
+    return redirect(url_for("material_tags.print_event_view", event_id=event.id))
+
+
+@bp.post("/batches/<int:batch_id>/tags/<int:tag_id>/reprint")
+@protected
+def reprint_tag(batch_id, tag_id):
+    form = MaterialTagReprintForm()
+    if not form.validate_on_submit():
+        flash("Reprint reason must contain 10 to 500 characters.", "danger")
+        return redirect(url_for("material_tags.batch_detail", batch_id=batch_id))
+    try:
+        event = create_print_event(
+            batch_id=batch_id,
+            tag_id=tag_id,
+            user_id=current_user.id,
+            station_id=session["station_id"],
+            print_type="REPRINT",
+            scope="INDIVIDUAL",
+            reason=form.reason.data,
+        )
+    except MaterialTagIssuanceError as exc:
+        flash(str(exc), "danger")
+        return redirect(url_for("material_tags.batch_detail", batch_id=batch_id))
+    return redirect(url_for("material_tags.print_event_view", event_id=event.id))
+
+
+@bp.get("/print-events/<int:event_id>/view")
+@protected
+def print_event_view(event_id):
+    event = db.get_or_404(MaterialTagPrintEvent, event_id)
+    tags = (
+        [event.material_tag]
+        if event.print_scope == "INDIVIDUAL" and event.material_tag is not None
+        else sorted(event.batch.tags, key=lambda tag: tag.sequence_no)
+    )
+    return render_template(
+        "material_tags/print.html",
+        event=event,
+        batch=event.batch,
+        tags=tags,
+        qr_data_uri=material_tag_qr_data_uri(event.batch.qr_payload),
+    )
+
+
+def _history_date(name):
+    raw = request.args.get(name, "").strip()
+    if not raw:
+        return None
+    try:
+        return datetime.strptime(raw, "%Y-%m-%d").date()
+    except ValueError:
+        abort(400)
+
+
+@bp.get("/history")
+@protected
+def history():
+    statement = select(MaterialTagBatch)
+    partial_filters = {
+        "batch_no": MaterialTagBatch.batch_no,
+        "material_code": MaterialTagBatch.material_code_snapshot,
+        "material_name": MaterialTagBatch.material_name_snapshot,
+        "vendor_lot": MaterialTagBatch.vendor_lot,
+        "purchase_order": MaterialTagBatch.purchase_order,
+        "delivery_invoice": MaterialTagBatch.delivery_invoice,
+    }
+    for name, column in partial_filters.items():
+        value = request.args.get(name, "").strip()
+        if value:
+            if len(value) > 200:
+                abort(400)
+            escaped = value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            statement = statement.where(column.ilike(f"%{escaped}%", escape="\\"))
+    issued_by = request.args.get("issued_by", type=int)
+    if issued_by:
+        statement = statement.where(MaterialTagBatch.issued_by_user_id == issued_by)
+    date_from, date_to = _history_date("date_from"), _history_date("date_to")
+    if date_from and date_to and date_from > date_to:
+        abort(400)
+    if date_from:
+        statement = statement.where(MaterialTagBatch.receiving_date >= date_from)
+    if date_to:
+        statement = statement.where(MaterialTagBatch.receiving_date <= date_to)
+    statement = statement.order_by(
+        MaterialTagBatch.issued_at_utc.desc(), MaterialTagBatch.id.desc()
+    )
+    page_size = current_app.config["MATERIAL_TAG_HISTORY_PAGE_SIZE"]
+    pagination = db.paginate(
+        statement,
+        page=max(request.args.get("page", 1, type=int), 1),
+        per_page=page_size,
+        max_per_page=page_size,
+        error_out=False,
+    )
+    users = db.session.scalars(select(User).order_by(User.username)).all()
+    event_counts = {
+        batch.id: {
+            "original": any(
+                e.print_type == "ORIGINAL" and e.result == "RENDERED" for e in batch.print_events
+            ),
+            "reprints": sum(e.print_type == "REPRINT" for e in batch.print_events),
+        }
+        for batch in pagination.items
+    }
+    return render_template(
+        "material_tags/history.html",
+        batches=pagination.items,
+        pagination=pagination,
+        users=users,
+        event_counts=event_counts,
+    )
+
+
+@bp.get("/calibration")
+@protected
+def calibration():
+    return render_template("material_tags/calibration.html")

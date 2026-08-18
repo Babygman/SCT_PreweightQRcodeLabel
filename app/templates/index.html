@@ -19,6 +19,8 @@
     {% endif %}
     {% if config.MATERIAL_TAG_ISSUANCE_ENABLED and ('SUPERVISOR' in role_codes or 'ADMIN' in role_codes) %}
     <a class="btn btn-info" href="{{ url_for('material_tags.new') }}">Material Tag Issuance</a>
+    <a class="btn btn-outline-info" href="{{ url_for('material_tags.history') }}">Material Tag History</a>
+    <a class="btn btn-outline-info" href="{{ url_for('material_tags.calibration') }}">Printer Calibration</a>
     {% endif %}
     {% if 'ADMIN' in role_codes %}
     <a class="btn btn-outline-secondary" href="{{ url_for('master_data.index') }}">Master Data</a>

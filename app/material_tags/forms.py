@@ -26,3 +26,12 @@ class MaterialTagDraftForm(FlaskForm):
 
 class MaterialTagConfirmForm(FlaskForm):
     submit = SubmitField("Confirm Issuance")
+
+
+class MaterialTagPrintForm(FlaskForm):
+    submit = SubmitField("Print Batch")
+
+
+class MaterialTagReprintForm(FlaskForm):
+    reason = TextAreaField("Reprint reason", validators=[DataRequired(), Length(min=10, max=500)])
+    submit = SubmitField("Render Reprint")

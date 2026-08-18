@@ -374,11 +374,11 @@ def test_issued_detail_is_read_only_and_contains_children(app, client):
     response = client.get(f"/material-tags/batches/{batch_id}")
     assert response.status_code == 200
     assert b"Issued data is immutable" in response.data
-    assert b"Printing will be available in the next approved Stage" in response.data
+    assert b"Print Batch" in response.data
     assert b"Tag 8 of 8" in response.data
     assert b"200.000 = 200.000" in response.data
     assert b"ST-one" in response.data
-    assert b"Reprint" not in response.data
+    assert b"Reprint Tag 1" in response.data
 
 
 def test_mutations_require_csrf_when_enabled(app, client):

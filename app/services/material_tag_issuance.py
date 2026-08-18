@@ -1,3 +1,4 @@
+import base64
 import calendar
 import json
 import secrets
@@ -5,20 +6,32 @@ import unicodedata
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from decimal import ROUND_FLOOR, Decimal, InvalidOperation
+from io import BytesIO
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
+import qrcode
 from flask import current_app
+from qrcode.constants import ERROR_CORRECT_M
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from app.extensions import db
-from app.models import AuditLog, Material, MaterialTag, MaterialTagBatch, MaterialTagDraft, utcnow
+from app.models import (
+    AuditLog,
+    Material,
+    MaterialTag,
+    MaterialTagBatch,
+    MaterialTagDraft,
+    MaterialTagPrintEvent,
+    utcnow,
+)
 from app.services.weighing import MaterialTagError, parse_material_tag
 
 WEIGHT_QUANTUM = Decimal("0.001")
 DEFAULT_MAXIMUM_TAGS = 200
 MAX_BATCH_NUMBER_ATTEMPTS = 10
+MAX_PRINTABLE_MATERIAL_NAME = 100
 
 
 class MaterialTagIssuanceError(ValueError):
@@ -451,3 +464,137 @@ def issue_material_tag_draft(*, token, user_id, station_id, _collision_attempt=0
         raise MaterialTagIssuanceError(
             "Material Tag issuance failed safely; no records were issued."
         ) from exc
+
+
+def material_tag_qr_data_uri(payload):
+    parsed = parse_material_tag(payload)
+    if parsed.raw_payload != payload:
+        raise MaterialTagIssuanceError("Stored Material Tag QR payload is invalid.")
+    qr = qrcode.QRCode(version=None, error_correction=ERROR_CORRECT_M, box_size=6, border=4)
+    qr.add_data(payload)
+    qr.make(fit=True)
+    image = qr.make_image(fill_color="black", back_color="white")
+    output = BytesIO()
+    image.save(output, format="PNG")
+    return "data:image/png;base64," + base64.b64encode(output.getvalue()).decode("ascii")
+
+
+def _reprint_reason(value):
+    normalized = unicodedata.normalize("NFC", str(value or "")).strip()
+    if not 10 <= len(normalized) <= 500:
+        raise MaterialTagIssuanceError("Reprint reason must contain 10 to 500 characters.")
+    if any(unicodedata.category(character).startswith("C") for character in normalized):
+        raise MaterialTagIssuanceError("Reprint reason must not contain control characters.")
+    return normalized
+
+
+def create_print_event(
+    *, batch_id, user_id, station_id, print_type, scope="BATCH", tag_id=None, reason=None
+):
+    batch = db.session.get(MaterialTagBatch, batch_id)
+    if batch is None:
+        raise MaterialTagIssuanceError("Issued Material Tag batch was not found.")
+    if len(batch.material_name_snapshot) > MAX_PRINTABLE_MATERIAL_NAME:
+        raise MaterialTagIssuanceError(
+            "Material Name is too long for a readable 3 x 2.5 inch label."
+        )
+    material_tag = None
+    if scope == "INDIVIDUAL":
+        material_tag = db.session.get(MaterialTag, tag_id)
+        if material_tag is None or material_tag.batch_id != batch.id:
+            raise MaterialTagIssuanceError("Selected Material Tag does not belong to this batch.")
+    if print_type == "ORIGINAL":
+        if scope != "BATCH" or reason:
+            raise MaterialTagIssuanceError("Original printing must render the complete batch.")
+        existing = db.session.scalar(
+            select(MaterialTagPrintEvent).where(
+                MaterialTagPrintEvent.batch_id == batch.id,
+                MaterialTagPrintEvent.print_type == "ORIGINAL",
+                MaterialTagPrintEvent.result == "RENDERED",
+            )
+        )
+        if existing is not None:
+            return existing
+    elif print_type == "REPRINT":
+        reason = _reprint_reason(reason)
+    else:
+        raise MaterialTagIssuanceError("Unknown print intent.")
+    try:
+        material_tag_qr_data_uri(batch.qr_payload)
+    except Exception as exc:
+        db.session.rollback()
+        failed = MaterialTagPrintEvent(
+            batch_id=batch.id,
+            material_tag_id=material_tag.id if material_tag else None,
+            print_scope=scope,
+            print_type=print_type,
+            result="FAILED",
+            reason=reason,
+            requested_by_user_id=user_id,
+            requested_at_utc=utcnow(),
+            printer_name=None,
+            error_message="Stored QR payload could not be rendered.",
+        )
+        db.session.add(failed)
+        db.session.flush()
+        _audit(
+            "MATERIAL_TAG_PRINT_FAILED",
+            "MATERIAL_TAG_PRINT_EVENT",
+            failed.id,
+            user_id,
+            station_id,
+            {
+                "batch_id": batch.id,
+                "batch_no": batch.batch_no,
+                "material_code": batch.material_code_snapshot,
+                "print_event_id": failed.id,
+                "scope": scope,
+                "sequence": material_tag.sequence_no if material_tag else None,
+                "result": "FAILED",
+            },
+        )
+        db.session.commit()
+        raise MaterialTagIssuanceError("Print page rendering failed safely.") from exc
+    try:
+        event = MaterialTagPrintEvent(
+            batch_id=batch.id,
+            material_tag_id=material_tag.id if material_tag else None,
+            print_scope=scope,
+            print_type=print_type,
+            result="RENDERED",
+            reason=reason,
+            requested_by_user_id=user_id,
+            requested_at_utc=utcnow(),
+            printer_name=None,
+            error_message=None,
+        )
+        db.session.add(event)
+        db.session.flush()
+        audit_type = (
+            "MATERIAL_TAG_BATCH_PRINT_RENDERED"
+            if print_type == "ORIGINAL"
+            else "MATERIAL_TAG_REPRINT_RENDERED"
+        )
+        _audit(
+            audit_type,
+            "MATERIAL_TAG_PRINT_EVENT",
+            event.id,
+            user_id,
+            station_id,
+            {
+                "batch_id": batch.id,
+                "batch_no": batch.batch_no,
+                "material_code": batch.material_code_snapshot,
+                "print_event_id": event.id,
+                "scope": scope,
+                "sequence": material_tag.sequence_no if material_tag else None,
+                "result": event.result,
+            },
+        )
+        db.session.commit()
+        return event
+    except Exception as exc:
+        db.session.rollback()
+        if isinstance(exc, MaterialTagIssuanceError):
+            raise
+        raise MaterialTagIssuanceError("Print page rendering failed safely.") from exc
