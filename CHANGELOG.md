@@ -37,3 +37,5 @@
   persistent previews, confirmed idempotent Material-code upserts, audit events, and result UI.
 - Disabled-by-default Material Tag Issuance feature gate to protect environments where the new
   foundation migration has not yet been applied.
+- Stage B completion safeguards for all-or-nothing imports, SQL Server batch locking, persisted
+  preview revalidation, hostile workbook rejection, paged results, and Thailand-time audit context.

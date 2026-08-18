@@ -117,7 +117,9 @@ Stage B adds an Admin-only, CSRF-protected `.xlsx` validation, persistent previe
 apply workflow. It validates the exact `Sheet1` header contract, normalizes Material codes,
 categories, names, classifies every row, and applies an idempotent Material-code upsert. Duplicate
 Material names remain valid. Existing Material unit, classification, and active status are not
-changed by an import.
+changed by an import. Uploads are limited to 5 MB and 5,000 data rows; unsafe ZIP/XML structures,
+macros, external links, merged cells, formulas, and control characters are rejected. Any rejected
+row blocks the entire Apply operation, so no partial Material import is possible.
 
 The import routes and Master Data link are controlled by `MATERIAL_TAG_ISSUANCE_ENABLED`, which is
 disabled by default. It must remain disabled in any environment where migration `b0551011c146` has

@@ -1,7 +1,17 @@
 from functools import wraps
 from uuid import uuid4
 
-from flask import Blueprint, abort, current_app, flash, redirect, render_template, session, url_for
+from flask import (
+    Blueprint,
+    abort,
+    current_app,
+    flash,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
 from flask_login import current_user, login_required
 from sqlalchemy import select
 
@@ -12,6 +22,7 @@ from app.models import (
     FormulaItem,
     Material,
     MaterialImportBatch,
+    MaterialImportRow,
     Product,
     ProductionOrder,
     RawMaterialLot,
@@ -63,7 +74,7 @@ def index():
     return render_template("master_data/index.html", **data)
 
 
-@bp.route("/material-import", methods=["GET", "POST"])
+@bp.route("/materials/import", methods=["GET", "POST"])
 @material_import_enabled_required
 @login_required
 @station_required
@@ -89,23 +100,36 @@ def material_import_upload():
     return render_template("master_data/material_import_upload.html", form=form)
 
 
-@bp.get("/material-import/<int:batch_id>")
+@bp.get("/materials/import/<int:batch_id>/preview")
 @material_import_enabled_required
 @login_required
 @station_required
 @roles_required("ADMIN")
 def material_import_preview(batch_id):
     batch = db.get_or_404(MaterialImportBatch, batch_id)
-    rows = sorted(batch.rows, key=lambda row: row.row_number)
+    if batch.status == "APPLIED":
+        return redirect(url_for("master_data.material_import_result", batch_id=batch.id))
+    page = request.args.get("page", 1, type=int)
+    pagination = db.paginate(
+        select(MaterialImportRow)
+        .where(MaterialImportRow.import_batch_id == batch.id)
+        .order_by(MaterialImportRow.row_number),
+        page=page,
+        per_page=100,
+        max_per_page=100,
+        error_out=False,
+    )
     return render_template(
         "master_data/material_import_result.html",
         batch=batch,
-        rows=rows,
+        rows=pagination.items,
+        pagination=pagination,
+        is_preview=True,
         apply_form=MaterialImportApplyForm(),
     )
 
 
-@bp.post("/material-import/<int:batch_id>/apply")
+@bp.post("/materials/import/<int:batch_id>/apply")
 @material_import_enabled_required
 @login_required
 @station_required
@@ -124,4 +148,33 @@ def material_import_apply(batch_id):
         flash(str(exc), "danger")
         return redirect(url_for("master_data.material_import_preview", batch_id=batch_id))
     flash("Material Master import applied successfully.", "success")
-    return redirect(url_for("master_data.material_import_preview", batch_id=batch.id))
+    return redirect(url_for("master_data.material_import_result", batch_id=batch.id))
+
+
+@bp.get("/materials/import/<int:batch_id>/result")
+@material_import_enabled_required
+@login_required
+@station_required
+@roles_required("ADMIN")
+def material_import_result(batch_id):
+    batch = db.get_or_404(MaterialImportBatch, batch_id)
+    if batch.status != "APPLIED":
+        return redirect(url_for("master_data.material_import_preview", batch_id=batch.id))
+    page = request.args.get("page", 1, type=int)
+    pagination = db.paginate(
+        select(MaterialImportRow)
+        .where(MaterialImportRow.import_batch_id == batch.id)
+        .order_by(MaterialImportRow.row_number),
+        page=page,
+        per_page=100,
+        max_per_page=100,
+        error_out=False,
+    )
+    return render_template(
+        "master_data/material_import_result.html",
+        batch=batch,
+        rows=pagination.items,
+        pagination=pagination,
+        is_preview=False,
+        apply_form=MaterialImportApplyForm(),
+    )

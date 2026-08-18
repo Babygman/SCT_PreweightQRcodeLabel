@@ -1,10 +1,13 @@
 import hashlib
+import json
 import unicodedata
 import zipfile
 from collections import Counter
 from dataclasses import dataclass
 from io import BytesIO
 
+from defusedxml import ElementTree
+from defusedxml.common import DefusedXmlException
 from openpyxl import load_workbook
 from openpyxl.utils.exceptions import InvalidFileException
 from sqlalchemy import func, select
@@ -15,6 +18,7 @@ from app.models import AuditLog, Material, MaterialImportBatch, MaterialImportRo
 
 REQUIRED_HEADERS = ("ITEM CODE", "CATEGORY_NO", "NAME")
 ALLOWED_CATEGORY = "MAT"
+MAX_ZIP_ENTRIES = 1_000
 
 
 class MaterialImportError(ValueError):
@@ -38,12 +42,19 @@ def _normalized(value, *, uppercase=False):
     text_value = unicodedata.normalize("NFC", str(value)).strip()
     if not text_value:
         return None
+    if any(unicodedata.category(character).startswith("C") for character in text_value):
+        raise MaterialImportError("Workbook values must not contain control characters.")
     return text_value.upper() if uppercase else text_value
 
 
 def _safe_filename(filename):
-    cleaned = secure_filename(filename or "")
+    basename = (filename or "").replace("\\", "/").rsplit("/", 1)[-1]
+    cleaned = secure_filename(basename)
     return cleaned[:255] or "material-master.xlsx"
+
+
+def _xml_local_name(element):
+    return element.tag.rsplit("}", 1)[-1]
 
 
 def _validate_xlsx_container(file_bytes, maximum_uncompressed_bytes):
@@ -52,7 +63,7 @@ def _validate_xlsx_container(file_bytes, maximum_uncompressed_bytes):
     try:
         with zipfile.ZipFile(BytesIO(file_bytes)) as archive:
             members = archive.infolist()
-            if len(members) > 1_000:
+            if len(members) > MAX_ZIP_ENTRIES:
                 raise MaterialImportError("The workbook contains too many internal files.")
             if any(
                 member.filename.startswith(("/", "\\"))
@@ -67,7 +78,33 @@ def _validate_xlsx_container(file_bytes, maximum_uncompressed_bytes):
                 raise MaterialImportError("The uploaded file is not a valid .xlsx workbook.")
             if any(name.lower().endswith("vbaproject.bin") for name in names):
                 raise MaterialImportError("Macro-enabled workbooks are not accepted.")
-    except (zipfile.BadZipFile, OSError) as exc:
+
+            xml_documents = {}
+            for member in members:
+                if member.filename.lower().endswith((".xml", ".rels")):
+                    try:
+                        xml_documents[member.filename] = ElementTree.fromstring(
+                            archive.read(member)
+                        )
+                    except (DefusedXmlException, ElementTree.ParseError, ValueError) as exc:
+                        raise MaterialImportError(
+                            "The workbook contains malformed or unsafe XML."
+                        ) from exc
+
+            if any(
+                element.attrib.get("TargetMode", "").lower() == "external"
+                for root in xml_documents.values()
+                for element in root.iter()
+                if _xml_local_name(element) == "Relationship"
+            ):
+                raise MaterialImportError("Workbooks containing external links are not accepted.")
+
+            worksheet_xml = xml_documents.get("xl/worksheets/sheet1.xml")
+            if worksheet_xml is not None and any(
+                _xml_local_name(element) == "mergeCell" for element in worksheet_xml.iter()
+            ):
+                raise MaterialImportError("Merged cells are not accepted in Sheet1.")
+    except (zipfile.BadZipFile, OSError, RuntimeError) as exc:
         raise MaterialImportError("The uploaded file is not a valid .xlsx workbook.") from exc
 
 
@@ -88,7 +125,14 @@ def parse_material_workbook(
         workbook = load_workbook(
             BytesIO(file_bytes), read_only=True, data_only=False, keep_links=False
         )
-    except (InvalidFileException, KeyError, OSError, ValueError, zipfile.BadZipFile) as exc:
+    except (
+        InvalidFileException,
+        KeyError,
+        OSError,
+        TypeError,
+        ValueError,
+        zipfile.BadZipFile,
+    ) as exc:
         raise MaterialImportError(
             "The uploaded file could not be read as an .xlsx workbook."
         ) from exc
@@ -113,7 +157,9 @@ def parse_material_workbook(
             )
 
         data_rows = [list(row[:3]) for row in worksheet_rows[1:]]
-        while data_rows and all(_normalized(cell.value) is None for cell in data_rows[-1]):
+        while data_rows and all(
+            cell.value is None or not str(cell.value).strip() for cell in data_rows[-1]
+        ):
             data_rows.pop()
         if not data_rows:
             raise MaterialImportError("The workbook contains no Material rows.")
@@ -123,11 +169,20 @@ def parse_material_workbook(
         parsed = []
         for row_number, cells in enumerate(data_rows, start=2):
             values = [cell.value for cell in cells]
-            code = _normalized(values[0], uppercase=True)
-            category = _normalized(values[1], uppercase=True)
-            name = _normalized(values[2])
+            normalized_values = []
+            control_error = None
+            for value, uppercase in zip(values, (True, True, False), strict=True):
+                try:
+                    normalized_values.append(_normalized(value, uppercase=uppercase))
+                except MaterialImportError as exc:
+                    normalized_values.append(None)
+                    control_error = str(exc)
+            code, category, name = normalized_values
             row = ParsedRow(row_number, code, category, name)
-            if any(cell.data_type == "f" for cell in cells):
+            if control_error:
+                row.reason_code = "CONTROL_CHARACTER_NOT_ALLOWED"
+                row.reason_detail = control_error
+            elif any(cell.data_type == "f" for cell in cells):
                 row.reason_code = "FORMULA_NOT_ALLOWED"
                 row.reason_detail = "Required cells must contain values, not formulas."
             elif code is None or category is None or name is None:
@@ -157,10 +212,23 @@ def parse_material_workbook(
 
 
 def _add_audit(event_type, batch, user_id, station_id):
-    detail = (
-        f"status={batch.status};total={batch.total_rows};insert={batch.inserted_count};"
-        f"update={batch.updated_count};unchanged={batch.unchanged_count};"
-        f"rejected={batch.rejected_count};sha256={batch.file_sha256}"
+    detail = json.dumps(
+        {
+            "batch_id": batch.id,
+            "event": event_type,
+            "filename": batch.original_filename,
+            "file_sha256": batch.file_sha256,
+            "status": batch.status,
+            "counts": {
+                "total": batch.total_rows,
+                "insert": batch.inserted_count,
+                "update": batch.updated_count,
+                "unchanged": batch.unchanged_count,
+                "rejected": batch.rejected_count,
+            },
+        },
+        ensure_ascii=True,
+        separators=(",", ":"),
     )
     audit = AuditLog(
         event_type=event_type,
@@ -224,7 +292,7 @@ def create_material_import_preview(
         batch.status = "FAILED"
         batch.error_summary = str(exc)
         db.session.flush()
-        _add_audit("MATERIAL_IMPORT_VALIDATION_FAILED", batch, user_id, station_id)
+        _add_audit("MATERIAL_IMPORT_FAILED", batch, user_id, station_id)
         db.session.commit()
         return batch
 
@@ -264,10 +332,66 @@ def create_material_import_preview(
     return batch
 
 
-def apply_material_import(*, batch_id, user_id, station_id):
-    batch = db.session.scalar(
-        select(MaterialImportBatch).where(MaterialImportBatch.id == batch_id).with_for_update()
+def _batch_for_apply_statement(batch_id):
+    return (
+        select(MaterialImportBatch)
+        .where(MaterialImportBatch.id == batch_id)
+        .with_hint(MaterialImportBatch, "WITH (UPDLOCK, HOLDLOCK)", dialect_name="mssql")
     )
+
+
+def _validate_persisted_preview(batch, rows):
+    counts = Counter(row.result for row in rows)
+    expected_counts = {
+        "INSERT": batch.inserted_count,
+        "UPDATE": batch.updated_count,
+        "UNCHANGED": batch.unchanged_count,
+        "REJECTED": batch.rejected_count,
+    }
+    if len(rows) != batch.total_rows or any(
+        counts[result] != expected for result, expected in expected_counts.items()
+    ):
+        raise MaterialImportError("The persisted preview counts failed integrity validation.")
+    if batch.rejected_count or counts["REJECTED"]:
+        raise MaterialImportError(
+            "This workbook contains rejected rows. Correct it and upload a new workbook."
+        )
+    if len({row.row_number for row in rows}) != len(rows) or any(
+        row.row_number < 2 for row in rows
+    ):
+        raise MaterialImportError("The persisted Excel row identities are invalid.")
+
+    codes = []
+    for row in rows:
+        if row.result not in {"INSERT", "UPDATE", "UNCHANGED"}:
+            raise MaterialImportError("The persisted row classification is invalid.")
+        try:
+            code = _normalized(row.item_code_normalized, uppercase=True)
+            category = _normalized(row.category_no_normalized, uppercase=True)
+            name = _normalized(row.name_normalized)
+        except MaterialImportError as exc:
+            raise MaterialImportError("The persisted preview contains an invalid value.") from exc
+        if (
+            code is None
+            or category != ALLOWED_CATEGORY
+            or name is None
+            or code != row.item_code_normalized
+            or category != row.category_no_normalized
+            or name != row.name_normalized
+            or len(code) > 50
+            or len(category) > 30
+            or len(name) > 200
+            or row.reason_code is not None
+            or row.reason_detail is not None
+        ):
+            raise MaterialImportError("The persisted preview contains an invalid Material row.")
+        codes.append(code)
+    if len(codes) != len(set(codes)):
+        raise MaterialImportError("The persisted preview contains duplicate Material codes.")
+
+
+def apply_material_import(*, batch_id, user_id, station_id):
+    batch = db.session.scalar(_batch_for_apply_statement(batch_id))
     if batch is None:
         raise MaterialImportError("Material import preview was not found.")
     if batch.status == "APPLIED":
@@ -276,16 +400,14 @@ def apply_material_import(*, batch_id, user_id, station_id):
         raise MaterialImportError("Only a valid preview can be applied.")
 
     rows = sorted(batch.rows, key=lambda row: row.row_number)
-    valid_rows = [row for row in rows if row.result != "REJECTED"]
-    if not valid_rows:
-        raise MaterialImportError("The preview contains no valid Material rows to apply.")
-    codes = [row.item_code_normalized for row in valid_rows]
+    _validate_persisted_preview(batch, rows)
+    codes = [row.item_code_normalized for row in rows]
     existing_materials = {
         material.code: material
         for material in db.session.scalars(select(Material).where(Material.code.in_(codes)))
     }
     changed_at = utcnow()
-    for row in valid_rows:
+    for row in rows:
         material = existing_materials.get(row.item_code_normalized)
         if material is None:
             material = Material(

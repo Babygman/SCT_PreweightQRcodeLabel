@@ -16,7 +16,7 @@ class Config:
     # default so disabled routes never query those tables.
     MATERIAL_TAG_ISSUANCE_ENABLED = False
     MATERIAL_IMPORT_MAX_BYTES = 5 * 1024 * 1024
-    MATERIAL_IMPORT_MAX_ROWS = 10_000
+    MATERIAL_IMPORT_MAX_ROWS = 5_000
     MATERIAL_IMPORT_MAX_UNCOMPRESSED_BYTES = 50 * 1024 * 1024
 
     @classmethod
