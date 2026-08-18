@@ -99,3 +99,14 @@ same QR content. ERP consumption remains outside this application's scope.
 
 The current versioned JSON ERP QR format is intentionally preserved. Redesigning that payload is
 deferred until a later approved requirement defines the target ERP format.
+
+## Material Tag Issuance foundation
+
+Stage A adds the schema and pure services for future Material Master import and Material Tag
+issuance. It includes exact three-decimal container-weight splitting, six-calendar-month expiry
+calculation, and construction of the existing eleven-field Material Tag QR payload. There are no
+Material import, Tag issuance, history, or printing routes in Stage A.
+
+Migration `b0551011c146` is additive, but its downgrade becomes destructive once issued Material
+Tag records exist and therefore requires a separate approval at that point. The migration has not
+been applied to the live UAT database as part of Stage A.

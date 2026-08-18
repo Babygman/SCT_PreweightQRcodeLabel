@@ -60,6 +60,7 @@ class Station(db.Model):
 
 class Material(db.Model):
     __tablename__ = "materials"
+    __table_args__ = (Index("ix_materials_name", "name"),)
     id: Mapped[int] = mapped_column(primary_key=True)
     code: Mapped[str] = mapped_column(db.Unicode(50), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(db.Unicode(200), nullable=False)
@@ -67,7 +68,198 @@ class Material(db.Model):
     classification: Mapped[str | None] = mapped_column(
         db.Unicode(50), default="GENERAL", server_default=text("'GENERAL'"), nullable=True
     )
+    source_category_no: Mapped[str | None] = mapped_column(db.Unicode(30))
     is_active: Mapped[bool] = mapped_column(default=True, server_default=text("1"), nullable=False)
+    updated_at_utc: Mapped[datetime | None] = mapped_column(UTC_DATETIME)
+    updated_by_user_id: Mapped[int | None] = mapped_column(db.ForeignKey("users.id"))
+    updated_by: Mapped[User | None] = relationship(foreign_keys=[updated_by_user_id])
+
+
+class MaterialImportBatch(db.Model):
+    __tablename__ = "material_import_batches"
+    __table_args__ = (
+        CheckConstraint("status IN ('PREVIEWED', 'APPLIED', 'FAILED', 'EXPIRED')", name="status"),
+        Index("ix_material_import_batches_file_sha256", "file_sha256"),
+    )
+    id: Mapped[int] = mapped_column(BIGINT_ID, primary_key=True, autoincrement=True)
+    original_filename: Mapped[str] = mapped_column(db.Unicode(255), nullable=False)
+    file_sha256: Mapped[str] = mapped_column(db.Unicode(64), nullable=False)
+    status: Mapped[str] = mapped_column(db.Unicode(20), nullable=False)
+    total_rows: Mapped[int] = mapped_column(nullable=False)
+    inserted_count: Mapped[int] = mapped_column(default=0, server_default=text("0"), nullable=False)
+    updated_count: Mapped[int] = mapped_column(default=0, server_default=text("0"), nullable=False)
+    unchanged_count: Mapped[int] = mapped_column(
+        default=0, server_default=text("0"), nullable=False
+    )
+    rejected_count: Mapped[int] = mapped_column(default=0, server_default=text("0"), nullable=False)
+    uploaded_by_user_id: Mapped[int] = mapped_column(db.ForeignKey("users.id"), nullable=False)
+    uploaded_at_utc: Mapped[datetime] = mapped_column(UTC_DATETIME, nullable=False)
+    applied_by_user_id: Mapped[int | None] = mapped_column(db.ForeignKey("users.id"))
+    applied_at_utc: Mapped[datetime | None] = mapped_column(UTC_DATETIME)
+    idempotency_key: Mapped[str] = mapped_column(db.Unicode(36), unique=True, nullable=False)
+    error_summary: Mapped[str | None] = mapped_column(db.Unicode(1000))
+    uploaded_by: Mapped[User] = relationship(foreign_keys=[uploaded_by_user_id])
+    applied_by: Mapped[User | None] = relationship(foreign_keys=[applied_by_user_id])
+    rows: Mapped[list["MaterialImportRow"]] = relationship(back_populates="import_batch")
+
+
+class MaterialImportRow(db.Model):
+    __tablename__ = "material_import_rows"
+    __table_args__ = (
+        db.UniqueConstraint("import_batch_id", "row_number"),
+        CheckConstraint("result IN ('INSERT', 'UPDATE', 'UNCHANGED', 'REJECTED')", name="result"),
+    )
+    id: Mapped[int] = mapped_column(BIGINT_ID, primary_key=True, autoincrement=True)
+    import_batch_id: Mapped[int] = mapped_column(
+        db.ForeignKey("material_import_batches.id"), nullable=False
+    )
+    row_number: Mapped[int] = mapped_column(nullable=False)
+    item_code_normalized: Mapped[str | None] = mapped_column(db.Unicode(50))
+    category_no_normalized: Mapped[str | None] = mapped_column(db.Unicode(30))
+    name_normalized: Mapped[str | None] = mapped_column(db.Unicode(200))
+    result: Mapped[str] = mapped_column(db.Unicode(20), nullable=False)
+    reason_code: Mapped[str | None] = mapped_column(db.Unicode(50))
+    reason_detail: Mapped[str | None] = mapped_column(db.Unicode(500))
+    import_batch: Mapped[MaterialImportBatch] = relationship(back_populates="rows")
+
+
+class MaterialTagBatch(db.Model):
+    __tablename__ = "material_tag_batches"
+    __table_args__ = (
+        CheckConstraint("total_received_weight > 0", name="total_received_weight_positive"),
+        CheckConstraint("standard_container_weight > 0", name="standard_container_weight_positive"),
+        CheckConstraint("tag_count BETWEEN 1 AND 200", name="tag_count_range"),
+        CheckConstraint("expiry_date >= receiving_date", name="expiry_not_before_receiving"),
+        Index("ix_material_tag_batches_material_receiving", "material_id", "receiving_date"),
+        Index(
+            "ix_material_tag_batches_code_vendor_lot",
+            "material_code_snapshot",
+            "vendor_lot",
+        ),
+        Index("ix_material_tag_batches_purchase_order", "purchase_order"),
+        Index("ix_material_tag_batches_delivery_invoice", "delivery_invoice"),
+        Index("ix_material_tag_batches_issued_by", "issued_by_user_id"),
+    )
+    id: Mapped[int] = mapped_column(BIGINT_ID, primary_key=True, autoincrement=True)
+    batch_no: Mapped[str] = mapped_column(db.Unicode(40), unique=True, nullable=False)
+    material_id: Mapped[int] = mapped_column(db.ForeignKey("materials.id"), nullable=False)
+    material_code_snapshot: Mapped[str] = mapped_column(db.Unicode(50), nullable=False)
+    material_name_snapshot: Mapped[str] = mapped_column(db.Unicode(200), nullable=False)
+    unit_snapshot: Mapped[str] = mapped_column(db.Unicode(20), nullable=False)
+    category_no_snapshot: Mapped[str | None] = mapped_column(db.Unicode(30))
+    receiving_date: Mapped[date] = mapped_column(SQL_DATE, nullable=False)
+    expiry_date: Mapped[date] = mapped_column(SQL_DATE, nullable=False)
+    purchase_order: Mapped[str] = mapped_column(db.Unicode(100), nullable=False)
+    purchase_order_line: Mapped[str] = mapped_column(db.Unicode(30), nullable=False)
+    delivery_invoice: Mapped[str] = mapped_column(db.Unicode(100), nullable=False)
+    vendor_lot: Mapped[str] = mapped_column(db.Unicode(100), nullable=False)
+    supplier: Mapped[str] = mapped_column(db.Unicode(100), nullable=False)
+    comment: Mapped[str] = mapped_column(
+        db.Unicode(200), default="", server_default=text("''"), nullable=False
+    )
+    warehouse: Mapped[str] = mapped_column(db.Unicode(50), nullable=False)
+    location: Mapped[str] = mapped_column(db.Unicode(50), nullable=False)
+    shelf: Mapped[str] = mapped_column(db.Unicode(50), nullable=False)
+    total_received_weight: Mapped[Decimal] = mapped_column(db.Numeric(18, 3), nullable=False)
+    standard_container_weight: Mapped[Decimal] = mapped_column(db.Numeric(18, 3), nullable=False)
+    tag_count: Mapped[int] = mapped_column(nullable=False)
+    qr_payload: Mapped[str] = mapped_column(MAX_UNICODE, nullable=False)
+    issued_by_user_id: Mapped[int] = mapped_column(db.ForeignKey("users.id"), nullable=False)
+    issued_at_utc: Mapped[datetime] = mapped_column(UTC_DATETIME, nullable=False)
+    source_draft_token: Mapped[str] = mapped_column(db.Unicode(36), unique=True, nullable=False)
+    material: Mapped[Material] = relationship()
+    issued_by: Mapped[User] = relationship(foreign_keys=[issued_by_user_id])
+    tags: Mapped[list["MaterialTag"]] = relationship(back_populates="batch")
+    print_events: Mapped[list["MaterialTagPrintEvent"]] = relationship(back_populates="batch")
+
+
+class MaterialTagDraft(db.Model):
+    __tablename__ = "material_tag_drafts"
+    __table_args__ = (
+        CheckConstraint("total_received_weight > 0", name="total_received_weight_positive"),
+        CheckConstraint("standard_container_weight > 0", name="standard_container_weight_positive"),
+        CheckConstraint(
+            "calculated_tag_count BETWEEN 1 AND 200", name="calculated_tag_count_range"
+        ),
+        CheckConstraint("status IN ('PREVIEWED', 'ISSUED', 'EXPIRED')", name="status"),
+    )
+    id: Mapped[int] = mapped_column(BIGINT_ID, primary_key=True, autoincrement=True)
+    draft_token: Mapped[str] = mapped_column(db.Unicode(36), unique=True, nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(db.Unicode(36), unique=True, nullable=False)
+    material_id: Mapped[int] = mapped_column(db.ForeignKey("materials.id"), nullable=False)
+    receiving_date: Mapped[date] = mapped_column(SQL_DATE, nullable=False)
+    purchase_order: Mapped[str] = mapped_column(db.Unicode(100), nullable=False)
+    purchase_order_line: Mapped[str] = mapped_column(db.Unicode(30), nullable=False)
+    material_code: Mapped[str] = mapped_column(db.Unicode(50), nullable=False)
+    delivery_invoice: Mapped[str] = mapped_column(db.Unicode(100), nullable=False)
+    vendor_lot: Mapped[str] = mapped_column(db.Unicode(100), nullable=False)
+    supplier: Mapped[str] = mapped_column(db.Unicode(100), nullable=False)
+    comment: Mapped[str] = mapped_column(
+        db.Unicode(200), default="", server_default=text("''"), nullable=False
+    )
+    warehouse: Mapped[str] = mapped_column(db.Unicode(50), nullable=False)
+    location: Mapped[str] = mapped_column(db.Unicode(50), nullable=False)
+    shelf: Mapped[str] = mapped_column(db.Unicode(50), nullable=False)
+    total_received_weight: Mapped[Decimal] = mapped_column(db.Numeric(18, 3), nullable=False)
+    standard_container_weight: Mapped[Decimal] = mapped_column(db.Numeric(18, 3), nullable=False)
+    calculated_tag_count: Mapped[int] = mapped_column(nullable=False)
+    calculated_weights_json: Mapped[str] = mapped_column(MAX_UNICODE, nullable=False)
+    status: Mapped[str] = mapped_column(db.Unicode(20), nullable=False)
+    created_by_user_id: Mapped[int] = mapped_column(db.ForeignKey("users.id"), nullable=False)
+    created_at_utc: Mapped[datetime] = mapped_column(UTC_DATETIME, nullable=False)
+    expires_at_utc: Mapped[datetime] = mapped_column(UTC_DATETIME, nullable=False)
+    issued_batch_id: Mapped[int | None] = mapped_column(db.ForeignKey("material_tag_batches.id"))
+    material: Mapped[Material] = relationship()
+    created_by: Mapped[User] = relationship(foreign_keys=[created_by_user_id])
+    issued_batch: Mapped[MaterialTagBatch | None] = relationship(foreign_keys=[issued_batch_id])
+
+
+class MaterialTag(db.Model):
+    __tablename__ = "material_tags"
+    __table_args__ = (
+        db.UniqueConstraint("batch_id", "sequence_no"),
+        CheckConstraint("sequence_no > 0", name="sequence_no_positive"),
+        CheckConstraint("container_weight > 0", name="container_weight_positive"),
+    )
+    id: Mapped[int] = mapped_column(BIGINT_ID, primary_key=True, autoincrement=True)
+    batch_id: Mapped[int] = mapped_column(db.ForeignKey("material_tag_batches.id"), nullable=False)
+    sequence_no: Mapped[int] = mapped_column(nullable=False)
+    container_weight: Mapped[Decimal] = mapped_column(db.Numeric(18, 3), nullable=False)
+    created_at_utc: Mapped[datetime] = mapped_column(UTC_DATETIME, nullable=False)
+    batch: Mapped[MaterialTagBatch] = relationship(back_populates="tags")
+    print_events: Mapped[list["MaterialTagPrintEvent"]] = relationship(
+        back_populates="material_tag"
+    )
+
+
+class MaterialTagPrintEvent(db.Model):
+    __tablename__ = "material_tag_print_events"
+    __table_args__ = (
+        CheckConstraint("print_scope IN ('BATCH', 'INDIVIDUAL')", name="print_scope"),
+        CheckConstraint("print_type IN ('ORIGINAL', 'REPRINT')", name="print_type"),
+        CheckConstraint("result IN ('RENDERED', 'FAILED')", name="result"),
+        Index("ix_material_tag_print_events_batch", "batch_id", "requested_at_utc"),
+        Index("ix_material_tag_print_events_tag", "material_tag_id", "requested_at_utc"),
+        Index(
+            "ix_material_tag_print_events_requester",
+            "requested_by_user_id",
+            "requested_at_utc",
+        ),
+    )
+    id: Mapped[int] = mapped_column(BIGINT_ID, primary_key=True, autoincrement=True)
+    batch_id: Mapped[int] = mapped_column(db.ForeignKey("material_tag_batches.id"), nullable=False)
+    material_tag_id: Mapped[int | None] = mapped_column(db.ForeignKey("material_tags.id"))
+    print_scope: Mapped[str] = mapped_column(db.Unicode(20), nullable=False)
+    print_type: Mapped[str] = mapped_column(db.Unicode(20), nullable=False)
+    result: Mapped[str] = mapped_column(db.Unicode(20), nullable=False)
+    reason: Mapped[str | None] = mapped_column(db.Unicode(500))
+    requested_by_user_id: Mapped[int] = mapped_column(db.ForeignKey("users.id"), nullable=False)
+    requested_at_utc: Mapped[datetime] = mapped_column(UTC_DATETIME, nullable=False)
+    printer_name: Mapped[str | None] = mapped_column(db.Unicode(255))
+    error_message: Mapped[str | None] = mapped_column(db.Unicode(1000))
+    batch: Mapped[MaterialTagBatch] = relationship(back_populates="print_events")
+    material_tag: Mapped[MaterialTag | None] = relationship(back_populates="print_events")
+    requested_by: Mapped[User] = relationship(foreign_keys=[requested_by_user_id])
 
 
 class RawMaterialLot(db.Model):
@@ -253,6 +445,12 @@ __all__ = [
     "FormulaItem",
     "LabelPrintLog",
     "Material",
+    "MaterialImportBatch",
+    "MaterialImportRow",
+    "MaterialTag",
+    "MaterialTagBatch",
+    "MaterialTagDraft",
+    "MaterialTagPrintEvent",
     "Product",
     "ProductionOrder",
     "RawMaterialLot",

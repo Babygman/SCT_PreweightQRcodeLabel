@@ -29,3 +29,7 @@
   across multiple Production Orders, with station material-classification enforcement.
 - Optional Formula / Production Order-centric weighing retained alongside operational progress.
 - Migration for production quantity/date fields and Formula Sheet production-lot/batch snapshots.
+- Material Tag Issuance Stage A models for import previews, issuance drafts, immutable batches,
+  child Tags, and print-render audit events.
+- Decimal-only container-weight splitting, calendar expiry, and exact eleven-field Material Tag QR
+  construction services.
