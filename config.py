@@ -11,6 +11,13 @@ class Config:
     WTF_CSRF_ENABLED = True
     APP_TIMEZONE = os.environ.get("APP_TIMEZONE", "Asia/Bangkok")
     UAT_AUTO_LOGIN = False
+    # Stage A/B tables may not exist in an environment until the approved
+    # deployment migration has been applied. Keep the feature unavailable by
+    # default so disabled routes never query those tables.
+    MATERIAL_TAG_ISSUANCE_ENABLED = False
+    MATERIAL_IMPORT_MAX_BYTES = 5 * 1024 * 1024
+    MATERIAL_IMPORT_MAX_ROWS = 10_000
+    MATERIAL_IMPORT_MAX_UNCOMPRESSED_BYTES = 50 * 1024 * 1024
 
     @classmethod
     def validate(cls):

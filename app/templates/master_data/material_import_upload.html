@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Import Material Master{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h1 class="h3 mb-1">Import Material Master</h1>
+    <p class="text-muted mb-0">Upload and validate an approved .xlsx Material Master workbook.</p>
+  </div>
+  <a class="btn btn-outline-secondary" href="{{ url_for('master_data.index') }}">Back to Master Data</a>
+</div>
+<section class="card shadow-sm">
+  <div class="card-body">
+    <form method="post" enctype="multipart/form-data" novalidate>
+      {{ form.hidden_tag() }}
+      <div class="mb-3">
+        {{ form.workbook.label(class="form-label") }}
+        {{ form.workbook(class="form-control", accept=".xlsx") }}
+        {% for error in form.workbook.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+      </div>
+      {{ form.submit(class="btn btn-primary") }}
+    </form>
+  </div>
+</section>
+{% endblock %}

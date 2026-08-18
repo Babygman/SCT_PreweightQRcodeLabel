@@ -110,3 +110,16 @@ Material import, Tag issuance, history, or printing routes in Stage A.
 Migration `b0551011c146` is additive, but its downgrade becomes destructive once issued Material
 Tag records exist and therefore requires a separate approval at that point. The migration has not
 been applied to the live UAT database as part of Stage A.
+
+## Material Master import (Stage B)
+
+Stage B adds an Admin-only, CSRF-protected `.xlsx` validation, persistent preview, and confirmed
+apply workflow. It validates the exact `Sheet1` header contract, normalizes Material codes,
+categories, names, classifies every row, and applies an idempotent Material-code upsert. Duplicate
+Material names remain valid. Existing Material unit, classification, and active status are not
+changed by an import.
+
+The import routes and Master Data link are controlled by `MATERIAL_TAG_ISSUANCE_ENABLED`, which is
+disabled by default. It must remain disabled in any environment where migration `b0551011c146` has
+not been approved and applied. Stage B development tests enable the feature explicitly against an
+isolated SQLite database; they do not apply the migration or import Materials into live UAT.

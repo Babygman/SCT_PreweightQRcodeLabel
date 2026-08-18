@@ -33,3 +33,7 @@
   child Tags, and print-render audit events.
 - Decimal-only container-weight splitting, calendar expiry, and exact eleven-field Material Tag QR
   construction services.
+- Admin-only Material Master `.xlsx` upload with secure workbook validation, normalized row-level
+  persistent previews, confirmed idempotent Material-code upserts, audit events, and result UI.
+- Disabled-by-default Material Tag Issuance feature gate to protect environments where the new
+  foundation migration has not yet been applied.

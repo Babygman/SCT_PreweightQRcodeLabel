@@ -16,7 +16,12 @@
 </section>
 {% endmacro %}
 {% block content %}
-<h1 class="h3 mb-4">Master Data</h1>
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h3 mb-0">Master Data</h1>
+  {% if config.MATERIAL_TAG_ISSUANCE_ENABLED %}
+  <a class="btn btn-primary" href="{{ url_for('master_data.material_import_upload') }}">Import Material Master</a>
+  {% endif %}
+</div>
 {{ table('Users', users, [('Username','username'),('Display name','display_name'),('Active','is_active')]) }}
 {{ table('Stations', stations, [('Code','code'),('Name','name'),('Material capabilities','material_classifications'),('Active','is_active')]) }}
 {{ table('Materials', materials, [('Code','code'),('Name','name'),('Classification','classification'),('Unit','unit'),('Active','is_active')]) }}
