@@ -1,8 +1,10 @@
 from datetime import date
 
 from flask_wtf import FlaskForm
-from wtforms import DateField, DecimalField, StringField, SubmitField
+from wtforms import DecimalField, StringField, SubmitField
 from wtforms.validators import DataRequired, Length, NumberRange, ValidationError
+
+from app.form_fields import OperatorDateField
 
 
 class MockOrderForm(FlaskForm):
@@ -16,8 +18,12 @@ class MockOrderForm(FlaskForm):
         "Quantity to Produce (KG)", places=3, validators=[DataRequired(), NumberRange(min=0.001)]
     )
     formula_code = StringField("Formula Sheet No.", validators=[DataRequired(), Length(max=50)])
-    production_date = DateField("Production Date", validators=[DataRequired()], default=date.today)
-    expected_finish_date = DateField("Expected Finish Date", validators=[DataRequired()])
+    production_date = OperatorDateField(
+        "Production Date", validators=[DataRequired()], default=date.today
+    )
+    expected_finish_date = OperatorDateField(
+        "Expected Finish Date", validators=[DataRequired()]
+    )
     submit = SubmitField("Create Mock Production Documents")
 
     def validate_expected_finish_date(self, field):

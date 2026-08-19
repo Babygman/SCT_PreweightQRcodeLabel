@@ -8,8 +8,8 @@
   <div><div class="label">Finished Good</div><div class="value">{{ order.product.code }} — {{ order.product.name }}</div></div>
   <div><div class="label">Production Lot No.</div><div class="value">{{ order.production_lot }}</div></div>
   <div><div class="label">Quantity</div><div class="value">{{ order.quantity }} KG</div></div>
-  <div><div class="label">Production Date</div><div class="value">{{ order.production_date }}</div></div>
-  <div><div class="label">Expected Finish Date</div><div class="value">{{ order.expected_finish_date }}</div></div>
+  <div><div class="label">Production Date</div><div class="value">{{ order.production_date|local_date }}</div></div>
+  <div><div class="label">Expected Finish Date</div><div class="value">{{ order.expected_finish_date|local_date }}</div></div>
 </div>
 <h2>Scan Production Order</h2>
 <img class="qr" src="{{ url_for('mock_erp.qr_image', kind='po', record_id=order.id) }}" alt="Production Order QR">

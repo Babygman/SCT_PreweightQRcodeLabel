@@ -108,8 +108,8 @@ def test_mock_erp_page_generates_printable_qr_documents(app, client):
             "product_name": "Finished Good 100",
             "production_lot": "LOT100",
             "quantity": "90.000",
-            "production_date": "2026-08-10",
-            "expected_finish_date": "2026-08-15",
+            "production_date": "10/08/2026",
+            "expected_finish_date": "15/08/2026",
         },
         follow_redirects=True,
     )

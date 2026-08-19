@@ -1,22 +1,53 @@
 {% extends "base.html" %}
-{% block title %}Issued Material Tag Batch{% endblock %}
+{% block title %}Material Tag Batch {{ batch.batch_no }}{% endblock %}
 {% block content %}
-<h1 class="h3">Issued Material Tag Batch {{ batch.batch_no }}</h1>
-<div class="alert alert-info">Issued data is immutable.</div>
-<div class="card card-body mb-3">
-  {% if not original_exists %}
-  <form method="post" action="{{ url_for('material_tags.print_batch', batch_id=batch.id) }}">{{ print_form.hidden_tag() }}<button class="btn btn-primary" type="submit">Print Batch</button></form>
-  {% else %}
-  <form method="post" action="{{ url_for('material_tags.reprint_batch', batch_id=batch.id) }}" class="row g-2"><div class="col-md-9"><label class="form-label" for="batch-reprint-reason">Reprint reason</label><textarea class="form-control" id="batch-reprint-reason" name="reason" required minlength="10" maxlength="500"></textarea>{{ reprint_form.csrf_token }}</div><div class="col-md-3 d-flex align-items-end"><button class="btn btn-warning w-100" type="submit">Reprint Batch</button></div></form>
-  {% endif %}
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
+  <div><h1 class="h3 mb-1">Issued Material Tag Batch</h1><p class="text-muted mb-0">Issued data is immutable. Receiving details and print history are read-only.</p></div>
+  {% if not original_exists %}<form method="post" action="{{ url_for('material_tags.print_batch', batch_id=batch.id) }}">{{ print_form.hidden_tag() }}<button class="btn btn-primary" type="submit">Print Batch</button></form>{% endif %}
 </div>
-<dl class="row card card-body mx-0">
-{% for label, value in [('Batch Number', batch.batch_no), ('Material', batch.material_code_snapshot ~ ' — ' ~ batch.material_name_snapshot), ('Unit', batch.unit_snapshot), ('Receiving Date', batch.receiving_date.strftime('%d/%m/%Y')), ('Expiry Date', batch.expiry_date.strftime('%d/%m/%Y')), ('Purchase Order', batch.purchase_order), ('PO Line', batch.purchase_order_line), ('Delivery Invoice', batch.delivery_invoice), ('Vendor Lot', batch.vendor_lot), ('Supplier', batch.supplier), ('Comment', batch.comment or '—'), ('Warehouse', batch.warehouse), ('Location', batch.location), ('Shelf', batch.shelf), ('Tag count', batch.tag_count), ('QR payload', batch.qr_payload), ('Issued by', batch.issued_by.display_name), ('Issued at', batch.issued_at_utc|local_datetime ~ ' Thailand Time')] %}<dt class="col-sm-4">{{ label }}</dt><dd class="col-sm-8 text-break" style="overflow-wrap:anywhere; word-break:break-word">{{ value }}</dd>{% endfor %}
-<dt class="col-sm-4">Total / Standard</dt><dd class="col-sm-8">{{ '%.3f'|format(batch.total_received_weight) }} / {{ '%.3f'|format(batch.standard_container_weight) }} {{ batch.unit_snapshot }}</dd>
-<dt class="col-sm-4">Station</dt><dd class="col-sm-8">{{ station.code if station else '—' }}</dd>
-<dt class="col-sm-4">Reconciliation</dt><dd class="col-sm-8">{{ '%.3f'|format(batch.tags|sum(attribute='container_weight')) }} = {{ '%.3f'|format(batch.total_received_weight) }} {{ batch.unit_snapshot }}</dd>
-</dl>
-<div class="table-responsive"><table class="table table-striped"><thead><tr><th>Tag</th><th>Weight</th><th>Created</th><th>Reprint</th></tr></thead><tbody>{% for tag in batch.tags|sort(attribute='sequence_no') %}<tr><td>Tag {{ tag.sequence_no }} of {{ batch.tag_count }}</td><td>{{ '%.3f'|format(tag.container_weight) }} {{ batch.unit_snapshot }}</td><td>{{ tag.created_at_utc|local_datetime }} Thailand Time</td><td><form method="post" action="{{ url_for('material_tags.reprint_tag', batch_id=batch.id, tag_id=tag.id) }}"><label class="visually-hidden" for="reason-{{ tag.id }}">Reprint reason for Tag {{ tag.sequence_no }}</label><input class="form-control form-control-sm mb-1" id="reason-{{ tag.id }}" name="reason" required minlength="10" maxlength="500"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm btn-outline-warning" type="submit">Reprint Tag {{ tag.sequence_no }}</button></form></td></tr>{% endfor %}</tbody></table></div>
-<h2 class="h4 mt-4">Print history</h2>
-<div class="table-responsive"><table class="table table-sm"><thead><tr><th>Type</th><th>Scope</th><th>Tag</th><th>Result</th><th>Reason</th><th>Requested by</th><th>Requested at</th></tr></thead><tbody>{% for event in events %}<tr><td>{{ event.print_type }}</td><td>{{ event.print_scope }}</td><td>{{ event.material_tag.sequence_no if event.material_tag else 'All' }}</td><td>{{ event.result }} — Print page rendered</td><td>{{ event.reason or '—' }}</td><td>{{ event.requested_by.display_name }}</td><td>{{ event.requested_at_utc|local_datetime }} Thailand Time</td></tr>{% else %}<tr><td colspan="7">No print page has been rendered.</td></tr>{% endfor %}</tbody></table></div>
+{% if original_exists %}
+<section class="card card-body mb-4" aria-labelledby="batch-reprint-heading">
+  <h2 class="h5" id="batch-reprint-heading">Reprint entire batch</h2>
+  <form method="post" action="{{ url_for('material_tags.reprint_batch', batch_id=batch.id) }}" class="row g-2" novalidate>
+    {{ reprint_form.csrf_token }}
+    <div class="col-md-9">
+      <label class="form-label" for="batch-reprint-reason">Reprint reason</label>
+      <textarea class="form-control{% if reprint_form.reason.errors and not invalid_tag_id %} is-invalid{% endif %}" id="batch-reprint-reason" name="reason" required minlength="10" maxlength="500" placeholder="Enter reason (10–500 characters)" aria-describedby="batch-reprint-help{% if reprint_form.reason.errors and not invalid_tag_id %} batch-reprint-errors{% endif %}"{% if reprint_form.reason.errors and not invalid_tag_id %} aria-invalid="true"{% endif %}>{{ reprint_form.reason.data if reprint_form.reason.data and not invalid_tag_id else '' }}</textarea>
+      <div class="form-text" id="batch-reprint-help">Required. The reason is stored in print history.</div>
+      {% if reprint_form.reason.errors and not invalid_tag_id %}<div class="invalid-feedback d-block" id="batch-reprint-errors" role="alert">{{ reprint_form.reason.errors|join(' ') }}</div>{% endif %}
+    </div>
+    <div class="col-md-3 d-flex align-items-end"><button class="btn btn-warning w-100" type="submit">Reprint Batch</button></div>
+  </form>
+</section>
+{% endif %}
+<section class="card card-body mb-4" aria-labelledby="batch-details-heading">
+  <h2 class="h5" id="batch-details-heading">Batch details</h2>
+  <dl class="row mb-0">
+  {% for label, value in [('Batch Number', batch.batch_no), ('Material', batch.material_code_snapshot ~ ' — ' ~ batch.material_name_snapshot), ('Unit', batch.unit_snapshot), ('Receiving Date', batch.receiving_date|local_date), ('Expiry Date', batch.expiry_date|local_date), ('Purchase Order', batch.purchase_order), ('PO Line', batch.purchase_order_line), ('Delivery Invoice', batch.delivery_invoice), ('Vendor Lot', batch.vendor_lot), ('Supplier', batch.supplier), ('Comment', batch.comment or '—'), ('Warehouse', batch.warehouse), ('Location', batch.location), ('Shelf', batch.shelf), ('Tag count', batch.tag_count), ('QR payload', batch.qr_payload), ('Issued by', batch.issued_by.display_name), ('Issued at', batch.issued_at_utc|local_datetime)] %}
+    <dt class="col-sm-4">{{ label }}</dt><dd class="col-sm-8 text-break" style="overflow-wrap:anywhere; word-break:break-word">{{ value }}</dd>
+  {% endfor %}
+  </dl>
+  <p class="mb-0"><strong>Weight reconciliation:</strong> {{ '%.3f'|format(batch.tags|sum(attribute='container_weight')) }} = {{ '%.3f'|format(batch.total_received_weight) }} {{ batch.unit_snapshot }}</p>
+</section>
+<section aria-labelledby="child-tags-heading">
+  <h2 class="h5" id="child-tags-heading">Child Tags</h2>
+  <div class="table-responsive"><table class="table table-striped align-middle"><thead><tr><th>Tag</th><th>Weight</th><th>Created</th><th style="min-width:20rem">Reprint</th></tr></thead><tbody>
+  {% for tag in batch.tags|sort(attribute='sequence_no') %}
+  {% set reason_id = 'tag-reprint-reason-' ~ tag.id %}{% set help_id = reason_id ~ '-help' %}{% set error_id = reason_id ~ '-errors' %}{% set active_error = invalid_tag_id == tag.id and reprint_form.reason.errors %}
+  <tr><td>Tag {{ tag.sequence_no }} of {{ batch.tag_count }}</td><td>{{ '%.3f'|format(tag.container_weight) }} {{ batch.unit_snapshot }}</td><td>{{ tag.created_at_utc|local_datetime }}</td><td>
+    <form method="post" action="{{ url_for('material_tags.reprint_tag', batch_id=batch.id, tag_id=tag.id) }}" novalidate>
+      <label class="form-label mb-1" for="{{ reason_id }}">Reprint reason</label>
+      <input class="form-control form-control-sm{% if active_error %} is-invalid{% endif %}" id="{{ reason_id }}" name="reason" required minlength="10" maxlength="500" placeholder="Enter reason (10–500 characters)" value="{{ reprint_form.reason.data if active_error else '' }}" aria-describedby="{{ help_id }}{% if active_error %} {{ error_id }}{% endif %}"{% if active_error %} aria-invalid="true"{% endif %}>
+      <div class="form-text" id="{{ help_id }}">Required and stored in print history.</div>
+      {% if active_error %}<div class="invalid-feedback d-block" id="{{ error_id }}" role="alert">{{ reprint_form.reason.errors|join(' ') }}</div>{% endif %}
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn btn-sm btn-outline-warning mt-2" type="submit" aria-label="Reprint Tag {{ tag.sequence_no }} of {{ batch.tag_count }}">Reprint Tag {{ tag.sequence_no }}</button>
+    </form>
+  </td></tr>
+  {% endfor %}
+  </tbody></table></div>
+</section>
+<section aria-labelledby="print-history-heading"><h2 class="h5" id="print-history-heading">Print History</h2>
+  <div class="table-responsive"><table class="table table-sm"><thead><tr><th>Type</th><th>Scope</th><th>Tag</th><th>Result</th><th>Reason</th><th>Requested by</th><th>Requested at</th></tr></thead><tbody>{% for event in events %}<tr><td>{{ event.print_type }}</td><td>{{ event.print_scope }}</td><td>{{ event.material_tag.sequence_no if event.material_tag else 'All' }}</td><td>{{ event.result }} — Print page rendered</td><td>{{ event.reason or '—' }}</td><td>{{ event.requested_by.display_name }}</td><td>{{ event.requested_at_utc|local_datetime }}</td></tr>{% else %}<tr><td colspan="7">No print page has been rendered.</td></tr>{% endfor %}</tbody></table></div>
+</section>
 {% endblock %}

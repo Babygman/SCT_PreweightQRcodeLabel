@@ -1,4 +1,3 @@
-from datetime import datetime
 from functools import wraps
 
 from flask import (
@@ -20,12 +19,14 @@ from app.extensions import db
 from app.models import (
     AuditLog,
     Material,
+    MaterialTag,
     MaterialTagBatch,
     MaterialTagDraft,
     MaterialTagPrintEvent,
     Station,
     User,
 )
+from app.presentation import parse_user_date
 from app.services.material_tag_issuance import (
     MaterialTagIssuanceError,
     create_material_tag_draft,
@@ -173,6 +174,12 @@ def confirm(token):
 @bp.get("/batches/<int:batch_id>")
 @protected
 def batch_detail(batch_id):
+    return _render_batch_detail(batch_id)
+
+
+def _render_batch_detail(
+    batch_id, *, reprint_form=None, invalid_tag_id=None, status_code=200
+):
     batch = db.get_or_404(MaterialTagBatch, batch_id)
     audit = db.session.scalar(
         select(AuditLog)
@@ -192,14 +199,18 @@ def batch_detail(batch_id):
     original_exists = any(
         event.print_type == "ORIGINAL" and event.result == "RENDERED" for event in events
     )
-    return render_template(
-        "material_tags/batch_detail.html",
-        batch=batch,
-        station=station,
-        events=events,
-        original_exists=original_exists,
-        print_form=MaterialTagPrintForm(),
-        reprint_form=MaterialTagReprintForm(),
+    return (
+        render_template(
+            "material_tags/batch_detail.html",
+            batch=batch,
+            station=station,
+            events=events,
+            original_exists=original_exists,
+            print_form=MaterialTagPrintForm(),
+            reprint_form=reprint_form or MaterialTagReprintForm(),
+            invalid_tag_id=invalid_tag_id,
+        ),
+        status_code,
     )
 
 
@@ -227,8 +238,7 @@ def print_batch(batch_id):
 def reprint_batch(batch_id):
     form = MaterialTagReprintForm()
     if not form.validate_on_submit():
-        flash("Reprint reason must contain 10 to 500 characters.", "danger")
-        return redirect(url_for("material_tags.batch_detail", batch_id=batch_id))
+        return _render_batch_detail(batch_id, reprint_form=form, status_code=400)
     try:
         event = create_print_event(
             batch_id=batch_id,
@@ -246,10 +256,18 @@ def reprint_batch(batch_id):
 @bp.post("/batches/<int:batch_id>/tags/<int:tag_id>/reprint")
 @protected
 def reprint_tag(batch_id, tag_id):
+    batch = db.get_or_404(MaterialTagBatch, batch_id)
+    tag = db.get_or_404(MaterialTag, tag_id)
+    if tag.batch_id != batch.id:
+        abort(404)
     form = MaterialTagReprintForm()
     if not form.validate_on_submit():
-        flash("Reprint reason must contain 10 to 500 characters.", "danger")
-        return redirect(url_for("material_tags.batch_detail", batch_id=batch_id))
+        return _render_batch_detail(
+            batch_id,
+            reprint_form=form,
+            invalid_tag_id=tag_id,
+            status_code=400,
+        )
     try:
         event = create_print_event(
             batch_id=batch_id,
@@ -286,10 +304,8 @@ def print_event_view(event_id):
 
 def _history_date(name):
     raw = request.args.get(name, "").strip()
-    if not raw:
-        return None
     try:
-        return datetime.strptime(raw, "%Y-%m-%d").date()
+        return parse_user_date(raw, required=False)
     except ValueError:
         abort(400)
 

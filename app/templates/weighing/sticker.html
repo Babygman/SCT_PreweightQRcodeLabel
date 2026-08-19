@@ -21,7 +21,7 @@
     <dt class="col-5">Item Name</dt><dd class="col-7">{{ payload.item_name }}</dd>
     <dt class="col-5">Actual Weight</dt><dd class="col-7"><strong>{{ payload.actual_weight }} {{ payload.unit }}</strong></dd>
     <dt class="col-5">Preweight ID</dt><dd class="col-7">{{ payload.preweight_id }}</dd>
-    <dt class="col-5">Weighed UTC</dt><dd class="col-7">{{ transaction.weighed_at_utc.strftime('%Y-%m-%d %H:%M:%S') }}</dd>
+    <dt class="col-5">Weighed at</dt><dd class="col-7">{{ transaction.weighed_at_utc|local_datetime }}</dd>
   </dl>
   <div class="text-center">
     <img class="sticker-qr" src="{{ url_for('weighing.sticker_qr', transaction_id=transaction.id) }}" alt="ERP Preweight QR">

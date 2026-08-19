@@ -1,30 +1,53 @@
 {% extends "base.html" %}
 {% block title %}SCT Preweight{% endblock %}
+{% block styles %}
+<style>
+  .home-nav-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem}
+  .home-nav-card{display:flex;flex-direction:column;min-height:9rem;padding:1.25rem;border:1px solid #ced4da;border-radius:.75rem;background:#fff;color:#212529;text-decoration:none;box-shadow:0 .125rem .25rem rgba(0,0,0,.075);transition:border-color .15s,box-shadow .15s,transform .15s}
+  .home-nav-card:hover{border-color:#0d6efd;box-shadow:0 .35rem .8rem rgba(13,110,253,.15);transform:translateY(-2px);color:#0a58ca}
+  .home-nav-card:focus-visible{outline:3px solid #fd7e14;outline-offset:3px}
+  .home-nav-card strong{font-size:1.05rem;margin-bottom:.45rem}
+  .home-nav-card span{color:#5c636a;line-height:1.4}
+  .home-nav-section+ .home-nav-section{margin-top:2rem}
+  .uat-utility{border-style:dashed}
+  @media (max-width:991.98px){.home-nav-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media (max-width:575.98px){.home-nav-grid{grid-template-columns:1fr}.home-nav-card{min-height:0}}
+</style>
+{% endblock %}
 {% block content %}
-<section class="card shadow-sm">
-  <div class="card-body">
-    <h1 class="h3">SCT Preweight QR Code Label</h1>
-    <p class="mb-1">User: {{ current_user.display_name }}</p>
-    <p>Station: {{ selected_station.code }} — {{ selected_station.name }}</p>
-    {% set role_codes = current_user.roles | map(attribute='code') | list %}
-    {% if 'OPERATOR' in role_codes or 'SUPERVISOR' in role_codes or 'ADMIN' in role_codes %}
-    <div class="d-flex gap-2 flex-wrap">
-      <a class="btn btn-primary" href="{{ url_for('preparation.prepare') }}">Prepare Work Set</a>
-      <a class="btn btn-success" href="{{ url_for('weighing.material_mode') }}">Material-centric Weighing (Primary)</a>
-      <a class="btn btn-outline-primary" href="{{ url_for('preparation.prepare') }}">Formula / PO-centric (Optional)</a>
-    </div>
-    {% endif %}
-    {% if config.MOCK_ERP_ENABLED and ('SUPERVISOR' in role_codes or 'ADMIN' in role_codes) %}
-    <a class="btn btn-warning" href="{{ url_for('mock_erp.index') }}">Mock ERP / Print QR Documents</a>
-    {% endif %}
-    {% if config.MATERIAL_TAG_ISSUANCE_ENABLED and ('SUPERVISOR' in role_codes or 'ADMIN' in role_codes) %}
-    <a class="btn btn-info" href="{{ url_for('material_tags.new') }}">Material Tag Issuance</a>
-    <a class="btn btn-outline-info" href="{{ url_for('material_tags.history') }}">Material Tag History</a>
-    <a class="btn btn-outline-info" href="{{ url_for('material_tags.calibration') }}">Printer Calibration</a>
-    {% endif %}
-    {% if 'ADMIN' in role_codes %}
-    <a class="btn btn-outline-secondary" href="{{ url_for('master_data.index') }}">Master Data</a>
-    {% endif %}
+<header class="mb-4">
+  <h1 class="h3">SCT Preweight QR Code Label</h1>
+  <p class="mb-1">User: {{ current_user.display_name }}</p>
+  <p class="mb-0">Station: {{ selected_station.code }} — {{ selected_station.name }}</p>
+</header>
+{% set role_codes = current_user.roles | map(attribute='code') | list %}
+{% if 'OPERATOR' in role_codes or 'SUPERVISOR' in role_codes or 'ADMIN' in role_codes %}
+<section class="home-nav-section" aria-labelledby="production-navigation-heading">
+  <h2 class="h4" id="production-navigation-heading">Production Weighing</h2>
+  <div class="home-nav-grid">
+    <a class="home-nav-card" href="{{ url_for('preparation.prepare') }}"><strong>Prepare Work Set</strong><span>Scan Production Orders and build the active weighing session.</span></a>
+    <a class="home-nav-card" href="{{ url_for('weighing.material_mode') }}"><strong>Material-centric Weighing</strong><span>Primary operator workspace organized by raw material.</span></a>
+    <a class="home-nav-card" href="{{ url_for('preparation.prepare') }}"><strong>Formula / PO-centric (Optional)</strong><span>Optional weighing flow organized by Formula and Production Order.</span></a>
   </div>
 </section>
+{% endif %}
+{% if config.MATERIAL_TAG_ISSUANCE_ENABLED and ('SUPERVISOR' in role_codes or 'ADMIN' in role_codes) %}
+<section class="home-nav-section" aria-labelledby="material-tag-navigation-heading">
+  <h2 class="h4" id="material-tag-navigation-heading">Material Tag Management</h2>
+  <div class="home-nav-grid">
+    <a class="home-nav-card" href="{{ url_for('material_tags.new') }}"><strong>Material Tag Issuance</strong><span>Create and review receiving-label batches from an approved Material.</span></a>
+    <a class="home-nav-card" href="{{ url_for('material_tags.history') }}"><strong>Material Tag History</strong><span>Search issued batches and inspect auditable print history.</span></a>
+    <a class="home-nav-card" href="{{ url_for('material_tags.calibration') }}"><strong>Printer Calibration</strong><span>Verify the approved 3 × 2.5 inch label setup before printing.</span></a>
+  </div>
+</section>
+{% endif %}
+{% if 'ADMIN' in role_codes or (config.MOCK_ERP_ENABLED and ('SUPERVISOR' in role_codes or 'ADMIN' in role_codes)) %}
+<section class="home-nav-section" aria-labelledby="administration-navigation-heading">
+  <h2 class="h4" id="administration-navigation-heading">Administration &amp; UAT Tools</h2>
+  <div class="home-nav-grid">
+    {% if 'ADMIN' in role_codes %}<a class="home-nav-card" href="{{ url_for('master_data.index') }}"><strong>Master Data</strong><span>Review controlled administrative data and Material Master import.</span></a>{% endif %}
+    {% if config.MOCK_ERP_ENABLED and ('SUPERVISOR' in role_codes or 'ADMIN' in role_codes) %}<a class="home-nav-card uat-utility" href="{{ url_for('mock_erp.index') }}"><strong>Mock ERP / Print QR Documents <span class="badge text-bg-warning ms-1">UAT</span></strong><span>Test utility for generating non-production PO and Formula documents.</span></a>{% endif %}
+  </div>
+</section>
+{% endif %}
 {% endblock %}

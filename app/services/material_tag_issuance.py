@@ -26,6 +26,7 @@ from app.models import (
     MaterialTagPrintEvent,
     utcnow,
 )
+from app.presentation import parse_user_date
 from app.services.weighing import MaterialTagError, parse_material_tag
 
 WEIGHT_QUANTUM = Decimal("0.001")
@@ -175,15 +176,12 @@ def build_material_tag_qr_payload(
 
 
 def _date(value):
-    if type(value) is date:
-        parsed = value
-    else:
-        try:
-            parsed = datetime.strptime(str(value).strip(), "%Y-%m-%d").date()
-        except (TypeError, ValueError) as exc:
-            raise MaterialTagIssuanceError("Receiving Date must be a valid date.") from exc
+    try:
+        parsed = parse_user_date(value)
+    except ValueError as exc:
+        raise MaterialTagIssuanceError("Receiving Date must use dd/mm/yyyy.") from exc
     if not date(2000, 1, 1) <= parsed <= date(2100, 12, 31):
-        raise MaterialTagIssuanceError("Receiving Date must be between 2000-01-01 and 2100-12-31.")
+        raise MaterialTagIssuanceError("Receiving Date must be between 01/01/2000 and 31/12/2100.")
     return parsed
 
 

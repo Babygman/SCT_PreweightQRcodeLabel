@@ -156,6 +156,6 @@ def test_search_filter_ten_materials_and_unsaved_switch_warning_render(app, clie
 def test_local_datetime_formats_naive_and_aware_utc_without_mutation():
     naive = datetime(2026, 8, 17, 9, 30, 39, 853669)
     aware = naive.replace(tzinfo=UTC)
-    assert format_local_datetime(naive, "Asia/Bangkok") == "17 Aug 2026 16:30:39 (Thailand Time)"
-    assert format_local_datetime(aware, "Asia/Bangkok") == "17 Aug 2026 16:30:39 (Thailand Time)"
+    assert format_local_datetime(naive, "Asia/Bangkok") == "17/08/2026 16:30:39 (Thailand Time)"
+    assert format_local_datetime(aware, "Asia/Bangkok") == "17/08/2026 16:30:39 (Thailand Time)"
     assert naive == datetime(2026, 8, 17, 9, 30, 39, 853669)

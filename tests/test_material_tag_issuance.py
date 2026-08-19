@@ -76,7 +76,7 @@ def add_material(app, code="R07047S1", name="PG740", active=True):
 def values(material_id, **updates):
     result = {
         "material_id": str(material_id),
-        "receiving_date": "2026-08-05",
+        "receiving_date": "05/08/2026",
         "purchase_order": " ISO-UAT-PO ",
         "purchase_order_line": " 10 ",
         "delivery_invoice": " ISO-UAT-INV ",
@@ -130,7 +130,10 @@ def test_approved_roles_can_access_with_station(app, client, role):
     user_id, station_id = identity(app, role)
     authenticate(client, user_id, station_id)
     assert client.get("/material-tags/new").status_code == 200
-    assert b"Material Tag Issuance" in client.get("/").data
+    home = client.get("/")
+    assert b"Material Tag Issuance" in home.data
+    assert b"Production Weighing" in home.data
+    assert b"Material Tag Management" in home.data
 
 
 @pytest.mark.parametrize("role", ["OPERATOR", "PRODUCTION"])
@@ -175,7 +178,7 @@ def test_material_search_code_name_order_pagination_and_inactive(app, client):
         {"vendor_lot": "bad|lot"},
         {"supplier": "bad\nvalue"},
         {"receiving_date": "not-a-date"},
-        {"receiving_date": "1999-12-31"},
+        {"receiving_date": "31/12/1999"},
         {"total_received_weight": "1.0001"},
         {"total_received_weight": "0"},
         {"total_received_weight": "NaN"},
@@ -257,6 +260,21 @@ def test_route_creates_preview_confirms_once_and_redirects_repeat(app, client):
     with app.app_context():
         assert MaterialTagBatch.query.count() == 1
         assert MaterialTag.query.count() == 8
+
+
+def test_receiving_date_field_is_strict_and_preserves_invalid_input(app, client):
+    app.config["MATERIAL_TAG_ISSUANCE_ENABLED"] = True
+    user_id, station_id = identity(app)
+    material_id = add_material(app)
+    authenticate(client, user_id, station_id)
+    response = client.post(
+        "/material-tags/new", data=values(material_id, receiving_date="31/04/2026")
+    )
+    assert response.status_code == 200
+    assert b"Enter a valid date in dd/mm/yyyy format" in response.data
+    assert b'value="31/04/2026"' in response.data
+    with app.app_context():
+        assert MaterialTagDraft.query.count() == 0
 
 
 def test_large_preview_warning_and_two_hundred_rows(app, client):

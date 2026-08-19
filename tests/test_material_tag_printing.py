@@ -51,7 +51,7 @@ def setup_batch(app, *, total="200.000", standard="25.000", name="PG740", suffix
         draft = create_material_tag_draft(
             values={
                 "material_id": material.id,
-                "receiving_date": "2026-08-05",
+                "receiving_date": "05/08/2026",
                 "purchase_order": f"PO-{suffix}",
                 "purchase_order_line": "10",
                 "delivery_invoice": f"INV-{suffix}",
@@ -251,6 +251,17 @@ def test_detail_original_then_reprint_controls_and_print_history(app, client):
     after = client.get(f"/material-tags/batches/{batch_id}")
     assert b"Reprint Batch" in after.data and b"Print page rendered" in after.data
     assert b"Reprint Tag 1" in after.data
+    assert after.data.count(b">Reprint reason</label>") == 9
+    assert after.data.count(b'placeholder="Enter reason (10') == 9
+    assert after.data.count(b'<input class="form-control form-control-sm"') == 8
+    assert b"stored in print history" in after.data
+    assert b"Thailand Time) Thailand Time" not in after.data
+    with app.app_context():
+        tag_ids = [tag.id for tag in MaterialTag.query.filter_by(batch_id=batch_id).all()]
+    for tag_id in tag_ids:
+        field_id = f"tag-reprint-reason-{tag_id}".encode()
+        assert b'for="' + field_id + b'"' in after.data
+        assert b'id="' + field_id + b'"' in after.data
     for forbidden in (b"Delete", b"Void", b"Cancel", b"Edit Weight"):
         assert forbidden not in after.data
 
@@ -265,6 +276,17 @@ def test_history_filters_order_counts_and_invalid_dates(app, client):
     assert b"R-alpha" in response.data and b"R-beta" not in response.data
     assert b"Original rendered" in response.data
     assert client.get("/material-tags/history?date_from=invalid").status_code == 400
+    bounded = client.get(
+        "/material-tags/history?date_from=05/08/2026&date_to=05/08/2026&material_code=R-alpha"
+    )
+    assert bounded.status_code == 200 and b"R-alpha" in bounded.data
+    assert b'value="05/08/2026"' in bounded.data
+    assert b'placeholder="dd/mm/yyyy"' in bounded.data
+    paged_filter = client.get(
+        "/material-tags/history?date_from=05/08/2026&date_to=05/08/2026"
+    )
+    assert b"date_from=05/08/2026" in paged_filter.data
+    assert b"date_to=05/08/2026" in paged_filter.data
     page = client.get("/material-tags/history")
     assert b"Page 1 of 2" in page.data
 
@@ -282,11 +304,13 @@ def test_calibration_and_label_physical_css_no_business_mutation(app, client):
         b"@page{size:3in 2.5in;margin:0}",
         b"MATERIAL TAG",
         b"Sunstar Chemical",
+        b"Vendor Lot:",
         "ป้ายแสดงการรับและตรวจสอบวัตถุดิบ".encode(),
         "QC ตรวจสอบผ่าน".encode(),
         b"page-break-after:always",
     ):
         assert expected in print_page.data
+    assert b">Lot:</b>" not in print_page.data
     with app.app_context():
         assert MaterialTagBatch.query.count() == 1
         assert MaterialTag.query.count() == 8
@@ -317,3 +341,42 @@ def test_print_routes_require_csrf_when_enabled(app, client):
     user_id, station_id, batch_id = setup_batch(app)
     authenticate(client, user_id, station_id)
     assert client.post(f"/material-tags/batches/{batch_id}/print").status_code == 400
+
+
+@pytest.mark.parametrize("reason", ["", "short", "x" * 501, "valid reason\nunsafe"])
+def test_failed_reprint_post_renders_accessible_error_without_event(app, client, reason):
+    app.config["MATERIAL_TAG_ISSUANCE_ENABLED"] = True
+    user_id, station_id, batch_id = setup_batch(app)
+    authenticate(client, user_id, station_id)
+    client.post(f"/material-tags/batches/{batch_id}/print")
+    with app.app_context():
+        tag_id = MaterialTag.query.filter_by(batch_id=batch_id, sequence_no=1).one().id
+        before = MaterialTagPrintEvent.query.count()
+    response = client.post(
+        f"/material-tags/batches/{batch_id}/tags/{tag_id}/reprint",
+        data={"reason": reason},
+    )
+    assert response.status_code == 400
+    assert b'aria-invalid="true"' in response.data
+    assert b'role="alert"' in response.data
+    assert reason.strip().encode() in response.data
+    with app.app_context():
+        assert MaterialTagPrintEvent.query.count() == before
+
+
+def test_failed_batch_reprint_preserves_reason_without_event(app, client):
+    app.config["MATERIAL_TAG_ISSUANCE_ENABLED"] = True
+    user_id, station_id, batch_id = setup_batch(app)
+    authenticate(client, user_id, station_id)
+    client.post(f"/material-tags/batches/{batch_id}/print")
+    with app.app_context():
+        before = MaterialTagPrintEvent.query.count()
+    response = client.post(
+        f"/material-tags/batches/{batch_id}/reprint", data={"reason": "short"}
+    )
+    assert response.status_code == 400
+    assert b'id="batch-reprint-reason"' in response.data
+    assert b'aria-invalid="true"' in response.data
+    assert b">short</textarea>" in response.data
+    with app.app_context():
+        assert MaterialTagPrintEvent.query.count() == before
