@@ -4,6 +4,20 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent
 
 
+def environment_bool(name, default=False):
+    """Read a fail-closed boolean from the process environment."""
+    value = os.environ.get(name)
+    if value is None:
+        return bool(default)
+
+    normalized = value.strip().casefold()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"", "0", "false", "no", "off"}:
+        return False
+    return False
+
+
 class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY")
     SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL")
@@ -14,7 +28,9 @@ class Config:
     # Stage A/B tables may not exist in an environment until the approved
     # deployment migration has been applied. Keep the feature unavailable by
     # default so disabled routes never query those tables.
-    MATERIAL_TAG_ISSUANCE_ENABLED = False
+    MATERIAL_TAG_ISSUANCE_ENABLED = environment_bool(
+        "MATERIAL_TAG_ISSUANCE_ENABLED"
+    )
     MATERIAL_IMPORT_MAX_BYTES = 5 * 1024 * 1024
     MATERIAL_IMPORT_MAX_ROWS = 5_000
     MATERIAL_IMPORT_MAX_UNCOMPRESSED_BYTES = 50 * 1024 * 1024
@@ -56,6 +72,7 @@ class TestingConfig(Config):
     WTF_CSRF_ENABLED = False
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
     MOCK_ERP_ENABLED = True
+    MATERIAL_TAG_ISSUANCE_ENABLED = False
 
 
 CONFIGS = {

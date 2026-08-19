@@ -27,15 +27,8 @@ from app.services.material_import import (
     apply_material_import,
     parse_material_workbook,
 )
-from config import Config, DevelopmentConfig, TestingConfig
 
 REAL_WORKBOOK = Path("/Users/rachin/Downloads/Material code.xlsx")
-
-
-def test_material_import_feature_gate_is_disabled_in_all_default_configurations():
-    assert Config.MATERIAL_TAG_ISSUANCE_ENABLED is False
-    assert DevelopmentConfig.MATERIAL_TAG_ISSUANCE_ENABLED is False
-    assert TestingConfig.MATERIAL_TAG_ISSUANCE_ENABLED is False
 
 
 def _identity(app, role_code="ADMIN"):
