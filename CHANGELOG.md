@@ -1,5 +1,32 @@
 # Changelog
 
+## v1.0.0-rc.1 — 2026-08-21
+
+UAT-approved prerelease; no Production deployment is included.
+
+### Added
+
+- Material-centric multi-order weighing workspace with guarded completion and read-only completed
+  Work Sets.
+- Secure ADMIN-only Material Master workbook Preview/Apply workflow with transactional,
+  idempotent Material Code upserts and row-level results.
+- Immutable Material Tag receiving, issuance, eleven-field QR payload, original printing,
+  reason-controlled reprinting, and auditable Print History.
+- Accessible Print Preview navigation to batch details, Material Tag History, and Home, hidden from
+  the physical 3 × 2.5 inch label output.
+
+### Deployment notes
+
+- Database migration head is `b0551011c146`; back up and migrate each environment before enabling
+  the feature.
+- Material Tag functionality remains disabled by default and requires explicit approved environment
+  configuration.
+- Runtime controls include authentication, roles, Station context, CSRF, immutable issuance, and
+  audited import/print/reprint operations without DELETE permission.
+- Use 100% print scale, no margins, disabled browser headers/footers, and Fit to Page off.
+- `RENDERED` confirms page preparation only, not physical printer success. Disable the feature to
+  deactivate it; never delete issued or imported audit evidence.
+
 ## Unreleased
 
 ### Added
