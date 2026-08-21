@@ -135,7 +135,15 @@ def test_original_post_event_print_pages_refresh_safe_and_no_mutation(app, clien
     assert b"Tag 1 of 8" in view.data and b"Tag 8 of 8" in view.data
     assert b"25.00 kg" in view.data
     assert b"window.print" in view.data and b">Print<" in view.data
-    client.get(response.headers["Location"])
+    assert f'href="/material-tags/batches/{batch_id}"'.encode() in view.data
+    assert b">Back to Batch Details<" in view.data
+    assert b'href="/material-tags/history"' in view.data
+    assert b">Material Tag History<" in view.data
+    assert b'href="/"' in view.data and b">Home<" in view.data
+    assert b'class="screen-only print-view-header"' in view.data
+    assert b".screen-only{display:none!important}" in view.data
+    refreshed = client.get(response.headers["Location"])
+    assert refreshed.status_code == 200
     with app.app_context():
         event = MaterialTagPrintEvent.query.one()
         assert (event.print_scope, event.print_type, event.result) == (
@@ -145,6 +153,20 @@ def test_original_post_event_print_pages_refresh_safe_and_no_mutation(app, clien
         )
         assert AuditLog.query.filter_by(event_type="MATERIAL_TAG_BATCH_PRINT_RENDERED").count() == 1
         assert WeighingTransaction.query.count() == 0
+
+
+def test_print_view_unknown_event_and_missing_station_are_denied(app, client):
+    app.config["MATERIAL_TAG_ISSUANCE_ENABLED"] = True
+    user_id, station_id, batch_id = setup_batch(app)
+    authenticate(client, user_id, station_id)
+    response = client.post(f"/material-tags/batches/{batch_id}/print")
+    event_url = response.headers["Location"]
+    assert client.get("/material-tags/print-events/999999/view").status_code == 404
+    with client.session_transaction() as user_session:
+        user_session.pop("station_id")
+    denied = client.get(event_url)
+    assert denied.status_code == 302
+    assert "/auth/station" in denied.headers["Location"]
 
 
 @pytest.mark.parametrize("reason", [None, "", "short", "x" * 501, "valid reason\nunsafe"])
