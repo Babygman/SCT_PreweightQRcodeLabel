@@ -31,6 +31,11 @@ UAT-approved prerelease; no Production deployment is included.
 
 ### Added
 
+- Disabled-by-default Finish Goods Master feature with secure ADMIN-only `.xlsx` Preview/Apply,
+  persistent row evidence, audited idempotent Product upserts, and Active `F/G` validation.
+- Mandatory searchable Finish Goods Master selection for feature-enabled Mock ERP generation and
+  immutable Production Order Code/Name snapshots used by generated documents.
+
 - Approved technical baseline addendum.
 - Flask application factory, configuration, logging, and error pages.
 - Approved Version 1 SQLAlchemy schema and initial Alembic migration.

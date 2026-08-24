@@ -21,6 +21,9 @@
   {% if config.MATERIAL_TAG_ISSUANCE_ENABLED %}
   <a class="btn btn-primary" href="{{ url_for('master_data.material_import_upload') }}">Import Material Master</a>
   {% endif %}
+  {% if config.FINISHED_GOODS_MASTER_ENABLED %}
+  <a class="btn btn-primary" href="{{ url_for('master_data.finish_goods_import_upload') }}">Import Finish Goods Master</a>
+  {% endif %}
 </div>
 {{ table('Users', users, [('Username','username'),('Display name','display_name'),('Active','is_active')]) }}
 {{ table('Stations', stations, [('Code','code'),('Name','name'),('Material capabilities','material_classifications'),('Active','is_active')]) }}

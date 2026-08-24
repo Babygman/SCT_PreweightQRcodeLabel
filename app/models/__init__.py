@@ -283,6 +283,67 @@ class Product(db.Model):
     code: Mapped[str] = mapped_column(db.Unicode(50), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(db.Unicode(200), nullable=False)
     is_active: Mapped[bool] = mapped_column(default=True, server_default=text("1"), nullable=False)
+    finish_goods_profile: Mapped["FinishGoodsProfile | None"] = relationship(
+        back_populates="product", uselist=False
+    )
+
+
+class FinishGoodsProfile(db.Model):
+    __tablename__ = "finish_goods_profiles"
+    product_id: Mapped[int] = mapped_column(db.ForeignKey("products.id"), primary_key=True)
+    source_category_no: Mapped[str] = mapped_column(db.Unicode(30), nullable=False)
+    updated_at_utc: Mapped[datetime | None] = mapped_column(UTC_DATETIME)
+    updated_by_user_id: Mapped[int | None] = mapped_column(db.ForeignKey("users.id"))
+    product: Mapped[Product] = relationship(back_populates="finish_goods_profile")
+    updated_by: Mapped[User | None] = relationship(foreign_keys=[updated_by_user_id])
+
+
+class FinishGoodsImportBatch(db.Model):
+    __tablename__ = "finish_goods_import_batches"
+    __table_args__ = (
+        CheckConstraint("status IN ('PREVIEWED', 'APPLIED', 'FAILED')", name="status"),
+        Index("ix_finish_goods_import_batches_file_sha256", "file_sha256"),
+    )
+    id: Mapped[int] = mapped_column(BIGINT_ID, primary_key=True, autoincrement=True)
+    original_filename: Mapped[str] = mapped_column(db.Unicode(255), nullable=False)
+    file_sha256: Mapped[str] = mapped_column(db.Unicode(64), nullable=False)
+    status: Mapped[str] = mapped_column(db.Unicode(20), nullable=False)
+    total_rows: Mapped[int] = mapped_column(nullable=False)
+    inserted_count: Mapped[int] = mapped_column(default=0, server_default=text("0"), nullable=False)
+    updated_count: Mapped[int] = mapped_column(default=0, server_default=text("0"), nullable=False)
+    unchanged_count: Mapped[int] = mapped_column(
+        default=0, server_default=text("0"), nullable=False
+    )
+    rejected_count: Mapped[int] = mapped_column(default=0, server_default=text("0"), nullable=False)
+    uploaded_by_user_id: Mapped[int] = mapped_column(db.ForeignKey("users.id"), nullable=False)
+    uploaded_at_utc: Mapped[datetime] = mapped_column(UTC_DATETIME, nullable=False)
+    applied_by_user_id: Mapped[int | None] = mapped_column(db.ForeignKey("users.id"))
+    applied_at_utc: Mapped[datetime | None] = mapped_column(UTC_DATETIME)
+    idempotency_key: Mapped[str] = mapped_column(db.Unicode(36), unique=True, nullable=False)
+    error_summary: Mapped[str | None] = mapped_column(db.Unicode(1000))
+    uploaded_by: Mapped[User] = relationship(foreign_keys=[uploaded_by_user_id])
+    applied_by: Mapped[User | None] = relationship(foreign_keys=[applied_by_user_id])
+    rows: Mapped[list["FinishGoodsImportRow"]] = relationship(back_populates="import_batch")
+
+
+class FinishGoodsImportRow(db.Model):
+    __tablename__ = "finish_goods_import_rows"
+    __table_args__ = (
+        db.UniqueConstraint("import_batch_id", "row_number"),
+        CheckConstraint("result IN ('INSERT', 'UPDATE', 'UNCHANGED', 'REJECTED')", name="result"),
+    )
+    id: Mapped[int] = mapped_column(BIGINT_ID, primary_key=True, autoincrement=True)
+    import_batch_id: Mapped[int] = mapped_column(
+        db.ForeignKey("finish_goods_import_batches.id"), nullable=False
+    )
+    row_number: Mapped[int] = mapped_column(nullable=False)
+    code_normalized: Mapped[str | None] = mapped_column(db.Unicode(50))
+    category_no_normalized: Mapped[str | None] = mapped_column(db.Unicode(30))
+    name_normalized: Mapped[str | None] = mapped_column(db.Unicode(200))
+    result: Mapped[str] = mapped_column(db.Unicode(20), nullable=False)
+    reason_code: Mapped[str | None] = mapped_column(db.Unicode(50))
+    reason_detail: Mapped[str | None] = mapped_column(db.Unicode(500))
+    import_batch: Mapped[FinishGoodsImportBatch] = relationship(back_populates="rows")
 
 
 class Formula(db.Model):
@@ -338,6 +399,19 @@ class ProductionOrder(db.Model):
     work_set_added_at_utc: Mapped[datetime | None] = mapped_column(UTC_DATETIME)
     product: Mapped[Product] = relationship()
     formula: Mapped[Formula | None] = relationship()
+    product_snapshot: Mapped["ProductionOrderProductSnapshot | None"] = relationship(
+        back_populates="production_order", uselist=False
+    )
+
+
+class ProductionOrderProductSnapshot(db.Model):
+    __tablename__ = "production_order_product_snapshots"
+    production_order_id: Mapped[int] = mapped_column(
+        db.ForeignKey("production_orders.id"), primary_key=True
+    )
+    product_code: Mapped[str] = mapped_column(db.Unicode(50), nullable=False)
+    product_name: Mapped[str] = mapped_column(db.Unicode(200), nullable=False)
+    production_order: Mapped[ProductionOrder] = relationship(back_populates="product_snapshot")
 
 
 class WeighingTransaction(db.Model):

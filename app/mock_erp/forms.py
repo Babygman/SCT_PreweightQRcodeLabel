@@ -1,18 +1,17 @@
 from datetime import date
 
 from flask_wtf import FlaskForm
-from wtforms import DecimalField, StringField, SubmitField
-from wtforms.validators import DataRequired, Length, NumberRange, ValidationError
+from wtforms import DecimalField, SelectField, StringField, SubmitField
+from wtforms.validators import DataRequired, Length, NumberRange, Optional, ValidationError
 
 from app.form_fields import OperatorDateField
 
 
 class MockOrderForm(FlaskForm):
     po_no = StringField("Production Order No.", validators=[DataRequired(), Length(max=50)])
-    product_code = StringField(
-        "Finished Good Item Code", validators=[DataRequired(), Length(max=50)]
-    )
-    product_name = StringField("Finished Good Name", validators=[DataRequired(), Length(max=200)])
+    product_id = SelectField("Finish Good", coerce=int, validators=[Optional()], choices=[])
+    product_code = StringField("Finished Good Item Code", validators=[Optional(), Length(max=50)])
+    product_name = StringField("Finished Good Name", validators=[Optional(), Length(max=200)])
     production_lot = StringField("Production Lot No.", validators=[DataRequired(), Length(max=100)])
     quantity = DecimalField(
         "Quantity to Produce (KG)", places=3, validators=[DataRequired(), NumberRange(min=0.001)]

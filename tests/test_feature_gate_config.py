@@ -75,3 +75,30 @@ def test_direct_flask_config_override_still_controls_the_feature():
     application.config["MATERIAL_TAG_ISSUANCE_ENABLED"] = True
 
     assert application.config["MATERIAL_TAG_ISSUANCE_ENABLED"] is True
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [(None, "False False False"), ("1", "True True False"), ("invalid", "False False False")],
+)
+def test_finish_goods_feature_gate_is_fail_closed(value, expected):
+    environment = os.environ.copy()
+    if value is None:
+        environment.pop("FINISHED_GOODS_MASTER_ENABLED", None)
+    else:
+        environment["FINISHED_GOODS_MASTER_ENABLED"] = value
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from config import Config, DevelopmentConfig, TestingConfig; "
+            "print(Config.FINISHED_GOODS_MASTER_ENABLED, "
+            "DevelopmentConfig.FINISHED_GOODS_MASTER_ENABLED, "
+            "TestingConfig.FINISHED_GOODS_MASTER_ENABLED)",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+        env=environment,
+    )
+    assert completed.stdout.strip() == expected

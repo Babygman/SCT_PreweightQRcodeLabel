@@ -5,7 +5,7 @@
 <div class="grid">
   <div><div class="label">Production Order No.</div><div class="value">{{ order.po_no }}</div></div>
   <div><div class="label">Formula Sheet No.</div><div class="value">{{ order.formula.code }}</div></div>
-  <div><div class="label">Finished Good</div><div class="value">{{ order.product.code }} — {{ order.product.name }}</div></div>
+  <div><div class="label">Finished Good</div><div class="value">{% if config.FINISHED_GOODS_MASTER_ENABLED and order.product_snapshot %}{{ order.product_snapshot.product_code }} — {{ order.product_snapshot.product_name }}{% else %}{{ order.product.code }} — {{ order.product.name }}{% endif %}</div></div>
   <div><div class="label">Production Lot No.</div><div class="value">{{ order.production_lot }}</div></div>
   <div><div class="label">Quantity</div><div class="value">{{ order.quantity }} KG</div></div>
   <div><div class="label">Production Date</div><div class="value">{{ order.production_date|local_date }}</div></div>

@@ -75,6 +75,21 @@ The Mock ERP is disabled by default in production configuration. It does not rep
 integration. Raw-material Vendor Lot/QC/expiry validation from the superseded Stage 4 design is
 not performed here; those values belong to the upstream Material Tag/ERP receiving process.
 
+## Finish Goods Master (unreleased)
+
+The disabled-by-default `FINISHED_GOODS_MASTER_ENABLED` feature adds an ADMIN-only Finish Goods
+Master workflow. Upload an `.xlsx` containing only `Sheet1` with exact headers
+`FINISH GOODS_CODE`, `CATEGORY_NO`, and `NAME`; every category must be `F/G`. Validation creates a
+persistent Preview and never changes Products. Explicit Apply performs one locked, transactional,
+audited, idempotent upsert by normalized Code. All approved workbook rows are Active, including the
+literal `TEST / NULL` record and values containing `NO USE`; duplicate Names are allowed.
+
+When enabled after the approved migration, Mock ERP requires selection of an Active Finish Good
+from the searchable Master and does not accept manual Code/Name overrides. Generated Production
+Orders and Formula Sheet documents use immutable Code/Name snapshots, so later Master changes do
+not rewrite historical documents. The migration and workbook were verified only in an isolated
+database; no live UAT migration or import was performed.
+
 ## Weighing Workflow UAT
 
 The primary production workflow is **Material-centric**. Prepare multiple PO + Formula pairs into

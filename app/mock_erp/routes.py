@@ -1,13 +1,13 @@
 from io import BytesIO
 
 import qrcode
-from flask import abort, current_app, flash, redirect, render_template, send_file, url_for
+from flask import abort, current_app, flash, redirect, render_template, request, send_file, url_for
 from flask_login import login_required
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
 from app.auth.decorators import roles_required, station_required
 from app.extensions import db
-from app.models import Formula, ProductionOrder
+from app.models import FinishGoodsProfile, Formula, Product, ProductionOrder
 from app.services.mock_erp import MockDocumentError, create_mock_order
 
 from . import bp
@@ -26,12 +26,54 @@ def _enabled():
 def index():
     _enabled()
     form = MockOrderForm()
-    if form.validate_on_submit():
+    finish_goods_enabled = current_app.config.get("FINISHED_GOODS_MASTER_ENABLED", False)
+    finish_goods_pagination = None
+    search_query = request.args.get("finish_goods_q", "").strip()
+    if finish_goods_enabled:
+        active_statement = (
+            select(Product)
+            .join(FinishGoodsProfile)
+            .where(
+                Product.is_active == True,  # noqa: E712
+                FinishGoodsProfile.source_category_no == "F/G",
+            )
+        )
+        selectable = db.session.scalars(active_statement.order_by(Product.code)).all()
+        form.product_id.choices = [(0, "Select a Finish Good")]
+        form.product_id.choices.extend(
+            (product.id, f"{product.code} — {product.name}") for product in selectable
+        )
+        result_statement = active_statement
+        if search_query:
+            pattern = f"%{search_query}%"
+            result_statement = result_statement.where(
+                or_(Product.code.ilike(pattern), Product.name.ilike(pattern))
+            )
+        finish_goods_pagination = db.paginate(
+            result_statement.order_by(Product.code, Product.id),
+            page=request.args.get("page", 1, type=int),
+            per_page=current_app.config["FINISHED_GOODS_SEARCH_PAGE_SIZE"],
+            max_per_page=current_app.config["FINISHED_GOODS_SEARCH_PAGE_SIZE"],
+            error_out=False,
+        )
+    valid_submission = form.validate_on_submit()
+    if valid_submission and finish_goods_enabled and not form.product_id.data:
+        form.product_id.errors.append("Select an Active Finish Good from the approved Master.")
+        valid_submission = False
+    if (
+        valid_submission
+        and not finish_goods_enabled
+        and (not form.product_code.data.strip() or not form.product_name.data.strip())
+    ):
+        flash("Finished Good Item Code and Name are required.", "danger")
+        valid_submission = False
+    if valid_submission:
         try:
             order = create_mock_order(
                 po_no=form.po_no.data.strip(),
-                product_code=form.product_code.data.strip(),
-                product_name=form.product_name.data.strip(),
+                product_id=form.product_id.data if finish_goods_enabled else None,
+                product_code=form.product_code.data.strip() if not finish_goods_enabled else None,
+                product_name=form.product_name.data.strip() if not finish_goods_enabled else None,
                 production_lot=form.production_lot.data.strip(),
                 quantity=form.quantity.data,
                 formula_code=form.formula_code.data.strip(),
@@ -48,7 +90,14 @@ def index():
         .where(ProductionOrder.quantity.is_not(None))
         .order_by(ProductionOrder.id.desc())
     ).all()
-    return render_template("mock_erp/index.html", form=form, orders=orders)
+    return render_template(
+        "mock_erp/index.html",
+        form=form,
+        orders=orders,
+        finish_goods_enabled=finish_goods_enabled,
+        finish_goods_pagination=finish_goods_pagination,
+        finish_goods_q=search_query,
+    )
 
 
 @bp.get("/<int:po_id>")

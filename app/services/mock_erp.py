@@ -3,7 +3,14 @@ from decimal import ROUND_DOWN, Decimal
 from sqlalchemy import select
 
 from app.extensions import db
-from app.models import Formula, FormulaItem, Material, Product, ProductionOrder
+from app.models import (
+    Formula,
+    FormulaItem,
+    Material,
+    Product,
+    ProductionOrder,
+    ProductionOrderProductSnapshot,
+)
 
 
 class MockDocumentError(ValueError):
@@ -33,8 +40,9 @@ def _mock_materials():
 def create_mock_order(
     *,
     po_no,
-    product_code,
-    product_name,
+    product_id=None,
+    product_code=None,
+    product_name=None,
     production_lot,
     quantity,
     formula_code,
@@ -46,12 +54,22 @@ def create_mock_order(
     if db.session.scalar(select(Formula).where(Formula.code == formula_code)):
         raise MockDocumentError("Formula Sheet No. already exists.")
 
-    product = db.session.scalar(select(Product).where(Product.code == product_code))
-    if product is None:
-        product = Product(code=product_code, name=product_name)
-        db.session.add(product)
-    elif product.name != product_name:
-        raise MockDocumentError("Finished Good Item Code already exists with another name.")
+    if product_id is not None:
+        product = db.session.get(Product, product_id)
+        if (
+            product is None
+            or not product.is_active
+            or product.finish_goods_profile is None
+            or product.finish_goods_profile.source_category_no != "F/G"
+        ):
+            raise MockDocumentError("Select an Active Finish Good from the approved Master.")
+    else:
+        product = db.session.scalar(select(Product).where(Product.code == product_code))
+        if product is None:
+            product = Product(code=product_code, name=product_name)
+            db.session.add(product)
+        elif product.name != product_name:
+            raise MockDocumentError("Finished Good Item Code already exists with another name.")
 
     quantity = Decimal(quantity).quantize(Decimal("0.001"))
     formula = Formula(
@@ -71,6 +89,11 @@ def create_mock_order(
         formula=formula,
         status="OPEN",
     )
+    if product_id is not None:
+        order.product_snapshot = ProductionOrderProductSnapshot(
+            product_code=product.code,
+            product_name=product.name,
+        )
     materials = _mock_materials()
     targets = _weights(quantity)
     for index, (material, target) in enumerate(zip(materials, targets, strict=True), start=1):

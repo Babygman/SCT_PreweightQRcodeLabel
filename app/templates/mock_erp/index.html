@@ -10,7 +10,25 @@
         <form method="post" novalidate>
           {{ form.hidden_tag() }}
           <div class="row g-3">
-            {% for field in [form.po_no, form.formula_code, form.product_code, form.product_name, form.production_lot, form.quantity, form.production_date, form.expected_finish_date] %}
+            {% for field in [form.po_no, form.formula_code] %}
+            <div class="col-md-6">
+              {{ field.label(class="form-label") }}
+              {% if field.name in ('production_date', 'expected_finish_date') %}{{ field(class="form-control", type="text", inputmode="numeric", autocomplete="off", placeholder="dd/mm/yyyy") }}{% else %}{{ field(class="form-control", autocomplete="off") }}{% endif %}
+              {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+            {% endfor %}
+            {% if finish_goods_enabled %}
+            <div class="col-12">
+              {{ form.product_id.label(class="form-label") }}
+              {{ form.product_id(class="form-select", autocomplete="off") }}
+              <div class="form-text">Select an Active Finish Good from the approved Master. Code and Name cannot be overridden.</div>
+              <div class="alert alert-light border mt-2 mb-0" aria-live="polite"><strong>Selected Finish Good:</strong> <output id="selected-finish-good">None selected</output></div>
+              {% for error in form.product_id.errors %}<div class="text-danger small" role="alert">{{ error }}</div>{% endfor %}
+            </div>
+            {% else %}
+              {% for field in [form.product_code, form.product_name] %}<div class="col-md-6">{{ field.label(class="form-label") }}{{ field(class="form-control", autocomplete="off") }}{% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}</div>{% endfor %}
+            {% endif %}
+            {% for field in [form.production_lot, form.quantity, form.production_date, form.expected_finish_date] %}
             <div class="col-md-6">
               {{ field.label(class="form-label") }}
               {% if field.name in ('production_date', 'expected_finish_date') %}{{ field(class="form-control", type="text", inputmode="numeric", autocomplete="off", placeholder="dd/mm/yyyy") }}{% else %}{{ field(class="form-control", autocomplete="off") }}{% endif %}
@@ -27,6 +45,22 @@
     </div>
   </div>
   <div class="col-xl-5">
+    {% if finish_goods_enabled %}
+    <div class="card shadow-sm mb-4">
+      <div class="card-body">
+        <h2 class="h5">Search and Select Finish Good</h2>
+        <form method="get" class="d-flex gap-2 mb-3" role="search">
+          <label class="visually-hidden" for="finish-goods-q">Code or Name</label>
+          <input class="form-control" id="finish-goods-q" name="finish_goods_q" value="{{ finish_goods_q }}" placeholder="Partial Code or Name">
+          <button class="btn btn-outline-primary" type="submit">Search</button>
+        </form>
+        <div class="table-responsive"><table class="table table-sm"><thead><tr><th>Code</th><th>Name</th><th><span class="visually-hidden">Action</span></th></tr></thead><tbody>
+        {% for product in finish_goods_pagination.items %}<tr><td>{{ product.code }}</td><td>{{ product.name }}</td><td><button class="btn btn-sm btn-outline-primary finish-good-select" type="button" data-product-id="{{ product.id }}" data-product-label="{{ product.code }} — {{ product.name }}">Select</button></td></tr>{% else %}<tr><td colspan="3">No matching Active Finish Goods.</td></tr>{% endfor %}
+        </tbody></table></div>
+        {% if finish_goods_pagination.pages > 1 %}<nav aria-label="Finish Goods search pages" class="d-flex justify-content-between align-items-center"><a class="btn btn-sm btn-outline-secondary{% if not finish_goods_pagination.has_prev %} disabled{% endif %}" href="{{ url_for('mock_erp.index',finish_goods_q=finish_goods_q,page=finish_goods_pagination.prev_num) if finish_goods_pagination.has_prev else '#' }}">Previous</a><span class="small text-muted">Page {{ finish_goods_pagination.page }} of {{ finish_goods_pagination.pages }}</span><a class="btn btn-sm btn-outline-secondary{% if not finish_goods_pagination.has_next %} disabled{% endif %}" href="{{ url_for('mock_erp.index',finish_goods_q=finish_goods_q,page=finish_goods_pagination.next_num) if finish_goods_pagination.has_next else '#' }}">Next</a></nav>{% endif %}
+      </div>
+    </div>
+    {% endif %}
     <div class="card shadow-sm">
       <div class="card-body">
         <h2 class="h5">Generated Mock Jobs</h2>
@@ -44,4 +78,14 @@
     </div>
   </div>
 </div>
+{% if finish_goods_enabled %}<script>
+(() => {
+  const select = document.getElementById('product_id');
+  const output = document.getElementById('selected-finish-good');
+  const refresh = () => { output.textContent = select.value === '0' ? 'None selected' : select.options[select.selectedIndex].text; };
+  select.addEventListener('change', refresh);
+  document.querySelectorAll('.finish-good-select').forEach(button => button.addEventListener('click', () => { select.value = button.dataset.productId; refresh(); select.focus(); }));
+  refresh();
+})();
+</script>{% endif %}
 {% endblock %}

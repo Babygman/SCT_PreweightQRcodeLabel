@@ -18,3 +18,19 @@ class MaterialImportUploadForm(FlaskForm):
 
 class MaterialImportApplyForm(FlaskForm):
     submit = SubmitField("Confirm Apply")
+
+
+class FinishGoodsImportUploadForm(FlaskForm):
+    workbook = FileField(
+        "Finish Goods Master workbook",
+        validators=[
+            FileRequired(message="Select a Finish Goods Master workbook."),
+            FileAllowed(["xlsx"], message="Only .xlsx workbooks are accepted."),
+        ],
+    )
+    idempotency_key = HiddenField(validators=[DataRequired(), UUID()])
+    submit = SubmitField("Validate workbook")
+
+
+class FinishGoodsImportApplyForm(FlaskForm):
+    submit = SubmitField("Confirm Apply")

@@ -18,6 +18,8 @@ from sqlalchemy import select
 from app.auth.decorators import roles_required, station_required
 from app.extensions import db
 from app.models import (
+    FinishGoodsImportBatch,
+    FinishGoodsImportRow,
     Formula,
     FormulaItem,
     Material,
@@ -29,13 +31,23 @@ from app.models import (
     Station,
     User,
 )
+from app.services.finish_goods_import import (
+    FinishGoodsImportError,
+    apply_finish_goods_import,
+    create_finish_goods_import_preview,
+)
 from app.services.material_import import (
     MaterialImportError,
     apply_material_import,
     create_material_import_preview,
 )
 
-from .forms import MaterialImportApplyForm, MaterialImportUploadForm
+from .forms import (
+    FinishGoodsImportApplyForm,
+    FinishGoodsImportUploadForm,
+    MaterialImportApplyForm,
+    MaterialImportUploadForm,
+)
 
 bp = Blueprint("master_data", __name__, url_prefix="/master-data")
 
@@ -44,6 +56,16 @@ def material_import_enabled_required(view):
     @wraps(view)
     def wrapped(*args, **kwargs):
         if not current_app.config.get("MATERIAL_TAG_ISSUANCE_ENABLED", False):
+            abort(404)
+        return view(*args, **kwargs)
+
+    return wrapped
+
+
+def finish_goods_import_enabled_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if not current_app.config.get("FINISHED_GOODS_MASTER_ENABLED", False):
             abort(404)
         return view(*args, **kwargs)
 
@@ -178,3 +200,95 @@ def material_import_result(batch_id):
         is_preview=False,
         apply_form=MaterialImportApplyForm(),
     )
+
+
+@bp.route("/finish-goods/import", methods=["GET", "POST"])
+@finish_goods_import_enabled_required
+@login_required
+@station_required
+@roles_required("ADMIN")
+def finish_goods_import_upload():
+    form = FinishGoodsImportUploadForm()
+    if not form.idempotency_key.data:
+        form.idempotency_key.data = str(uuid4())
+    if form.validate_on_submit():
+        workbook = form.workbook.data
+        file_bytes = workbook.read(current_app.config["FINISHED_GOODS_IMPORT_MAX_BYTES"] + 1)
+        batch = create_finish_goods_import_preview(
+            file_bytes=file_bytes,
+            filename=workbook.filename,
+            idempotency_key=form.idempotency_key.data,
+            user_id=current_user.id,
+            station_id=session["station_id"],
+            maximum_bytes=current_app.config["FINISHED_GOODS_IMPORT_MAX_BYTES"],
+            maximum_rows=current_app.config["FINISHED_GOODS_IMPORT_MAX_ROWS"],
+            maximum_uncompressed_bytes=current_app.config[
+                "FINISHED_GOODS_IMPORT_MAX_UNCOMPRESSED_BYTES"
+            ],
+        )
+        return redirect(url_for("master_data.finish_goods_import_preview", batch_id=batch.id))
+    return render_template("master_data/finish_goods_import_upload.html", form=form)
+
+
+def _finish_goods_result(batch_id, *, is_preview):
+    batch = db.get_or_404(FinishGoodsImportBatch, batch_id)
+    if is_preview and batch.status == "APPLIED":
+        return redirect(url_for("master_data.finish_goods_import_result", batch_id=batch.id))
+    if not is_preview and batch.status != "APPLIED":
+        return redirect(url_for("master_data.finish_goods_import_preview", batch_id=batch.id))
+    page = request.args.get("page", 1, type=int)
+    pagination = db.paginate(
+        select(FinishGoodsImportRow)
+        .where(FinishGoodsImportRow.import_batch_id == batch.id)
+        .order_by(FinishGoodsImportRow.row_number),
+        page=page,
+        per_page=100,
+        max_per_page=100,
+        error_out=False,
+    )
+    return render_template(
+        "master_data/finish_goods_import_result.html",
+        batch=batch,
+        rows=pagination.items,
+        pagination=pagination,
+        is_preview=is_preview,
+        apply_form=FinishGoodsImportApplyForm(),
+    )
+
+
+@bp.get("/finish-goods/import/<int:batch_id>/preview")
+@finish_goods_import_enabled_required
+@login_required
+@station_required
+@roles_required("ADMIN")
+def finish_goods_import_preview(batch_id):
+    return _finish_goods_result(batch_id, is_preview=True)
+
+
+@bp.post("/finish-goods/import/<int:batch_id>/apply")
+@finish_goods_import_enabled_required
+@login_required
+@station_required
+@roles_required("ADMIN")
+def finish_goods_import_apply(batch_id):
+    form = FinishGoodsImportApplyForm()
+    if not form.validate_on_submit():
+        abort(400)
+    try:
+        batch = apply_finish_goods_import(
+            batch_id=batch_id, user_id=current_user.id, station_id=session["station_id"]
+        )
+    except FinishGoodsImportError as exc:
+        flash(str(exc), "danger")
+        return redirect(url_for("master_data.finish_goods_import_preview", batch_id=batch_id))
+    flash("Finish Goods Master import applied successfully.", "success")
+    return redirect(url_for("master_data.finish_goods_import_result", batch_id=batch.id))
+
+
+@bp.get("/finish-goods/import/<int:batch_id>/result")
+@finish_goods_import_enabled_required
+@login_required
+@station_required
+@roles_required("ADMIN")
+def finish_goods_import_result(batch_id):
+    return _finish_goods_result(batch_id, is_preview=False)
