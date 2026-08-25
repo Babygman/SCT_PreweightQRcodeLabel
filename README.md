@@ -90,6 +90,19 @@ Orders and Formula Sheet documents use immutable Code/Name snapshots, so later M
 not rewrite historical documents. The migration and workbook were verified only in an isolated
 database; no live UAT migration or import was performed.
 
+### Product and Production Lot business key
+
+Production Orders use Product plus normalized Production Lot as their composite business key.
+Normalization uses Unicode NFC, trims outer whitespace, uppercases deterministically, rejects
+control characters and blank values, and preserves internal spaces. Different Products may use
+the same normalized Lot; the same Product may not reuse it. The original trimmed Lot remains on
+documents and QR-linked workflows.
+
+Migration `f3a6c9e2b7d1` backfills the normalized field, aborts if existing composite duplicates
+are found, and adds the concurrency-safe composite uniqueness constraint. Apply it only after a
+duplicate assessment and before starting application code containing the new model field. Finish
+Goods and Material Tag features remain disabled by default.
+
 ## Weighing Workflow UAT
 
 The primary production workflow is **Material-centric**. Prepare multiple PO + Formula pairs into

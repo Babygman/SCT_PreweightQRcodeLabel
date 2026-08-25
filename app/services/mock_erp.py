@@ -1,6 +1,7 @@
 from decimal import ROUND_DOWN, Decimal
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from app.extensions import db
 from app.models import (
@@ -11,10 +12,42 @@ from app.models import (
     ProductionOrder,
     ProductionOrderProductSnapshot,
 )
+from app.production_lots import ProductionLotError, clean_production_lot, normalize_production_lot
 
 
 class MockDocumentError(ValueError):
     pass
+
+
+PRODUCT_LOT_CONSTRAINT = "uq_production_orders_product_lot_normalized"
+
+
+def _duplicate_product_lot_message(product, production_lot):
+    return (
+        f"Product {product.code} already has Production Lot {production_lot}. "
+        "Use a different Production Lot for this Product."
+    )
+
+
+def _is_product_lot_constraint_error(error):
+    message = str(getattr(error, "orig", error)).casefold()
+    return PRODUCT_LOT_CONSTRAINT.casefold() in message or (
+        "unique constraint failed" in message
+        and "production_orders.product_id" in message
+        and "production_orders.production_lot_normalized" in message
+    )
+
+
+def _product_lot_exists(product_id, production_lot_normalized):
+    return (
+        db.session.scalar(
+            select(ProductionOrder.id).where(
+                ProductionOrder.product_id == product_id,
+                ProductionOrder.production_lot_normalized == production_lot_normalized,
+            )
+        )
+        is not None
+    )
 
 
 def _weights(total, count=30):
@@ -49,6 +82,11 @@ def create_mock_order(
     production_date,
     expected_finish_date,
 ):
+    try:
+        production_lot = clean_production_lot(production_lot)
+        production_lot_normalized = normalize_production_lot(production_lot)
+    except ProductionLotError as exc:
+        raise MockDocumentError(str(exc)) from exc
     if db.session.scalar(select(ProductionOrder).where(ProductionOrder.po_no == po_no)):
         raise MockDocumentError("Production Order No. already exists.")
     if db.session.scalar(select(Formula).where(Formula.code == formula_code)):
@@ -70,6 +108,9 @@ def create_mock_order(
             db.session.add(product)
         elif product.name != product_name:
             raise MockDocumentError("Finished Good Item Code already exists with another name.")
+
+    if _product_lot_exists(product.id, production_lot_normalized):
+        raise MockDocumentError(_duplicate_product_lot_message(product, production_lot))
 
     quantity = Decimal(quantity).quantize(Decimal("0.001"))
     formula = Formula(
@@ -107,5 +148,12 @@ def create_mock_order(
             )
         )
     db.session.add(order)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError as exc:
+        db.session.rollback()
+        if _is_product_lot_constraint_error(exc):
+            message = _duplicate_product_lot_message(product, production_lot)
+            raise MockDocumentError(message) from exc
+        raise
     return order

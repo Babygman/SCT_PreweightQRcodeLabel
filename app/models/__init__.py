@@ -4,9 +4,10 @@ from decimal import Decimal
 from flask_login import UserMixin
 from sqlalchemy import CheckConstraint, Index, text
 from sqlalchemy.dialects import mssql
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from app.extensions import db
+from app.production_lots import clean_production_lot, normalize_production_lot
 
 UTC_DATETIME = db.DateTime().with_variant(mssql.DATETIME2(), "mssql")
 SQL_DATE = db.Date().with_variant(mssql.DATE(), "mssql")
@@ -379,11 +380,17 @@ class ProductionOrder(db.Model):
     __tablename__ = "production_orders"
     __table_args__ = (
         CheckConstraint("status IN ('OPEN', 'READY', 'COMPLETED', 'CANCELLED')", name="status"),
+        db.UniqueConstraint(
+            "product_id",
+            "production_lot_normalized",
+            name="uq_production_orders_product_lot_normalized",
+        ),
     )
     id: Mapped[int] = mapped_column(primary_key=True)
     po_no: Mapped[str] = mapped_column(db.Unicode(50), unique=True, nullable=False)
     product_id: Mapped[int] = mapped_column(db.ForeignKey("products.id"), nullable=False)
     production_lot: Mapped[str] = mapped_column(db.Unicode(100), nullable=False)
+    production_lot_normalized: Mapped[str] = mapped_column(db.Unicode(100), nullable=False)
     quantity: Mapped[Decimal | None] = mapped_column(db.Numeric(18, 3))
     production_date: Mapped[date | None] = mapped_column(SQL_DATE)
     expected_finish_date: Mapped[date | None] = mapped_column(SQL_DATE)
@@ -402,6 +409,11 @@ class ProductionOrder(db.Model):
     product_snapshot: Mapped["ProductionOrderProductSnapshot | None"] = relationship(
         back_populates="production_order", uselist=False
     )
+
+    @validates("production_lot")
+    def validate_production_lot(self, _key, value):
+        self.production_lot_normalized = normalize_production_lot(value)
+        return clean_production_lot(value)
 
 
 class ProductionOrderProductSnapshot(db.Model):
