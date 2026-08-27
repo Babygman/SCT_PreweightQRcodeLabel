@@ -35,6 +35,11 @@ UAT-approved prerelease; no Production deployment is included.
   persistent row evidence, audited idempotent Product upserts, and Active `F/G` validation.
 - Mandatory searchable Finish Goods Master selection for feature-enabled Mock ERP generation and
   immutable Production Order Code/Name snapshots used by generated documents.
+- Normalized Product + Production Lot composite uniqueness. Different Products may use the same
+  normalized Production Lot, while the same Product may not reuse it.
+- POST/Redirect/GET handling for controlled Mock ERP validation failures, so refreshing the result
+  page does not resubmit the rejected request. Duplicate validation leaves no partial Production
+  Order, Formula, Formula Item, Product snapshot, or audit residue.
 
 - Approved technical baseline addendum.
 - Flask application factory, configuration, logging, and error pages.
@@ -67,7 +72,14 @@ UAT-approved prerelease; no Production deployment is included.
   construction services.
 - Admin-only Material Master `.xlsx` upload with secure workbook validation, normalized row-level
   persistent previews, confirmed idempotent Material-code upserts, audit events, and result UI.
-- Disabled-by-default Material Tag Issuance feature gate to protect environments where the new
-  foundation migration has not yet been applied.
+- Disabled-by-default Material Tag Issuance feature gate requiring explicit activation only after
+  the required foundation migration is present in the target environment.
 - Stage B completion safeguards for all-or-nothing imports, SQL Server batch locking, persisted
   preview revalidation, hostile workbook rejection, paged results, and Thailand-time audit context.
+
+### Deployment notes
+
+- The repository and verified live UAT Alembic head are `f3a6c9e2b7d1`. Production deployment is
+  not included in this Unreleased entry and requires its own approved deployment procedure.
+- Routine live downgrade of `d2f4a6b8c0e1` is prohibited after Finish Goods imports or Product
+  snapshots exist because the downgrade removes populated Finish Goods evidence and snapshots.

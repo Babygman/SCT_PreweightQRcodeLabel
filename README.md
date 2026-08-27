@@ -87,8 +87,13 @@ literal `TEST / NULL` record and values containing `NO USE`; duplicate Names are
 When enabled after the approved migration, Mock ERP requires selection of an Active Finish Good
 from the searchable Master and does not accept manual Code/Name overrides. Generated Production
 Orders and Formula Sheet documents use immutable Code/Name snapshots, so later Master changes do
-not rewrite historical documents. The migration and workbook were verified only in an isolated
-database; no live UAT migration or import was performed.
+not rewrite historical documents.
+
+Verified live UAT is at Alembic revision `f3a6c9e2b7d1`. It contains one applied Finish Goods
+import batch with 458 persisted import rows and 458 Finish Goods profiles. Product + normalized
+Production Lot composite uniqueness is active: the verified same-Product duplicate count is zero,
+and no global Production Lot uniqueness is defined. These statements describe live UAT only; they
+do not state or imply that Production has been deployed.
 
 ### Product and Production Lot business key
 
@@ -102,6 +107,12 @@ Migration `f3a6c9e2b7d1` backfills the normalized field, aborts if existing comp
 are found, and adds the concurrency-safe composite uniqueness constraint. Apply it only after a
 duplicate assessment and before starting application code containing the new model field. Finish
 Goods and Material Tag features remain disabled by default.
+
+Routine live downgrade of `d2f4a6b8c0e1` is prohibited after Finish Goods imports or Product
+snapshots exist because its downgrade removes the populated Finish Goods import evidence, profiles,
+and Production Order Product snapshots. Any Production migration or rollback requires a separately
+approved deployment procedure; the verified live UAT state is not evidence of Production
+deployment.
 
 ## Weighing Workflow UAT
 
@@ -136,8 +147,9 @@ calculation, and construction of the existing eleven-field Material Tag QR paylo
 Material import, Tag issuance, history, or printing routes in Stage A.
 
 Migration `b0551011c146` is additive, but its downgrade becomes destructive once issued Material
-Tag records exist and therefore requires a separate approval at that point. The migration has not
-been applied to the live UAT database as part of Stage A.
+Tag records exist and therefore requires separate approval at that point. It is included in the
+verified live UAT migration chain through `f3a6c9e2b7d1`. This live UAT status does not imply a
+Production deployment; Production requires a separately approved deployment procedure.
 
 ## Material Master import (Stage B)
 
@@ -152,4 +164,4 @@ row blocks the entire Apply operation, so no partial Material import is possible
 The import routes and Master Data link are controlled by `MATERIAL_TAG_ISSUANCE_ENABLED`, which is
 disabled by default. It must remain disabled in any environment where migration `b0551011c146` has
 not been approved and applied. Stage B development tests enable the feature explicitly against an
-isolated SQLite database; they do not apply the migration or import Materials into live UAT.
+isolated SQLite database and do not access or modify live UAT.
