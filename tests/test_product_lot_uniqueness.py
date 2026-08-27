@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
+from werkzeug.security import generate_password_hash
 
 from app.extensions import db
 from app.models import (
@@ -16,6 +17,9 @@ from app.models import (
     Product,
     ProductionOrder,
     ProductionOrderProductSnapshot,
+    Role,
+    Station,
+    User,
 )
 from app.production_lots import ProductionLotError, normalize_production_lot
 from app.services.mock_erp import (
@@ -137,6 +141,75 @@ def test_race_constraint_is_translated_and_rolls_back_complete_document(app, mon
             FormulaItem.query.count(),
             ProductionOrderProductSnapshot.query.count(),
         ) == before
+
+
+def test_duplicate_route_uses_prg_and_refresh_leaves_no_residue(app, client):
+    app.config["FINISHED_GOODS_MASTER_ENABLED"] = True
+    with app.app_context():
+        selected = product("FG-A")
+        create("PO-A", "FM-A", selected, "L001")
+        role = Role(code="ADMIN", name="Admin")
+        user = User(
+            username="admin",
+            password_hash=generate_password_hash("test"),
+            display_name="Admin",
+            roles=[role],
+        )
+        station = Station(code="ST-1", name="Station 1")
+        db.session.add_all([role, user, station])
+        db.session.commit()
+        product_id, user_id, station_id = selected.id, user.id, station.id
+        before = (
+            ProductionOrder.query.count(),
+            Formula.query.count(),
+            FormulaItem.query.count(),
+            ProductionOrderProductSnapshot.query.count(),
+            AuditLog.query.count(),
+        )
+    with client.session_transaction() as session:
+        session["_user_id"] = str(user_id)
+        session["_fresh"] = True
+        session["station_id"] = station_id
+    response = client.post(
+        "/mock-erp/",
+        data={
+            "po_no": "PO-DUP",
+            "formula_code": "FM-DUP",
+            "product_id": str(product_id),
+            "production_lot": "  l001  ",
+            "quantity": "30.000",
+            "production_date": "25/08/2026",
+            "expected_finish_date": "26/08/2026",
+        },
+    )
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/mock-erp/")
+
+    redirected = client.get(response.headers["Location"])
+    assert redirected.status_code == 200
+    assert b"Product FG-A already has Production Lot l001" in redirected.data
+    prohibited = (
+        b"uq_production_orders_product_lot_normalized",
+        b"Traceback",
+        b"sqlalchemy",
+        b"pyodbc",
+        b"/Users/rachin/Projects",
+        b"password",
+    )
+    assert not any(value in redirected.data for value in prohibited)
+
+    refreshed = client.get(response.headers["Location"])
+    assert refreshed.status_code == 200
+    with app.app_context():
+        assert (
+            ProductionOrder.query.count(),
+            Formula.query.count(),
+            FormulaItem.query.count(),
+            ProductionOrderProductSnapshot.query.count(),
+            AuditLog.query.count(),
+        ) == before
+        assert ProductionOrder.query.filter_by(po_no="PO-DUP").count() == 0
+        assert Formula.query.filter_by(code="FM-DUP").count() == 0
 
 
 def test_constraint_specific_integrity_error_detection_does_not_mask_other_errors():

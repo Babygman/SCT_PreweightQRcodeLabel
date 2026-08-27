@@ -82,6 +82,7 @@ def index():
             )
         except MockDocumentError as exc:
             flash(str(exc), "danger")
+            return redirect(url_for("mock_erp.index"))
         else:
             flash("Mock Production Order and Formula Sheet created.", "success")
             return redirect(url_for("mock_erp.detail", po_id=order.id))
