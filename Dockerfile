@@ -44,6 +44,7 @@ RUN python -m pip install --no-index --find-links=/wheels --requirement requirem
 
 COPY --chown=app:app app ./app
 COPY --chown=app:app migrations ./migrations
+COPY --chown=app:app scripts ./scripts
 COPY --chown=app:app config.py run.py ./
 RUN mkdir -p /app/instance && chown app:app /app/instance
 
