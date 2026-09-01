@@ -37,6 +37,10 @@ def create_app(config_name="development"):
     login_manager.login_view = "auth.login"
     csrf.init_app(app)
 
+    @app.get("/healthz")
+    def healthz():
+        return {"status": "ok"}
+
     @app.template_filter("local_datetime")
     def local_datetime_filter(value):
         return format_local_datetime(value, app.config["APP_TIMEZONE"])

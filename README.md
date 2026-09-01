@@ -16,6 +16,31 @@ APP_ENV=development .venv/bin/flask --app run.py run
 
 Set `SECRET_KEY` and `DATABASE_URL` from the environment for production. Never commit `.env` or credentials.
 
+## Docker-based UAT
+
+Docker UAT runs the Flask application under Waitress as an unprivileged user and connects to the
+existing SQL Server UAT database. It does not include SQL Server and does not run migrations,
+seeds, imports, or other database-changing commands during container startup.
+
+1. Copy `.env.uat.example` to `.env.uat` on the approved Docker host and replace every placeholder
+   locally. URL-encode reserved characters in database credentials. Never commit `.env.uat`.
+2. Confirm the external Docker network `nginx-proxy-manager_default` already exists.
+3. Confirm the target database is `SCT_Preweight_UAT` at Alembic revision `f3a6c9e2b7d1` through
+   the separately approved read-only deployment check.
+4. Build and start the application:
+
+   ```bash
+   docker compose -f compose.uat.yaml build
+   docker compose -f compose.uat.yaml up -d
+   ```
+
+The container exposes port `8000` only to the external proxy network; it does not publish a host
+port. Configure Nginx Proxy Manager to forward the approved UAT hostname to
+`sct-preweight-uat:8000`. The unauthenticated `/healthz` endpoint reports application-process
+liveness only and does not query the database. `APP_ENV=uat` enables the approved UAT identity
+`uat_admin` at station `UAT-ST01`; both optional feature flags remain fail-closed unless explicitly
+set in the UAT environment.
+
 ## Development/UAT seed credentials
 
 These accounts exist only after running `seed-uat` and must not be used as production defaults:

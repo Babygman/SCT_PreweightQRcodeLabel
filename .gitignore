@@ -8,3 +8,5 @@ __pycache__/
 htmlcov/
 instance/
 .env
+.env.uat
+.env.uat.local

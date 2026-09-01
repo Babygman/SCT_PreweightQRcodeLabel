@@ -71,6 +71,21 @@ class DevelopmentConfig(Config):
     UAT_AUTO_STATION_CODE = "UAT-ST01"
 
 
+class UATConfig(Config):
+    SECRET_KEY = os.environ.get("SECRET_KEY")
+    SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL")
+    DEBUG = False
+    TESTING = False
+    MOCK_ERP_ENABLED = True
+    UAT_AUTO_LOGIN = True
+    UAT_AUTO_USERNAME = "uat_admin"
+    UAT_AUTO_STATION_CODE = "UAT-ST01"
+    MATERIAL_TAG_ISSUANCE_ENABLED = environment_bool(
+        "MATERIAL_TAG_ISSUANCE_ENABLED"
+    )
+    FINISHED_GOODS_MASTER_ENABLED = environment_bool("FINISHED_GOODS_MASTER_ENABLED")
+
+
 class TestingConfig(Config):
     SECRET_KEY = "test-only-secret"
     TESTING = True
@@ -85,4 +100,5 @@ CONFIGS = {
     "development": DevelopmentConfig,
     "production": Config,
     "testing": TestingConfig,
+    "uat": UATConfig,
 }

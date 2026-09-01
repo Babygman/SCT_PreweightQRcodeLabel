@@ -19,6 +19,8 @@ def register_uat_bypass(app):
     def apply_uat_context():
         if not current_app.config.get("UAT_AUTO_LOGIN", False):
             return None
+        if request.endpoint == "healthz":
+            return None
 
         username = current_app.config["UAT_AUTO_USERNAME"]
         station_code = current_app.config["UAT_AUTO_STATION_CODE"]
