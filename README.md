@@ -41,6 +41,72 @@ liveness only and does not query the database. `APP_ENV=uat` enables the approve
 `uat_admin` at station `UAT-ST01`; both optional feature flags remain fail-closed unless explicitly
 set in the UAT environment.
 
+## PostgreSQL UAT preparation
+
+`compose.postgresql.uat.yaml` defines a separate PostgreSQL 17 UAT database and the existing web
+application. PostgreSQL is attached only to the internal `preweight_postgresql_uat` network, has no
+host-published port, and stores data in the named volume
+`sct_preweight_postgresql_uat_data`. The web application also joins the existing
+`nginx-proxy-manager_default` network. Container startup never runs Alembic, seed, export, or import
+commands.
+
+Before a separately approved deployment, copy `.env.postgresql.uat.example` to
+`.env.postgresql.uat`, replace every placeholder locally, URL-encode the database password in
+`DATABASE_URL`, and set file mode `0600`. Compose must be invoked with the explicit environment
+file:
+
+```bash
+docker compose \
+  --env-file .env.postgresql.uat \
+  -f compose.postgresql.uat.yaml \
+  config
+```
+
+The existing Alembic chain remains at revision `f3a6c9e2b7d1`. It now emits PostgreSQL-compatible
+boolean defaults and the required partial unique index for active weighing rows. Schema upgrade is
+a separate controlled step and is never automatic.
+
+### SQL Server to PostgreSQL UAT transfer
+
+The transfer tool copies all application business tables but never copies `alembic_version`.
+Export is SELECT-only. Import requires an empty PostgreSQL database named `sct_preweight_uat`,
+requires both databases to be at revision `f3a6c9e2b7d1`, preserves primary keys, resets PostgreSQL
+sequences, and verifies every table by row count and SHA-256 hash inside one transaction.
+
+On `WEBSERVER01`, run export only after separate approval and provide the SQL Server URL through the
+process environment, not the command line:
+
+```powershell
+$env:SOURCE_DATABASE_URL = '<SQL_SERVER_UAT_URL>'
+python scripts/postgresql_uat_transfer.py export postgresql-uat-transfer-YYYYMMDD.json.gz
+Remove-Item Env:SOURCE_DATABASE_URL
+```
+
+Validate the transferred bundle without connecting to a database:
+
+```bash
+python scripts/postgresql_uat_transfer.py inspect postgresql-uat-transfer-YYYYMMDD.json.gz
+```
+
+On `SCTUBUNTU01`, import only after the PostgreSQL schema has been migrated and after separate
+approval:
+
+```bash
+docker compose \
+  --env-file .env.postgresql.uat \
+  -f compose.postgresql.uat.yaml \
+  run --rm --no-deps \
+  --volume "$PWD/postgresql-uat-transfer-YYYYMMDD.json.gz:/tmp/transfer.json.gz:ro" \
+  --entrypoint python \
+  sct-preweight-uat \
+  scripts/postgresql_uat_transfer.py import /tmp/transfer.json.gz \
+  --confirm-target sct_preweight_uat
+```
+
+The transfer bundle contains application data, including password hashes and audit history. Keep it
+mode `0600`, do not commit it, and remove all temporary copies only after migration verification is
+accepted.
+
 ## Development/UAT seed credentials
 
 These accounts exist only after running `seed-uat` and must not be used as production defaults:

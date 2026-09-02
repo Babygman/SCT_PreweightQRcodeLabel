@@ -1,5 +1,9 @@
 # Changelog
 
+- Prepared an isolated PostgreSQL UAT runtime, portable Alembic DDL and transactional SQL Server to
+  PostgreSQL transfer tooling with per-table integrity verification. No database operation runs
+  automatically.
+
 ## v1.0.0-rc.1 — 2026-08-21
 
 UAT-approved prerelease; no Production deployment is included.

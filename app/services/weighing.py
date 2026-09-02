@@ -80,8 +80,8 @@ def _next_preweight_id(timestamp):
     statement = select(func.max(WeighingTransaction.preweight_id)).where(
         WeighingTransaction.preweight_id.like(f"{prefix}%")
     )
-    if db.session.get_bind().dialect.name == "mssql":
-        statement = statement.with_hint(
+    if db.session.get_bind().dialect.name in {"mssql", "postgresql"}:
+        statement = statement.with_for_update().with_hint(
             WeighingTransaction, "WITH (UPDLOCK, HOLDLOCK)", dialect_name="mssql"
         )
     latest = db.session.scalar(statement)

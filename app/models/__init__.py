@@ -39,7 +39,7 @@ class User(UserMixin, db.Model):
     username: Mapped[str] = mapped_column(db.Unicode(50), unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(db.Unicode(255), nullable=False)
     display_name: Mapped[str] = mapped_column(db.Unicode(100), nullable=False)
-    is_active: Mapped[bool] = mapped_column(default=True, server_default=text("1"), nullable=False)
+    is_active: Mapped[bool] = mapped_column(default=True, server_default=db.true(), nullable=False)
     created_at_utc: Mapped[datetime] = mapped_column(UTC_DATETIME, default=utcnow, nullable=False)
     updated_at_utc: Mapped[datetime] = mapped_column(
         UTC_DATETIME, default=utcnow, onupdate=utcnow, nullable=False
@@ -56,7 +56,7 @@ class Station(db.Model):
     material_classifications: Mapped[str | None] = mapped_column(
         db.Unicode(500), default="GENERAL", server_default=text("'GENERAL'"), nullable=True
     )
-    is_active: Mapped[bool] = mapped_column(default=True, server_default=text("1"), nullable=False)
+    is_active: Mapped[bool] = mapped_column(default=True, server_default=db.true(), nullable=False)
 
 
 class Material(db.Model):
@@ -70,7 +70,7 @@ class Material(db.Model):
         db.Unicode(50), default="GENERAL", server_default=text("'GENERAL'"), nullable=True
     )
     source_category_no: Mapped[str | None] = mapped_column(db.Unicode(30))
-    is_active: Mapped[bool] = mapped_column(default=True, server_default=text("1"), nullable=False)
+    is_active: Mapped[bool] = mapped_column(default=True, server_default=db.true(), nullable=False)
     updated_at_utc: Mapped[datetime | None] = mapped_column(UTC_DATETIME)
     updated_by_user_id: Mapped[int | None] = mapped_column(db.ForeignKey("users.id"))
     updated_by: Mapped[User | None] = relationship(foreign_keys=[updated_by_user_id])
@@ -274,7 +274,7 @@ class RawMaterialLot(db.Model):
     lot_no: Mapped[str] = mapped_column(db.Unicode(100), nullable=False)
     qc_status: Mapped[str] = mapped_column(db.Unicode(20), nullable=False)
     expiry_date: Mapped[date | None] = mapped_column(SQL_DATE)
-    is_active: Mapped[bool] = mapped_column(default=True, server_default=text("1"), nullable=False)
+    is_active: Mapped[bool] = mapped_column(default=True, server_default=db.true(), nullable=False)
     material: Mapped[Material] = relationship()
 
 
@@ -283,7 +283,7 @@ class Product(db.Model):
     id: Mapped[int] = mapped_column(primary_key=True)
     code: Mapped[str] = mapped_column(db.Unicode(50), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(db.Unicode(200), nullable=False)
-    is_active: Mapped[bool] = mapped_column(default=True, server_default=text("1"), nullable=False)
+    is_active: Mapped[bool] = mapped_column(default=True, server_default=db.true(), nullable=False)
     finish_goods_profile: Mapped["FinishGoodsProfile | None"] = relationship(
         back_populates="product", uselist=False
     )
@@ -355,7 +355,7 @@ class Formula(db.Model):
     product_id: Mapped[int] = mapped_column(db.ForeignKey("products.id"), nullable=False)
     production_lot: Mapped[str | None] = mapped_column(db.Unicode(100))
     batch_quantity: Mapped[Decimal | None] = mapped_column(db.Numeric(18, 3))
-    is_active: Mapped[bool] = mapped_column(default=True, server_default=text("1"), nullable=False)
+    is_active: Mapped[bool] = mapped_column(default=True, server_default=db.true(), nullable=False)
     product: Mapped[Product] = relationship()
     items: Mapped[list["FormulaItem"]] = relationship(back_populates="formula")
 
@@ -401,7 +401,7 @@ class ProductionOrder(db.Model):
     work_set_station_id: Mapped[int | None] = mapped_column()
     work_set_code: Mapped[str | None] = mapped_column(db.Unicode(40))
     work_set_active: Mapped[bool | None] = mapped_column(
-        default=False, server_default=text("0"), nullable=True
+        default=False, server_default=db.false(), nullable=True
     )
     work_set_added_at_utc: Mapped[datetime | None] = mapped_column(UTC_DATETIME)
     product: Mapped[Product] = relationship()
@@ -437,6 +437,7 @@ class WeighingTransaction(db.Model):
             "formula_item_id",
             unique=True,
             mssql_where=text("status IN ('COMPLETED', 'CONSUMED')"),
+            postgresql_where=text("status IN ('COMPLETED', 'CONSUMED')"),
             sqlite_where=text("status IN ('COMPLETED', 'CONSUMED')"),
         ),
     )

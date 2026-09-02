@@ -29,7 +29,7 @@ def upgrade():
     order_columns = (
         sa.Column("work_set_station_id", sa.Integer(), nullable=True),
         sa.Column("work_set_code", sa.Unicode(length=40), nullable=True),
-        sa.Column("work_set_active", sa.Boolean(), server_default=sa.text("0"), nullable=True),
+        sa.Column("work_set_active", sa.Boolean(), server_default=sa.false(), nullable=True),
         sa.Column("work_set_added_at_utc", sa.DateTime(), nullable=True),
     )
     if op.get_bind().dialect.name == "sqlite":

@@ -10,3 +10,5 @@ instance/
 .env
 .env.uat
 .env.uat.local
+.env.postgresql.uat
+postgresql-uat-transfer-*.json.gz

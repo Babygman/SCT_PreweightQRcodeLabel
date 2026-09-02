@@ -3,6 +3,7 @@
 .env
 .env.*
 !.env.uat.example
+!.env.postgresql.uat.example
 .venv
 __pycache__
 *.py[cod]
@@ -18,3 +19,4 @@ instance
 .idea
 .vscode
 *.log
+postgresql-uat-transfer-*.json.gz

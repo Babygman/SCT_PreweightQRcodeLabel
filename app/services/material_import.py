@@ -336,6 +336,7 @@ def _batch_for_apply_statement(batch_id):
     return (
         select(MaterialImportBatch)
         .where(MaterialImportBatch.id == batch_id)
+        .with_for_update()
         .with_hint(MaterialImportBatch, "WITH (UPDLOCK, HOLDLOCK)", dialect_name="mssql")
     )
 

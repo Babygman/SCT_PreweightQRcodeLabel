@@ -294,6 +294,7 @@ def _batch_statement(batch_id):
     return (
         select(FinishGoodsImportBatch)
         .where(FinishGoodsImportBatch.id == batch_id)
+        .with_for_update()
         .with_hint(FinishGoodsImportBatch, "WITH (UPDLOCK, HOLDLOCK)", dialect_name="mssql")
     )
 

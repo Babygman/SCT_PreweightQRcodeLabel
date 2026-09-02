@@ -25,7 +25,7 @@ def upgrade():
         sa.Column("code", sa.Unicode(length=50), nullable=False),
         sa.Column("name", sa.Unicode(length=200), nullable=False),
         sa.Column("unit", sa.Unicode(length=20), nullable=False),
-        sa.Column("is_active", sa.Boolean(), server_default=sa.text("1"), nullable=False),
+        sa.Column("is_active", sa.Boolean(), server_default=sa.true(), nullable=False),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_materials")),
         sa.UniqueConstraint("code", name=op.f("uq_materials_code")),
     )
@@ -34,7 +34,7 @@ def upgrade():
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("code", sa.Unicode(length=50), nullable=False),
         sa.Column("name", sa.Unicode(length=200), nullable=False),
-        sa.Column("is_active", sa.Boolean(), server_default=sa.text("1"), nullable=False),
+        sa.Column("is_active", sa.Boolean(), server_default=sa.true(), nullable=False),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_products")),
         sa.UniqueConstraint("code", name=op.f("uq_products_code")),
     )
@@ -52,7 +52,7 @@ def upgrade():
         sa.Column("code", sa.Unicode(length=30), nullable=False),
         sa.Column("name", sa.Unicode(length=100), nullable=False),
         sa.Column("printer_name", sa.Unicode(length=255), nullable=True),
-        sa.Column("is_active", sa.Boolean(), server_default=sa.text("1"), nullable=False),
+        sa.Column("is_active", sa.Boolean(), server_default=sa.true(), nullable=False),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_stations")),
         sa.UniqueConstraint("code", name=op.f("uq_stations_code")),
     )
@@ -62,7 +62,7 @@ def upgrade():
         sa.Column("username", sa.Unicode(length=50), nullable=False),
         sa.Column("password_hash", sa.Unicode(length=255), nullable=False),
         sa.Column("display_name", sa.Unicode(length=100), nullable=False),
-        sa.Column("is_active", sa.Boolean(), server_default=sa.text("1"), nullable=False),
+        sa.Column("is_active", sa.Boolean(), server_default=sa.true(), nullable=False),
         sa.Column(
             "created_at_utc", sa.DateTime().with_variant(mssql.DATETIME2(), "mssql"), nullable=False
         ),
@@ -102,7 +102,7 @@ def upgrade():
         sa.Column("code", sa.Unicode(length=50), nullable=False),
         sa.Column("name", sa.Unicode(length=200), nullable=False),
         sa.Column("product_id", sa.Integer(), nullable=False),
-        sa.Column("is_active", sa.Boolean(), server_default=sa.text("1"), nullable=False),
+        sa.Column("is_active", sa.Boolean(), server_default=sa.true(), nullable=False),
         sa.ForeignKeyConstraint(
             ["product_id"], ["products.id"], name=op.f("fk_formulas_product_id_products")
         ),
@@ -116,7 +116,7 @@ def upgrade():
         sa.Column("lot_no", sa.Unicode(length=100), nullable=False),
         sa.Column("qc_status", sa.Unicode(length=20), nullable=False),
         sa.Column("expiry_date", sa.Date().with_variant(mssql.DATE(), "mssql"), nullable=True),
-        sa.Column("is_active", sa.Boolean(), server_default=sa.text("1"), nullable=False),
+        sa.Column("is_active", sa.Boolean(), server_default=sa.true(), nullable=False),
         sa.CheckConstraint(
             "qc_status IN ('PASS', 'HOLD', 'REJECT')", name=op.f("ck_raw_material_lots_qc_status")
         ),
@@ -266,6 +266,7 @@ def upgrade():
             ["production_order_id", "formula_item_id"],
             unique=True,
             mssql_where=sa.text("status IN ('COMPLETED', 'CONSUMED')"),
+            postgresql_where=sa.text("status IN ('COMPLETED', 'CONSUMED')"),
             sqlite_where=sa.text("status IN ('COMPLETED', 'CONSUMED')"),
         )
 
@@ -345,6 +346,7 @@ def downgrade():
         batch_op.drop_index(
             "uq_weighing_active_formula_line",
             mssql_where=sa.text("status IN ('COMPLETED', 'CONSUMED')"),
+            postgresql_where=sa.text("status IN ('COMPLETED', 'CONSUMED')"),
             sqlite_where=sa.text("status IN ('COMPLETED', 'CONSUMED')"),
         )
 

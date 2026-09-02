@@ -218,8 +218,8 @@ def _session_orders_statement(session_code, station_id, *, lock=False):
         )
         .order_by(ProductionOrder.work_set_added_at_utc, ProductionOrder.id)
     )
-    if lock and db.session.get_bind().dialect.name == "mssql":
-        statement = statement.with_hint(
+    if lock:
+        statement = statement.with_for_update().with_hint(
             ProductionOrder, "WITH (UPDLOCK, HOLDLOCK)", dialect_name="mssql"
         )
     return statement
