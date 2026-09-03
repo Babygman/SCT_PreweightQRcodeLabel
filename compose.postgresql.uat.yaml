@@ -62,9 +62,11 @@ services:
 
 networks:
   preweight_postgresql_uat:
+    name: preweight_postgresql_uat
     internal: true
   nginx-proxy-manager_default:
     external: true
 
 volumes:
   sct_preweight_postgresql_uat_data:
+    name: sct_preweight_postgresql_uat_data
