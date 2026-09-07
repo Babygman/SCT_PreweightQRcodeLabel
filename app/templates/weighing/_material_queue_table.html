@@ -4,20 +4,20 @@
   <article class="card po-work-card" aria-labelledby="po-card-{{ order.id }}-{{ item.id }}">
     <div class="card-header d-flex justify-content-between align-items-center gap-3 flex-wrap">
       <h3 class="h5 mb-0" id="po-card-{{ order.id }}-{{ item.id }}">Production Order {{ order.po_no }}</h3>
-      {% if queue_item.transaction %}<span class="badge text-bg-success">Completed</span>
-      {% else %}<span class="badge text-bg-secondary">Pending</span>{% endif %}
+      {% if queue_item.transaction %}<span class="badge text-bg-success">{{ t("Completed") }}</span>
+      {% else %}<span class="badge text-bg-secondary">{{ t("Pending") }}</span>{% endif %}
     </div>
     <div class="card-body">
       <dl class="po-details mb-3">
-        <div><dt class="small text-body-secondary">Product</dt><dd class="mb-0">{{ order.product.code }}</dd></div>
-        <div><dt class="small text-body-secondary">Production Lot</dt><dd class="mb-0">{{ order.production_lot }}</dd></div>
-        <div><dt class="small text-body-secondary">Formula</dt><dd class="mb-0">{{ order.formula.code }}</dd></div>
-        <div><dt class="small text-body-secondary">Material</dt><dd class="mb-0">{{ item.material.code }}</dd></div>
+        <div><dt class="small text-body-secondary">{{ t("Product") }}</dt><dd class="mb-0">{{ order.product.code }}</dd></div>
+        <div><dt class="small text-body-secondary">{{ t("Production Lot") }}</dt><dd class="mb-0">{{ order.production_lot }}</dd></div>
+        <div><dt class="small text-body-secondary">{{ t("Formula") }}</dt><dd class="mb-0">{{ order.formula.code }}</dd></div>
+        <div><dt class="small text-body-secondary">{{ t("Material") }}</dt><dd class="mb-0">{{ item.material.code }}</dd></div>
       </dl>
       {% if queue_item.transaction %}
       <div class="po-action">
-        <div><div class="small text-body-secondary">Target Weight</div><strong>{{ item.target_weight }} {{ item.unit }}</strong></div>
-        <div><div class="small text-body-secondary">Recorded Actual Weight</div>
+        <div><div class="small text-body-secondary">{{ t("Target Weight") }}</div><strong>{{ item.target_weight }} {{ item.unit }}</strong></div>
+        <div><div class="small text-body-secondary">{{ t("Recorded Actual Weight") }}</div>
           <strong>{{ queue_item.transaction.actual_weight }} {{ queue_item.transaction.unit_snapshot }}</strong>
           <div class="small text-body-secondary">Preweight ID: {{ queue_item.transaction.preweight_id }}</div>
         </div>
@@ -25,15 +25,15 @@
       {% elif queue %}
       <form class="po-action material-queue-form" method="post" action="{{ url_for('weighing.weigh_material_queue_item', po_id=order.id, formula_item_id=item.id) }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <div><div class="small text-body-secondary">Target Weight</div><strong>{{ item.target_weight }} {{ item.unit }}</strong></div>
+        <div><div class="small text-body-secondary">{{ t("Target Weight") }}</div><strong>{{ item.target_weight }} {{ item.unit }}</strong></div>
         <div>
-          <label class="form-label" for="actual-weight-{{ order.id }}-{{ item.id }}">Actual Weight</label>
+          <label class="form-label" for="actual-weight-{{ order.id }}-{{ item.id }}">{{ t("Actual Weight") }}</label>
           <div class="weight-entry mb-2"><input class="form-control actual-weight" id="actual-weight-{{ order.id }}-{{ item.id }}" name="actual_weight" type="number" min="0.001" step="0.001" required><span>{{ item.unit }}</span></div>
-          <button class="btn btn-primary save-weighing" type="submit" disabled aria-label="Save Weighing for {{ item.material.code }} and {{ order.po_no }}">Save Weighing — {{ order.po_no }}</button>
+          <button class="btn btn-primary save-weighing" type="submit" disabled aria-label="{{ t('Save Weighing') }} — {{ item.material.code }} / {{ order.po_no }}">{{ t("Save Weighing") }} — {{ order.po_no }}</button>
         </div>
       </form>
       {% else %}
-      <div class="po-action"><div><div class="small text-body-secondary">Target Weight</div><strong>{{ item.target_weight }} {{ item.unit }}</strong></div><div><span class="badge text-bg-secondary">Pending Material Tag validation</span></div></div>
+      <div class="po-action"><div><div class="small text-body-secondary">{{ t("Target Weight") }}</div><strong>{{ item.target_weight }} {{ item.unit }}</strong></div><div><span class="badge text-bg-secondary">{{ t("Pending Material Tag validation") }}</span></div></div>
       {% endif %}
     </div>
   </article>

@@ -215,10 +215,22 @@ def test_weighing_page_saves_line_and_displays_preweight_id(app, client):
         follow_redirects=True,
     )
     assert response.status_code == 200
-    assert b"Weighing completed as PW-" in response.data
-    assert b"COMPLETED" in response.data
+    rendered = response.get_data(as_text=True)
+    assert "ชั่งเสร็จสมบูรณ์เป็น PW-" in rendered
+    assert "Weighing completed as PW-" in rendered
+    assert "เสร็จสมบูรณ์ / Completed" in rendered
     assert b"SCT PREWEIGHT" in response.data
     assert b"window.print()" in response.data
+    with app.app_context():
+        transaction = db.session.scalar(
+            db.select(WeighingTransaction).where(
+                WeighingTransaction.production_order_id == order_id,
+                WeighingTransaction.formula_item_id == item_id,
+            )
+        )
+        assert transaction is not None
+        assert transaction.status == "COMPLETED"
+        assert transaction.preweight_id in rendered
 
 
 def _login_for_weighing(client, station_id):
@@ -255,19 +267,26 @@ def test_immediate_material_validation_returns_match_and_unmatch(app, client):
         json={"material_tag": MATERIAL_TAG},
     )
     assert match.status_code == 200
-    assert match.get_json() == {
-        "result": "MATCH",
-        "code": "MATCH",
-        "message": "MATCH — R07047S1",
-    }
+    match_payload = match.get_json()
+    assert set(match_payload) == {"result", "code", "message"}
+    assert match_payload["result"] == "MATCH"
+    assert match_payload["code"] == "MATCH"
+    assert "ตรงกัน" in match_payload["message"]
+    assert "MATCH — R07047S1" in match_payload["message"]
 
     unmatch = client.post(
         f"/weighing/order/{order_id}/line/{wrong_item_id}/validate-material",
         json={"material_tag": MATERIAL_TAG},
     )
     assert unmatch.status_code == 200
-    assert unmatch.get_json()["result"] == "UN-MATCH"
-    assert unmatch.get_json()["code"] == "WRONG_MATERIAL"
+    unmatch_payload = unmatch.get_json()
+    assert set(unmatch_payload) == {"result", "code", "message"}
+    assert unmatch_payload["result"] == "UN-MATCH"
+    assert unmatch_payload["code"] == "WRONG_MATERIAL"
+    assert "วัตถุดิบไม่ถูกต้อง: ต้องการ OTHER-MAT แต่สแกน R07047S1" in unmatch_payload[
+        "message"
+    ]
+    assert "Wrong Material: expected OTHER-MAT, scanned R07047S1." in unmatch_payload["message"]
     with app.app_context():
         assert WeighingTransaction.query.count() == 0
 

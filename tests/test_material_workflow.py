@@ -202,7 +202,7 @@ def test_material_mode_ui_gates_weight_and_keeps_active_tag_in_session(app, clie
     assert before.status_code == 200
     assert b"Material-centric Weighing" in before.data
     assert b"Choose a material, scan its physical tag" in before.data
-    assert b"2. Weigh Materials" in before.data
+    assert "2. ชั่งวัตถุดิบ / Weigh Materials" in before.get_data(as_text=True)
     assert b'aria-current="step"' in before.data
     assert b"Production Orders for This Weighing Session" in before.data
     assert b"2 Production Order(s)" in before.data
@@ -243,9 +243,12 @@ def test_material_mode_ui_gates_weight_and_keeps_active_tag_in_session(app, clie
     assert b"Formula" in queue.data and b"FM-01" in queue.data
     assert b"Material" in queue.data and b"MAT-A" in queue.data
     assert b"Target Weight" in queue.data and b"1.000 kg" in queue.data
-    assert b'>Actual Weight</label>' in queue.data
-    assert "Save Weighing — PD001".encode() in queue.data
-    assert b'aria-label="Save Weighing for MAT-A and PD001"' in queue.data
+    rendered_queue = queue.get_data(as_text=True)
+    assert ">น้ำหนักจริง / Actual Weight</label>" in rendered_queue
+    assert "บันทึกการชั่ง / Save Weighing — PD001" in rendered_queue
+    assert (
+        'aria-label="บันทึกการชั่ง / Save Weighing — MAT-A / PD001"'
+    ) in rendered_queue
 
 
 def test_continuous_preparation_keeps_prior_orders_and_failed_values(app, client):

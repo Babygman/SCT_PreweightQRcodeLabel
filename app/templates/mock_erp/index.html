@@ -1,12 +1,12 @@
 {% extends "base.html" %}
-{% block title %}Mock ERP / Document Generator{% endblock %}
+{% block title %}{{ t("Mock ERP / Document Generator") }}{% endblock %}
 {% block content %}
 <div class="row g-4">
   <div class="col-xl-7">
     <div class="card shadow-sm">
       <div class="card-body p-4">
-        <h1 class="h3">Mock ERP / Document Generator</h1>
-        <p class="text-muted">Development/UAT only. The system creates 30 mock raw materials and distributes the production quantity across their target weights automatically.</p>
+        <h1 class="h3">{{ t("Mock ERP / Document Generator") }}</h1>
+        <p class="text-muted">{{ t("Development/UAT only. The system creates 30 mock raw materials and distributes the production quantity across their target weights automatically.") }}</p>
         <form method="post" novalidate>
           {{ form.hidden_tag() }}
           <div class="row g-3">
@@ -21,8 +21,8 @@
             <div class="col-12">
               {{ form.product_id.label(class="form-label") }}
               {{ form.product_id(class="form-select", autocomplete="off") }}
-              <div class="form-text">Select an Active Finish Good from the approved Master. Code and Name cannot be overridden.</div>
-              <div class="alert alert-light border mt-2 mb-0" aria-live="polite"><strong>Selected Finish Good:</strong> <output id="selected-finish-good">None selected</output></div>
+              <div class="form-text">{{ t("Select an Active Finish Good from the approved Master. Code and Name cannot be overridden.") }}</div>
+              <div class="alert alert-light border mt-2 mb-0" aria-live="polite"><strong>{{ t("Selected Finish Good") }}:</strong> <output id="selected-finish-good">{{ t("None selected") }}</output></div>
               {% for error in form.product_id.errors %}<div class="text-danger small" role="alert">{{ error }}</div>{% endfor %}
             </div>
             {% else %}
@@ -38,7 +38,7 @@
           </div>
           <div class="mt-4">
             {{ form.submit(class="btn btn-primary") }}
-            <a class="btn btn-outline-secondary" href="{{ url_for('index') }}">Back</a>
+            <a class="btn btn-outline-secondary" href="{{ url_for('index') }}">{{ t("Back") }}</a>
           </div>
         </form>
       </div>
@@ -48,22 +48,22 @@
     {% if finish_goods_enabled %}
     <div class="card shadow-sm mb-4">
       <div class="card-body">
-        <h2 class="h5">Search and Select Finish Good</h2>
+        <h2 class="h5">{{ t("Search and Select Finish Good") }}</h2>
         <form method="get" class="d-flex gap-2 mb-3" role="search">
-          <label class="visually-hidden" for="finish-goods-q">Code or Name</label>
-          <input class="form-control" id="finish-goods-q" name="finish_goods_q" value="{{ finish_goods_q }}" placeholder="Partial Code or Name">
-          <button class="btn btn-outline-primary" type="submit">Search</button>
+          <label class="visually-hidden" for="finish-goods-q">{{ t("Code or Name") }}</label>
+          <input class="form-control" id="finish-goods-q" name="finish_goods_q" value="{{ finish_goods_q }}" placeholder="{{ t('Partial Code or Name') }}">
+          <button class="btn btn-outline-primary" type="submit">{{ t("Search") }}</button>
         </form>
-        <div class="table-responsive"><table class="table table-sm"><thead><tr><th>Code</th><th>Name</th><th><span class="visually-hidden">Action</span></th></tr></thead><tbody>
-        {% for product in finish_goods_pagination.items %}<tr><td>{{ product.code }}</td><td>{{ product.name }}</td><td><button class="btn btn-sm btn-outline-primary finish-good-select" type="button" data-product-id="{{ product.id }}" data-product-label="{{ product.code }} — {{ product.name }}">Select</button></td></tr>{% else %}<tr><td colspan="3">No matching Active Finish Goods.</td></tr>{% endfor %}
+        <div class="table-responsive"><table class="table table-sm"><thead><tr><th>{{ t("Code") }}</th><th>{{ t("Name") }}</th><th><span class="visually-hidden">{{ t("Action") }}</span></th></tr></thead><tbody>
+        {% for product in finish_goods_pagination.items %}<tr><td>{{ product.code }}</td><td>{{ product.name }}</td><td><button class="btn btn-sm btn-outline-primary finish-good-select" type="button" data-product-id="{{ product.id }}" data-product-label="{{ product.code }} — {{ product.name }}">{{ t("Select") }}</button></td></tr>{% else %}<tr><td colspan="3">{{ t("No matching Active Finish Goods.") }}</td></tr>{% endfor %}
         </tbody></table></div>
-        {% if finish_goods_pagination.pages > 1 %}<nav aria-label="Finish Goods search pages" class="d-flex justify-content-between align-items-center"><a class="btn btn-sm btn-outline-secondary{% if not finish_goods_pagination.has_prev %} disabled{% endif %}" href="{{ url_for('mock_erp.index',finish_goods_q=finish_goods_q,page=finish_goods_pagination.prev_num) if finish_goods_pagination.has_prev else '#' }}">Previous</a><span class="small text-muted">Page {{ finish_goods_pagination.page }} of {{ finish_goods_pagination.pages }}</span><a class="btn btn-sm btn-outline-secondary{% if not finish_goods_pagination.has_next %} disabled{% endif %}" href="{{ url_for('mock_erp.index',finish_goods_q=finish_goods_q,page=finish_goods_pagination.next_num) if finish_goods_pagination.has_next else '#' }}">Next</a></nav>{% endif %}
+        {% if finish_goods_pagination.pages > 1 %}<nav aria-label="{{ t('Finish Goods search pages') }}" class="d-flex justify-content-between align-items-center"><a class="btn btn-sm btn-outline-secondary{% if not finish_goods_pagination.has_prev %} disabled{% endif %}" href="{{ url_for('mock_erp.index',finish_goods_q=finish_goods_q,page=finish_goods_pagination.prev_num) if finish_goods_pagination.has_prev else '#' }}">{{ t("Previous") }}</a><span class="small text-muted">{{ t("Page") }} {{ finish_goods_pagination.page }} / {{ finish_goods_pagination.pages }}</span><a class="btn btn-sm btn-outline-secondary{% if not finish_goods_pagination.has_next %} disabled{% endif %}" href="{{ url_for('mock_erp.index',finish_goods_q=finish_goods_q,page=finish_goods_pagination.next_num) if finish_goods_pagination.has_next else '#' }}">{{ t("Next") }}</a></nav>{% endif %}
       </div>
     </div>
     {% endif %}
     <div class="card shadow-sm">
       <div class="card-body">
-        <h2 class="h5">Generated Mock Jobs</h2>
+        <h2 class="h5">{{ t("Generated Mock Jobs") }}</h2>
         <div class="list-group list-group-flush">
           {% for order in orders %}
           <a class="list-group-item list-group-item-action" href="{{ url_for('mock_erp.detail', po_id=order.id) }}">
@@ -71,7 +71,7 @@
             <small>{{ order.product.code }} / Lot {{ order.production_lot }} / {{ order.quantity }} kg</small>
           </a>
           {% else %}
-          <p class="text-muted mb-0">No mock jobs created yet.</p>
+          <p class="text-muted mb-0">{{ t("No mock jobs created yet.") }}</p>
           {% endfor %}
         </div>
       </div>
@@ -82,7 +82,7 @@
 (() => {
   const select = document.getElementById('product_id');
   const output = document.getElementById('selected-finish-good');
-  const refresh = () => { output.textContent = select.value === '0' ? 'None selected' : select.options[select.selectedIndex].text; };
+  const refresh = () => { output.textContent = select.value === '0' ? {{ t("None selected")|tojson }} : select.options[select.selectedIndex].text; };
   select.addEventListener('change', refresh);
   document.querySelectorAll('.finish-good-select').forEach(button => button.addEventListener('click', () => { select.value = button.dataset.productId; refresh(); select.focus(); }));
   refresh();

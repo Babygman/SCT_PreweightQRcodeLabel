@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% block title %}Select Station — SCT Preweight{% endblock %}
+{% block title %}{{ t("Select Station") }} — SCT Preweight{% endblock %}
 {% block content %}
 <div class="row justify-content-center">
   <div class="col-md-7 col-lg-5">
     <div class="card shadow-sm">
       <div class="card-body p-4">
-        <h1 class="h3 mb-3">Select Station</h1>
+        <h1 class="h3 mb-3">{{ t("Select Station") }}</h1>
         <p class="text-muted">Signed in as {{ current_user.display_name }}</p>
         {% if stations %}
         <form method="post">
@@ -17,7 +17,7 @@
           {{ form.submit(class="btn btn-primary w-100") }}
         </form>
         {% else %}
-        <div class="alert alert-warning mb-0">No active station is available.</div>
+        <div class="alert alert-warning mb-0">{{ t("No active station is available.") }}</div>
         {% endif %}
       </div>
     </div>

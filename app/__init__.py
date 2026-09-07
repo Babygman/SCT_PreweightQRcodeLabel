@@ -7,6 +7,8 @@ from flask_login import current_user, login_required
 from config import CONFIGS
 
 from .extensions import csrf, db, login_manager, migrate
+from .i18n import message as ui_message
+from .i18n import status_label, translate
 from .presentation import format_local_date, format_local_datetime
 
 
@@ -48,6 +50,10 @@ def create_app(config_name="development"):
     @app.template_filter("local_date")
     def local_date_filter(value):
         return format_local_date(value)
+
+    app.jinja_env.globals["t"] = translate
+    app.jinja_env.filters["status_label"] = status_label
+    app.jinja_env.filters["ui_message"] = ui_message
 
     from .models import Station, User
 

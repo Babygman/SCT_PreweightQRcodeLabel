@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Preweight Sticker {{ transaction.preweight_id }}{% endblock %}
+{% block title %}{{ t("Preweight Sticker {preweight_id}", preweight_id=transaction.preweight_id) }}{% endblock %}
 {% block content %}
 <style>
   .sticker { max-width: 100mm; margin: 0 auto; border: 2px solid #111; padding: 8mm; background: white; }
@@ -12,27 +12,27 @@
 </style>
 <div class="sticker shadow-sm" id="preweight-sticker">
   <h1 class="h4 text-center">SCT PREWEIGHT</h1>
-  <div class="text-center mb-2"><span class="badge text-bg-success">{{ transaction.status }}</span></div>
+  <div class="text-center mb-2"><span class="badge text-bg-success">{{ transaction.status|status_label }}</span></div>
   <dl class="row mb-2">
-    <dt class="col-5">Production Order</dt><dd class="col-7">{{ payload.production_order }}</dd>
-    <dt class="col-5">Production Lot</dt><dd class="col-7">{{ payload.production_lot }}</dd>
-    <dt class="col-5">Formula Sheet</dt><dd class="col-7">{{ payload.formula_sheet }}</dd>
-    <dt class="col-5">Item Code</dt><dd class="col-7"><strong>{{ payload.item_code }}</strong></dd>
-    <dt class="col-5">Item Name</dt><dd class="col-7">{{ payload.item_name }}</dd>
-    <dt class="col-5">Actual Weight</dt><dd class="col-7"><strong>{{ payload.actual_weight }} {{ payload.unit }}</strong></dd>
-    <dt class="col-5">Preweight ID</dt><dd class="col-7">{{ payload.preweight_id }}</dd>
-    <dt class="col-5">Weighed at</dt><dd class="col-7">{{ transaction.weighed_at_utc|local_datetime }}</dd>
+    <dt class="col-5">{{ t("Production Order") }}</dt><dd class="col-7">{{ payload.production_order }}</dd>
+    <dt class="col-5">{{ t("Production Lot") }}</dt><dd class="col-7">{{ payload.production_lot }}</dd>
+    <dt class="col-5">{{ t("Formula Sheet") }}</dt><dd class="col-7">{{ payload.formula_sheet }}</dd>
+    <dt class="col-5">{{ t("Item Code") }}</dt><dd class="col-7"><strong>{{ payload.item_code }}</strong></dd>
+    <dt class="col-5">{{ t("Item Name") }}</dt><dd class="col-7">{{ payload.item_name }}</dd>
+    <dt class="col-5">{{ t("Actual Weight") }}</dt><dd class="col-7"><strong>{{ payload.actual_weight }} {{ payload.unit }}</strong></dd>
+    <dt class="col-5">{{ t("Preweight ID") }}</dt><dd class="col-7">{{ payload.preweight_id }}</dd>
+    <dt class="col-5">{{ t("Weighed at") }}</dt><dd class="col-7">{{ transaction.weighed_at_utc|local_datetime }}</dd>
   </dl>
   <div class="text-center">
-    <img class="sticker-qr" src="{{ url_for('weighing.sticker_qr', transaction_id=transaction.id) }}" alt="ERP Preweight QR">
+    <img class="sticker-qr" src="{{ url_for('weighing.sticker_qr', transaction_id=transaction.id) }}" alt="{{ t("ERP Preweight QR") }}">
   </div>
 </div>
 <div class="print-actions text-center mt-3">
-  <button class="btn btn-primary" type="button" onclick="window.print()">Reprint</button>
+  <button class="btn btn-primary" type="button" onclick="window.print()">{{ t("Reprint") }}</button>
   {% if material_mode %}
-  <a class="btn btn-success" href="{{ url_for('weighing.material_mode') }}">Continue Material Queue</a>
+  <a class="btn btn-success" href="{{ url_for('weighing.material_mode') }}">{{ t("Continue Material Queue") }}</a>
   {% else %}
-  <a class="btn btn-outline-secondary" href="{{ url_for('weighing.order', po_id=transaction.production_order_id) }}">Back to Weighing</a>
+  <a class="btn btn-outline-secondary" href="{{ url_for('weighing.order', po_id=transaction.production_order_id) }}">{{ t("Back to Weighing") }}</a>
   {% endif %}
 </div>
 <script>window.addEventListener("load", () => window.print());</script>

@@ -158,10 +158,12 @@ def test_upload_route_persists_preview_and_renders_counts(app, client):
     assert response.status_code == 302
     preview_page = client.get(response.headers["Location"])
     assert b"Preview only" in preview_page.data
-    assert b"FG-1" in preview_page.data and b"INSERT" in preview_page.data
+    assert b"FG-1" in preview_page.data
+    assert "เพิ่ม / Insert" in preview_page.get_data(as_text=True)
     with app.app_context():
         assert Product.query.count() == 0
-        assert FinishGoodsImportRow.query.count() == 1
+        row = FinishGoodsImportRow.query.one()
+        assert row.result == "INSERT"
 
 
 @pytest.mark.parametrize(

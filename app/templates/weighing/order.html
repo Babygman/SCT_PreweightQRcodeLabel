@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Weighing {{ order.po_no }}{% endblock %}
+{% block title %}{{ t("Weighing {po}", po=order.po_no) }}{% endblock %}
 {% block content %}
 <div class="card shadow-sm mb-4">
   <div class="card-body">
@@ -7,19 +7,19 @@
       <div>
         <h1 class="h3 mb-2">Weighing — {{ order.po_no }}</h1>
         <div>{{ order.product.code }} — {{ order.product.name }}</div>
-        <div>Production Lot: <strong>{{ order.production_lot }}</strong> · Formula Sheet: <strong>{{ order.formula.code }}</strong></div>
+        <div>{{ t("Production Lot") }}: <strong>{{ order.production_lot }}</strong> · {{ t("Formula Sheet") }}: <strong>{{ order.formula.code }}</strong></div>
       </div>
-      <span class="badge text-bg-success fs-6">PO + FORMULA MATCHED</span>
+      <span class="badge text-bg-success fs-6">{{ t("PO + FORMULA MATCHED") }}</span>
     </div>
   </div>
 </div>
 <div class="card shadow-sm">
   <div class="card-body">
-    <h2 class="h5">Formula Items</h2>
-    <p class="text-muted">Scan the 11-field Material Tag and enter the actual weight. Vendor Lot, QC status, expiry and remaining bag quantity do not block weighing.</p>
+    <h2 class="h5">{{ t("Formula Items") }}</h2>
+    <p class="text-muted">{{ t("Scan the 11-field Material Tag and enter the actual weight. Vendor Lot, QC status, expiry and remaining bag quantity do not block weighing.") }}</p>
     <div class="table-responsive">
       <table class="table table-sm align-middle">
-        <thead><tr><th>Line</th><th>Material</th><th>Name</th><th class="text-end">Target</th><th>Unit</th><th>Status / Weigh</th></tr></thead>
+        <thead><tr><th>{{ t("Line") }}</th><th>{{ t("Material") }}</th><th>{{ t("Name") }}</th><th class="text-end">{{ t("Target") }}</th><th>{{ t("Unit") }}</th><th>{{ t("Status / Weigh") }}</th></tr></thead>
         <tbody>
           {% for item in order.formula.items|sort(attribute='line_no') %}
           {% set transaction = transactions_by_item.get(item.id) %}
@@ -31,21 +31,21 @@
             <td>{{ item.unit }}</td>
             <td class="w-50">
               {% if transaction %}
-              <span class="badge text-bg-success">{{ transaction.status }}</span>
+              <span class="badge text-bg-success">{{ transaction.status|status_label }}</span>
               <strong class="ms-2">{{ transaction.preweight_id }}</strong>
               <div class="small text-muted">Actual: {{ transaction.actual_weight }} {{ transaction.unit_snapshot }}</div>
               {% else %}
               <form method="post" action="{{ url_for('weighing.weigh_line', po_id=order.id, formula_item_id=item.id) }}" class="row g-2 weighing-form" data-validate-url="{{ url_for('weighing.validate_material', po_id=order.id, formula_item_id=item.id) }}" data-matched="false">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="col-12">
-                  <input class="form-control form-control-sm material-tag-input" id="material-tag-{{ item.id }}" name="material_tag" placeholder="Scan Material Tag QR" autocomplete="off" required maxlength="2000">
-                  <div class="material-validation small fw-bold mt-1 text-muted" aria-live="polite">Scan Material Tag to validate</div>
+                  <input class="form-control form-control-sm material-tag-input" id="material-tag-{{ item.id }}" name="material_tag" placeholder="{{ t("Scan Material Tag QR") }}" autocomplete="off" required maxlength="2000">
+                  <div class="material-validation small fw-bold mt-1 text-muted" aria-live="polite">{{ t("Scan Material Tag to validate") }}</div>
                 </div>
                 <div class="col-sm-7">
-                  <input class="form-control form-control-sm actual-weight-input" id="actual-weight-{{ item.id }}" name="actual_weight" type="number" placeholder="Actual Weight" min="0.001" step="0.001" required disabled>
+                  <input class="form-control form-control-sm actual-weight-input" id="actual-weight-{{ item.id }}" name="actual_weight" type="number" placeholder="{{ t("Actual Weight") }}" min="0.001" step="0.001" required disabled>
                 </div>
                 <div class="col-sm-5 d-grid">
-                  <button class="btn btn-primary btn-sm save-weighing" type="submit" disabled>Save Weighing</button>
+                  <button class="btn btn-primary btn-sm save-weighing" type="submit" disabled>{{ t("Save Weighing") }}</button>
                 </div>
               </form>
               {% endif %}
@@ -55,7 +55,7 @@
         </tbody>
       </table>
     </div>
-    <a class="btn btn-outline-secondary" href="{{ url_for('preparation.prepare') }}">Back to PO + Formula Scan</a>
+    <a class="btn btn-outline-secondary" href="{{ url_for('preparation.prepare') }}">{{ t("Back to PO + Formula Scan") }}</a>
   </div>
 </div>
 <script>
@@ -80,11 +80,11 @@ document.querySelectorAll(".weighing-form").forEach((form) => {
     resetMatch();
     if (!materialTag) {
       result.className = "material-validation small fw-bold mt-1 text-muted";
-      result.textContent = "Scan Material Tag to validate";
+      result.textContent = {{ t("Scan Material Tag to validate")|tojson }};
       return;
     }
     result.className = "material-validation small fw-bold mt-1 text-muted";
-    result.textContent = "Validating…";
+    result.textContent = {{ t("Validating…")|tojson }};
     try {
       const response = await fetch(form.dataset.validateUrl, {
         method: "POST",
@@ -101,11 +101,11 @@ document.querySelectorAll(".weighing-form").forEach((form) => {
         weightInput.focus();
       } else {
         result.className = "material-validation small fw-bold mt-1 text-danger";
-        result.textContent = `UN-MATCH — ${validation.message || "Invalid Material Tag"}`;
+        result.textContent = `{{ t("UN-MATCH") }} — ${validation.message || {{ t("Invalid Material Tag")|tojson }}}`;
       }
     } catch (_error) {
       result.className = "material-validation small fw-bold mt-1 text-danger";
-      result.textContent = "UN-MATCH — Material validation unavailable";
+      result.textContent = {{ t("UN-MATCH — Material validation unavailable")|tojson }};
     }
     updateSave();
   };

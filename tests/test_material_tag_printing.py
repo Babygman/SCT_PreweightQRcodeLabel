@@ -134,12 +134,15 @@ def test_original_post_event_print_pages_refresh_safe_and_no_mutation(app, clien
     assert view.data.count(b'class="material-tag"') == 8
     assert b"Tag 1 of 8" in view.data and b"Tag 8 of 8" in view.data
     assert b"25.00 kg" in view.data
-    assert b"window.print" in view.data and b">Print<" in view.data
+    assert b"window.print" in view.data
+    assert "พิมพ์ / Print" in view.get_data(as_text=True)
     assert f'href="/material-tags/batches/{batch_id}"'.encode() in view.data
-    assert b">Back to Batch Details<" in view.data
+    rendered_view = view.get_data(as_text=True)
+    assert ">กลับไปยังรายละเอียดชุด / Back to Batch Details<" in rendered_view
     assert b'href="/material-tags/history"' in view.data
-    assert b">Material Tag History<" in view.data
-    assert b'href="/"' in view.data and b">Home<" in view.data
+    assert ">ประวัติป้ายวัตถุดิบ / Material Tag History<" in rendered_view
+    assert b'href="/"' in view.data
+    assert ">หน้าหลัก / Home<" in rendered_view
     assert b'class="screen-only print-view-header"' in view.data
     assert b".screen-only{display:none!important}" in view.data
     refreshed = client.get(response.headers["Location"])
@@ -273,8 +276,12 @@ def test_detail_original_then_reprint_controls_and_print_history(app, client):
     after = client.get(f"/material-tags/batches/{batch_id}")
     assert b"Reprint Batch" in after.data and b"Print page rendered" in after.data
     assert b"Reprint Tag 1" in after.data
-    assert after.data.count(b">Reprint reason</label>") == 9
-    assert after.data.count(b'placeholder="Enter reason (10') == 9
+    rendered_after = after.get_data(as_text=True)
+    assert rendered_after.count("เหตุผลในการพิมพ์ซ้ำ / Reprint reason") == 9
+    assert rendered_after.count(
+        'placeholder="กรอกเหตุผล (10–500 อักขระ) / '
+        'Enter reason (10–500 characters)"'
+    ) == 9
     assert after.data.count(b'<input class="form-control form-control-sm"') == 8
     assert b"stored in print history" in after.data
     assert b"Thailand Time) Thailand Time" not in after.data

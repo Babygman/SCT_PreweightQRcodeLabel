@@ -17,6 +17,7 @@ from sqlalchemy import select
 
 from app.auth.decorators import roles_required, station_required
 from app.extensions import db
+from app.i18n import message as ui_message
 from app.models import (
     FinishGoodsImportBatch,
     FinishGoodsImportRow,
@@ -167,9 +168,9 @@ def material_import_apply(batch_id):
             station_id=session["station_id"],
         )
     except MaterialImportError as exc:
-        flash(str(exc), "danger")
+        flash(ui_message(exc), "danger")
         return redirect(url_for("master_data.material_import_preview", batch_id=batch_id))
-    flash("Material Master import applied successfully.", "success")
+    flash(ui_message("Material Master import applied successfully."), "success")
     return redirect(url_for("master_data.material_import_result", batch_id=batch.id))
 
 
@@ -279,9 +280,9 @@ def finish_goods_import_apply(batch_id):
             batch_id=batch_id, user_id=current_user.id, station_id=session["station_id"]
         )
     except FinishGoodsImportError as exc:
-        flash(str(exc), "danger")
+        flash(ui_message(exc), "danger")
         return redirect(url_for("master_data.finish_goods_import_preview", batch_id=batch_id))
-    flash("Finish Goods Master import applied successfully.", "success")
+    flash(ui_message("Finish Goods Master import applied successfully."), "success")
     return redirect(url_for("master_data.finish_goods_import_result", batch_id=batch.id))
 
 

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Material-centric Weighing{% endblock %}
+{% block title %}{{ t("Material-centric Weighing") }}{% endblock %}
 {% block content %}
 <style>
   .material-workspace { display: grid; grid-template-columns: minmax(20rem, 22rem) minmax(0, 1fr); gap: 1.5rem; align-items: start; }
@@ -19,34 +19,34 @@
   @media (max-width: 991.98px) { .material-workspace { grid-template-columns: minmax(0, 1fr); } .material-list { max-height: 24rem; } }
 </style>
 <header class="mb-3 d-flex justify-content-between align-items-start gap-3 flex-wrap">
-  <div><h1 class="display-6 mb-2">Material-centric Weighing</h1><p class="lead text-muted mb-0">Choose a material, scan its physical tag, then weigh its prepared Production Orders.</p></div>
-  <a class="btn btn-outline-secondary" href="{{ url_for('preparation.prepare') }}">Back to Production Order Preparation</a>
+  <div><h1 class="display-6 mb-2">{{ t("Material-centric Weighing") }}</h1><p class="lead text-muted mb-0">{{ t("Choose a material, scan its physical tag, then weigh its prepared Production Orders.") }}</p></div>
+  <a class="btn btn-outline-secondary" href="{{ url_for('preparation.prepare') }}">{{ t("Back to Production Order Preparation") }}</a>
 </header>
 {% set current_step = 3 if overview.is_complete else 2 %}{% include "_material_workflow_steps.html" %}
 <section class="card shadow-sm mb-4" aria-labelledby="session-summary-heading"><div class="card-body">
-  <h2 class="h5 mb-1" id="session-summary-heading">Production Orders for This Weighing Session</h2>
+  <h2 class="h5 mb-1" id="session-summary-heading">{{ t("Production Orders for This Weighing Session") }}</h2>
   <p class="text-muted mb-0">{{ overview.orders|length }} Production Order(s) · Overall progress {{ overview.completed_count }} / {{ overview.required_count }}</p>
 </div></section>
 <div class="material-workspace">
   <aside class="card shadow-sm material-queue-pane" aria-labelledby="materials-heading"><div class="card-body">
-    <h2 class="h5" id="materials-heading">Material Queue</h2>
-    <label class="form-label" for="material-search">Search code or description</label><input class="form-control mb-2" id="material-search" type="search" autocomplete="off">
-    <label class="form-label" for="material-filter">Filter by status</label><select class="form-select mb-3" id="material-filter"><option value="all">All</option><option value="not-started">Not started</option><option value="in-progress">In progress</option><option value="completed">Completed</option></select>
+    <h2 class="h5" id="materials-heading">{{ t("Material Queue") }}</h2>
+    <label class="form-label" for="material-search">{{ t("Search code or description") }}</label><input class="form-control mb-2" id="material-search" type="search" autocomplete="off">
+    <label class="form-label" for="material-filter">{{ t("Filter by status") }}</label><select class="form-select mb-3" id="material-filter"><option value="all">{{ t("All") }}</option><option value="not-started">{{ t("Not started") }}</option><option value="in-progress">{{ t("In progress") }}</option><option value="completed">{{ t("Completed") }}</option></select>
     <div class="d-grid gap-2 material-list" id="material-list">
     {% for summary in overview.materials %}{% set status_key = 'completed' if summary.status == 'Completed' else ('in-progress' if summary.completed_count else 'not-started') %}
       <a class="btn material-choice p-3" href="{{ url_for('weighing.material_mode', material=summary.material.code) }}" data-material-choice data-search="{{ summary.material.code|lower }} {{ summary.material.name|lower }}" data-status="{{ status_key }}" data-selected="{{ 'true' if selection and selection.material.code == summary.material.code else 'false' }}" aria-current="{{ 'true' if selection and selection.material.code == summary.material.code else 'false' }}">
-        <span class="d-flex justify-content-between gap-2"><strong>{{ summary.material.code }}</strong>{% if status_key == 'completed' %}<span class="badge text-bg-success">Completed</span>{% elif status_key == 'in-progress' %}<span class="badge text-bg-warning">In progress</span>{% else %}<span class="badge text-bg-secondary">Not started</span>{% endif %}</span>
+        <span class="d-flex justify-content-between gap-2"><strong>{{ summary.material.code }}</strong>{% if status_key == 'completed' %}<span class="badge text-bg-success">{{ t("Completed") }}</span>{% elif status_key == 'in-progress' %}<span class="badge text-bg-warning">{{ t("In progress") }}</span>{% else %}<span class="badge text-bg-secondary">{{ t("Not started") }}</span>{% endif %}</span>
         <span class="d-block small text-body-secondary">{{ summary.material.name }}</span><span class="d-block small mt-1">{{ summary.completed_count }} of {{ summary.required_count }} Production Orders completed</span>
       </a>
-    {% endfor %}</div><p class="text-muted mt-3 mb-0 d-none" id="material-filter-empty">No materials match this search and filter.</p>
+    {% endfor %}</div><p class="text-muted mt-3 mb-0 d-none" id="material-filter-empty">{{ t("No materials match this search and filter.") }}</p>
   </div></aside>
   <section class="card shadow-sm weighing-workspace" aria-labelledby="workspace-heading"><div class="card-body">
-  {% if overview.is_complete %}<h2 class="h4" id="workspace-heading">All required weighings are complete</h2><p>Session ID: <strong>{{ overview.session_code }}</strong></p>{% set completion_dialog_id = "complete-session-from-weighing" %}{% include "_complete_weighing_session.html" %}
-  {% elif not selection %}<div class="text-center py-5"><h2 class="h4" id="workspace-heading">Select a Material to begin weighing.</h2><p class="text-muted mb-0">Choose any incomplete or partially completed Material from the queue.</p></div>
-  {% elif selection.pending_count == 0 %}<h2 class="h4" id="workspace-heading">{{ selection.material.code }} — {{ selection.material.name }}</h2><p><span class="badge text-bg-success">Completed</span> {{ selection.completed_count }} of {{ selection.items|length }} Production Orders completed</p>{% set display_queue = selection %}{% include "weighing/_material_queue_table.html" %}
+  {% if overview.is_complete %}<h2 class="h4" id="workspace-heading">{{ t("All required weighings are complete") }}</h2><p>{{ t("Session ID") }}: <strong>{{ overview.session_code }}</strong></p>{% set completion_dialog_id = "complete-session-from-weighing" %}{% include "_complete_weighing_session.html" %}
+  {% elif not selection %}<div class="text-center py-5"><h2 class="h4" id="workspace-heading">{{ t("Select a Material to begin weighing.") }}</h2><p class="text-muted mb-0">{{ t("Choose any incomplete or partially completed Material from the queue.") }}</p></div>
+  {% elif selection.pending_count == 0 %}<h2 class="h4" id="workspace-heading">{{ selection.material.code }} — {{ selection.material.name }}</h2><p><span class="badge text-bg-success">{{ t("Completed") }}</span> {{ selection.completed_count }} of {{ selection.items|length }} Production Orders completed</p>{% set display_queue = selection %}{% include "weighing/_material_queue_table.html" %}
   {% elif not queue %}<h2 class="h4" id="workspace-heading">{{ selection.material.code }} — {{ selection.material.name }}</h2><p><span class="badge text-bg-{{ 'warning' if selection.completed_count else 'secondary' }}">{{ 'In progress' if selection.completed_count else 'Not started' }}</span> {{ selection.completed_count }} of {{ selection.items|length }} Production Orders completed</p>
-    <p class="text-muted">Scan the physical Material Tag for the selected Material before entering a weight.</p><label class="form-label" for="material-session-tag">Material Tag QR</label><input class="form-control" id="material-session-tag" autocomplete="off" autofocus maxlength="2000"><div id="material-session-result" class="fw-bold mt-2 text-muted" aria-live="polite">Scan Material Tag to validate</div><div id="material-mismatch-detail" class="small text-danger mt-1" aria-live="polite"></div>
-  {% else %}<h2 class="h4" id="workspace-heading">{{ queue.material.code }} — {{ queue.material.name }}</h2><div class="alert alert-success"><strong>MATCH</strong> · Detected Material {{ queue.material.code }} · {{ queue.completed_count }} of {{ queue.items|length }} Production Orders completed</div>{% set display_queue = queue %}{% include "weighing/_material_queue_table.html" %}{% endif %}
+    <p class="text-muted">{{ t("Scan the physical Material Tag for the selected Material before entering a weight.") }}</p><label class="form-label" for="material-session-tag">{{ t("Material Tag QR") }}</label><input class="form-control" id="material-session-tag" autocomplete="off" autofocus maxlength="2000"><div id="material-session-result" class="fw-bold mt-2 text-muted" aria-live="polite">{{ t("Scan Material Tag to validate") }}</div><div id="material-mismatch-detail" class="small text-danger mt-1" aria-live="polite"></div>
+  {% else %}<h2 class="h4" id="workspace-heading">{{ queue.material.code }} — {{ queue.material.name }}</h2><div class="alert alert-success"><strong>{{ t("MATCH") }}</strong> · {{ t("Detected Material") }} {{ queue.material.code }} · {{ queue.completed_count }} / {{ queue.items|length }} {{ t("Production Orders completed") }}</div>{% set display_queue = queue %}{% include "weighing/_material_queue_table.html" %}{% endif %}
   </div></section>
 </div>
 <script>
@@ -54,12 +54,12 @@
   const search = document.getElementById("material-search"); const filter = document.getElementById("material-filter"); const choices = [...document.querySelectorAll("[data-material-choice]")]; const empty = document.getElementById("material-filter-empty");
   const applyFilters = () => { const term = search.value.trim().toLowerCase(); let visible = 0; choices.forEach((choice) => { const matches = choice.dataset.search.includes(term) && (filter.value === "all" || choice.dataset.status === filter.value); const show = matches || choice.dataset.selected === "true"; choice.classList.toggle("d-none", !show); visible += show ? 1 : 0; }); empty.classList.toggle("d-none", visible !== 0); };
   search.addEventListener("input", applyFilters); filter.addEventListener("change", applyFilters);
-  choices.forEach((choice) => choice.addEventListener("click", (event) => { const dirty = [...document.querySelectorAll(".actual-weight")].some((input) => input.value.trim()); if (dirty && !window.confirm("Changing Material will discard unsaved weight input. Continue?")) event.preventDefault(); }));
+  choices.forEach((choice) => choice.addEventListener("click", (event) => { const dirty = [...document.querySelectorAll(".actual-weight")].some((input) => input.value.trim()); if (dirty && !window.confirm({{ t("Changing Material will discard unsaved weight input. Continue?")|tojson }})) event.preventDefault(); }));
   const tagInput = document.getElementById("material-session-tag"); if (!tagInput) return; const result = document.getElementById("material-session-result"); const detail = document.getElementById("material-mismatch-detail"); let timer;
-  const validate = async () => { const materialTag = tagInput.value.trim(); if (!materialTag) return; result.className = "fw-bold mt-2 text-muted"; result.textContent = "Validating…"; detail.textContent = "";
+  const validate = async () => { const materialTag = tagInput.value.trim(); if (!materialTag) return; result.className = "fw-bold mt-2 text-muted"; result.textContent = {{ t("Validating…")|tojson }}; detail.textContent = "";
     try { const response = await fetch("{{ url_for('weighing.validate_material_mode') }}", {method: "POST", headers: {"Content-Type": "application/json", "X-CSRFToken": "{{ csrf_token() }}"}, body: JSON.stringify({material_tag: materialTag, selected_material_code: "{{ selection.material.code if selection else '' }}"})}); const validation = await response.json(); if (tagInput.value.trim() !== materialTag) return;
-      if (response.ok && validation.result === "MATCH") { result.className = "fw-bold mt-2 text-success"; result.textContent = validation.message; window.setTimeout(() => window.location.reload(), 300); } else { result.className = "fw-bold mt-2 text-danger"; result.textContent = validation.message || "Invalid Material Tag"; if (validation.scanned_material_code) detail.textContent = `Selected Material: ${validation.selected_material_code} · Scanned Material: ${validation.scanned_material_code}`; }
-    } catch (_error) { result.className = "fw-bold mt-2 text-danger"; result.textContent = "Material validation unavailable"; } };
+      if (response.ok && validation.result === "MATCH") { result.className = "fw-bold mt-2 text-success"; result.textContent = validation.message; window.setTimeout(() => window.location.reload(), 300); } else { result.className = "fw-bold mt-2 text-danger"; result.textContent = validation.message || {{ t("Invalid Material Tag")|tojson }}; if (validation.scanned_material_code) detail.textContent = {{ t("Selected Material")|tojson }} + ": " + validation.selected_material_code + " · " + {{ t("Scanned Material")|tojson }} + ": " + validation.scanned_material_code; }
+    } catch (_error) { result.className = "fw-bold mt-2 text-danger"; result.textContent = {{ t("Material validation unavailable")|tojson }}; } };
   tagInput.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(validate, 250); }); tagInput.addEventListener("change", () => { clearTimeout(timer); validate(); });
 })();
 </script>

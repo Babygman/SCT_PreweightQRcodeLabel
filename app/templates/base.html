@@ -16,7 +16,7 @@
         <span>{{ current_user.display_name }}{% if selected_station %} · {{ selected_station.code }}{% endif %}</span>
         <form method="post" action="{{ url_for('auth.logout') }}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <button class="btn btn-outline-light btn-sm" type="submit">Logout</button>
+          <button class="btn btn-outline-light btn-sm" type="submit">{{ t("Logout") }}</button>
         </form>
       </div>
     </div>

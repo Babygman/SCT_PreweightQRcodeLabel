@@ -1,20 +1,22 @@
-from flask_wtf import FlaskForm
 from wtforms import DecimalField, StringField, SubmitField
 from wtforms.validators import DataRequired, Length, NumberRange
 
+from app.forms import BilingualForm
+from app.i18n import translate as t
 
-class WeighingForm(FlaskForm):
+
+class WeighingForm(BilingualForm):
     material_tag = StringField(
-        "Scan Material Tag QR", validators=[DataRequired(), Length(max=2000)]
+        t("Scan Material Tag QR"), validators=[DataRequired(), Length(max=2000)]
     )
     actual_weight = DecimalField(
-        "Actual Weight", places=3, validators=[DataRequired(), NumberRange(min=0.001)]
+        t("Actual Weight"), places=3, validators=[DataRequired(), NumberRange(min=0.001)]
     )
-    submit = SubmitField("Save Weighing")
+    submit = SubmitField(t("Save Weighing"))
 
 
-class MaterialQueueWeightForm(FlaskForm):
+class MaterialQueueWeightForm(BilingualForm):
     actual_weight = DecimalField(
-        "Actual Weight", places=3, validators=[DataRequired(), NumberRange(min=0.001)]
+        t("Actual Weight"), places=3, validators=[DataRequired(), NumberRange(min=0.001)]
     )
-    submit = SubmitField("Save Weighing")
+    submit = SubmitField(t("Save Weighing"))

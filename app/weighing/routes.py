@@ -18,6 +18,7 @@ from sqlalchemy import select
 
 from app.auth.decorators import roles_required, station_required
 from app.extensions import db
+from app.i18n import message as ui_message
 from app.models import ProductionOrder, WeighingTransaction
 from app.services.material_workflow import (
     build_material_queue,
@@ -71,14 +72,14 @@ def weigh_line(po_id, formula_item_id):
             current_user.id,
             session["station_id"],
         )
-        flash(result.message, "success" if result.success else "danger")
+        flash(ui_message(result.message), "success" if result.success else "danger")
         if result.success:
             session["weighing_mode"] = "formula"
             return redirect(url_for("weighing.sticker", transaction_id=result.transaction.id))
     else:
         for messages in form.errors.values():
             for message in messages:
-                flash(message, "danger")
+                flash(ui_message(message), "danger")
     return redirect(url_for("weighing.order", po_id=po_id))
 
 
@@ -95,7 +96,7 @@ def validate_material(po_id, formula_item_id):
         {
             "result": "MATCH" if result.success else "UN-MATCH",
             "code": result.code,
-            "message": result.message,
+            "message": ui_message(result.message),
         }
     )
 
@@ -198,7 +199,7 @@ def validate_material_mode():
             {
                 "result": "UN-MATCH",
                 "code": selection.code,
-                "message": selection.message,
+                "message": ui_message(selection.message),
             }
         ), 400
     queue = build_material_queue(
@@ -216,7 +217,7 @@ def validate_material_mode():
         {
             "result": "MATCH" if queue.success else "UN-MATCH",
             "code": queue.code,
-            "message": queue.message,
+            "message": ui_message(queue.message),
             "queue_count": len(queue.items),
             "selected_material_code": selection.material.code,
             "scanned_material_code": queue.tag.material_code if queue.tag else None,
@@ -233,7 +234,7 @@ def weigh_material_queue_item(po_id, formula_item_id):
     active_payload = session.get("active_material_tag")
     selected_code = session.get("selected_material_code")
     if not active_payload or not selected_code:
-        flash("Scan and validate a Material Tag before weighing.", "danger")
+        flash(ui_message("Scan and validate a Material Tag before weighing."), "danger")
         return redirect(url_for("weighing.material_mode"))
     if form.validate_on_submit():
         result = save_material_queue_item(
@@ -245,14 +246,14 @@ def weigh_material_queue_item(po_id, formula_item_id):
             current_user.id,
             expected_material_code=selected_code,
         )
-        flash(result.message, "success" if result.success else "danger")
+        flash(ui_message(result.message), "success" if result.success else "danger")
         if result.success:
             session["weighing_mode"] = "material"
             return redirect(url_for("weighing.sticker", transaction_id=result.transaction.id))
     else:
         for messages in form.errors.values():
             for message in messages:
-                flash(message, "danger")
+                flash(ui_message(message), "danger")
     return redirect(url_for("weighing.material_mode"))
 
 
@@ -267,9 +268,9 @@ def end_material_session():
     overview = active_work_set_overview(session["station_id"])
     if overview.is_complete:
         flash(
-            "All required weighings are complete. Complete this weighing session.",
+            ui_message("All required weighings are complete. Complete this weighing session."),
             "success",
         )
     else:
-        flash("Material session ended. Scan the next Material Tag.", "success")
+        flash(ui_message("Material session ended. Scan the next Material Tag."), "success")
     return redirect(url_for("weighing.material_mode"))

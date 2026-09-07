@@ -16,6 +16,7 @@ from sqlalchemy import or_, select
 
 from app.auth.decorators import roles_required, station_required
 from app.extensions import db
+from app.i18n import message as ui_message
 from app.models import (
     AuditLog,
     Material,
@@ -89,7 +90,7 @@ def new():
                 lifetime_minutes=current_app.config["MATERIAL_TAG_DRAFT_LIFETIME_MINUTES"],
             )
         except MaterialTagIssuanceError as exc:
-            flash(str(exc), "danger")
+            flash(ui_message(exc), "danger")
         else:
             return redirect(url_for("material_tags.preview", token=draft.draft_token))
     return render_template("material_tags/new.html", form=form, selected_material=selected_material)
@@ -143,7 +144,7 @@ def preview(token):
     try:
         details = preview_details(draft)
     except MaterialTagIssuanceError as exc:
-        flash(str(exc), "danger")
+        flash(ui_message(exc), "danger")
         details = None
     return render_template(
         "material_tags/preview.html",
@@ -165,9 +166,9 @@ def confirm(token):
             token=token, user_id=current_user.id, station_id=session["station_id"]
         )
     except MaterialTagIssuanceError as exc:
-        flash(str(exc), "danger")
+        flash(ui_message(exc), "danger")
         return redirect(url_for("material_tags.preview", token=token))
-    flash("Material Tags issued successfully.", "success")
+    flash(ui_message("Material Tags issued successfully."), "success")
     return redirect(url_for("material_tags.batch_detail", batch_id=batch.id))
 
 
@@ -228,7 +229,7 @@ def print_batch(batch_id):
             print_type="ORIGINAL",
         )
     except MaterialTagIssuanceError as exc:
-        flash(str(exc), "danger")
+        flash(ui_message(exc), "danger")
         return redirect(url_for("material_tags.batch_detail", batch_id=batch_id))
     return redirect(url_for("material_tags.print_event_view", event_id=event.id))
 
@@ -248,7 +249,7 @@ def reprint_batch(batch_id):
             reason=form.reason.data,
         )
     except MaterialTagIssuanceError as exc:
-        flash(str(exc), "danger")
+        flash(ui_message(exc), "danger")
         return redirect(url_for("material_tags.batch_detail", batch_id=batch_id))
     return redirect(url_for("material_tags.print_event_view", event_id=event.id))
 
@@ -279,7 +280,7 @@ def reprint_tag(batch_id, tag_id):
             reason=form.reason.data,
         )
     except MaterialTagIssuanceError as exc:
-        flash(str(exc), "danger")
+        flash(ui_message(exc), "danger")
         return redirect(url_for("material_tags.batch_detail", batch_id=batch_id))
     return redirect(url_for("material_tags.print_event_view", event_id=event.id))
 

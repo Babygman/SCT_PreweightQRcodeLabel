@@ -17,36 +17,36 @@
 {% block content %}
 <header class="mb-4">
   <h1 class="h3">SCT Preweight QR Code Label</h1>
-  <p class="mb-1">User: {{ current_user.display_name }}</p>
-  <p class="mb-0">Station: {{ selected_station.code }} — {{ selected_station.name }}</p>
+  <p class="mb-1">{{ t("User") }}: {{ current_user.display_name }}</p>
+  <p class="mb-0">{{ t("Station") }}: {{ selected_station.code }} — {{ selected_station.name }}</p>
 </header>
 {% set role_codes = current_user.roles | map(attribute='code') | list %}
 {% if 'OPERATOR' in role_codes or 'SUPERVISOR' in role_codes or 'ADMIN' in role_codes %}
 <section class="home-nav-section" aria-labelledby="production-navigation-heading">
-  <h2 class="h4" id="production-navigation-heading">Production Weighing</h2>
+  <h2 class="h4" id="production-navigation-heading">{{ t("Production Weighing") }}</h2>
   <div class="home-nav-grid">
-    <a class="home-nav-card" href="{{ url_for('preparation.prepare') }}"><strong>Prepare Work Set</strong><span>Scan Production Orders and build the active weighing session.</span></a>
-    <a class="home-nav-card" href="{{ url_for('weighing.material_mode') }}"><strong>Material-centric Weighing</strong><span>Primary operator workspace organized by raw material.</span></a>
-    <a class="home-nav-card" href="{{ url_for('preparation.prepare') }}"><strong>Formula / PO-centric (Optional)</strong><span>Optional weighing flow organized by Formula and Production Order.</span></a>
+    <a class="home-nav-card" href="{{ url_for('preparation.prepare') }}"><strong>{{ t("Prepare Work Set") }}</strong><span>{{ t("Scan Production Orders and build the active weighing session.") }}</span></a>
+    <a class="home-nav-card" href="{{ url_for('weighing.material_mode') }}"><strong>{{ t("Material-centric Weighing") }}</strong><span>{{ t("Primary operator workspace organized by raw material.") }}</span></a>
+    <a class="home-nav-card" href="{{ url_for('preparation.prepare') }}"><strong>{{ t("Formula / PO-centric (Optional)") }}</strong><span>{{ t("Optional weighing flow organized by Formula and Production Order.") }}</span></a>
   </div>
 </section>
 {% endif %}
 {% if config.MATERIAL_TAG_ISSUANCE_ENABLED and ('SUPERVISOR' in role_codes or 'ADMIN' in role_codes) %}
 <section class="home-nav-section" aria-labelledby="material-tag-navigation-heading">
-  <h2 class="h4" id="material-tag-navigation-heading">Material Tag Management</h2>
+  <h2 class="h4" id="material-tag-navigation-heading">{{ t("Material Tag Management") }}</h2>
   <div class="home-nav-grid">
-    <a class="home-nav-card" href="{{ url_for('material_tags.new') }}"><strong>Material Tag Issuance</strong><span>Create and review receiving-label batches from an approved Material.</span></a>
-    <a class="home-nav-card" href="{{ url_for('material_tags.history') }}"><strong>Material Tag History</strong><span>Search issued batches and inspect auditable print history.</span></a>
-    <a class="home-nav-card" href="{{ url_for('material_tags.calibration') }}"><strong>Printer Calibration</strong><span>Verify the approved 3 × 2.5 inch label setup before printing.</span></a>
+    <a class="home-nav-card" href="{{ url_for('material_tags.new') }}"><strong>{{ t("Material Tag Issuance") }}</strong><span>{{ t("Create and review receiving-label batches from an approved Material.") }}</span></a>
+    <a class="home-nav-card" href="{{ url_for('material_tags.history') }}"><strong>{{ t("Material Tag History") }}</strong><span>{{ t("Search issued batches and inspect auditable print history.") }}</span></a>
+    <a class="home-nav-card" href="{{ url_for('material_tags.calibration') }}"><strong>{{ t("Printer Calibration") }}</strong><span>{{ t("Verify the approved 3 × 2.5 inch label setup before printing.") }}</span></a>
   </div>
 </section>
 {% endif %}
 {% if 'ADMIN' in role_codes or (config.MOCK_ERP_ENABLED and ('SUPERVISOR' in role_codes or 'ADMIN' in role_codes)) %}
 <section class="home-nav-section" aria-labelledby="administration-navigation-heading">
-  <h2 class="h4" id="administration-navigation-heading">Administration &amp; UAT Tools</h2>
+  <h2 class="h4" id="administration-navigation-heading">{{ t("Administration & UAT Tools") }}</h2>
   <div class="home-nav-grid">
-    {% if 'ADMIN' in role_codes %}<a class="home-nav-card" href="{{ url_for('master_data.index') }}"><strong>Master Data</strong><span>Review controlled administrative data and Material Master import.</span></a>{% endif %}
-    {% if config.MOCK_ERP_ENABLED and ('SUPERVISOR' in role_codes or 'ADMIN' in role_codes) %}<a class="home-nav-card uat-utility" href="{{ url_for('mock_erp.index') }}"><strong>Mock ERP / Print QR Documents <span class="badge text-bg-warning ms-1">UAT</span></strong><span>Test utility for generating non-production PO and Formula documents.</span></a>{% endif %}
+    {% if 'ADMIN' in role_codes %}<a class="home-nav-card" href="{{ url_for('master_data.index') }}"><strong>{{ t("Master Data") }}</strong><span>{{ t("Review controlled administrative data and Material Master import.") }}</span></a>{% endif %}
+    {% if config.MOCK_ERP_ENABLED and ('SUPERVISOR' in role_codes or 'ADMIN' in role_codes) %}<a class="home-nav-card uat-utility" href="{{ url_for('mock_erp.index') }}"><strong>{{ t("Mock ERP / Print QR Documents") }} <span class="badge text-bg-warning ms-1">UAT</span></strong><span>{{ t("Test utility for generating non-production PO and Formula documents.") }}</span></a>{% endif %}
   </div>
 </section>
 {% endif %}

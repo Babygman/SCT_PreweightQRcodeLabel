@@ -7,6 +7,7 @@ from sqlalchemy import or_, select
 
 from app.auth.decorators import roles_required, station_required
 from app.extensions import db
+from app.i18n import message as ui_message
 from app.models import FinishGoodsProfile, Formula, Product, ProductionOrder
 from app.services.mock_erp import MockDocumentError, create_mock_order
 
@@ -39,7 +40,7 @@ def index():
             )
         )
         selectable = db.session.scalars(active_statement.order_by(Product.code)).all()
-        form.product_id.choices = [(0, "Select a Finish Good")]
+        form.product_id.choices = [(0, ui_message("Select a Finish Good"))]
         form.product_id.choices.extend(
             (product.id, f"{product.code} — {product.name}") for product in selectable
         )
@@ -58,14 +59,16 @@ def index():
         )
     valid_submission = form.validate_on_submit()
     if valid_submission and finish_goods_enabled and not form.product_id.data:
-        form.product_id.errors.append("Select an Active Finish Good from the approved Master.")
+        form.product_id.errors.append(
+            ui_message("Select an Active Finish Good from the approved Master.")
+        )
         valid_submission = False
     if (
         valid_submission
         and not finish_goods_enabled
         and (not form.product_code.data.strip() or not form.product_name.data.strip())
     ):
-        flash("Finished Good Item Code and Name are required.", "danger")
+        flash(ui_message("Finished Good Item Code and Name are required."), "danger")
         valid_submission = False
     if valid_submission:
         try:
@@ -81,10 +84,10 @@ def index():
                 expected_finish_date=form.expected_finish_date.data,
             )
         except MockDocumentError as exc:
-            flash(str(exc), "danger")
+            flash(ui_message(exc), "danger")
             return redirect(url_for("mock_erp.index"))
         else:
-            flash("Mock Production Order and Formula Sheet created.", "success")
+            flash(ui_message("Mock Production Order and Formula Sheet created."), "success")
             return redirect(url_for("mock_erp.detail", po_id=order.id))
     orders = db.session.scalars(
         select(ProductionOrder)

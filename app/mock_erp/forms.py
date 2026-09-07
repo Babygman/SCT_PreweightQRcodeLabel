@@ -1,30 +1,33 @@
 from datetime import date
 
-from flask_wtf import FlaskForm
 from wtforms import DecimalField, SelectField, StringField, SubmitField
 from wtforms.validators import DataRequired, Length, NumberRange, Optional, ValidationError
 
 from app.form_fields import OperatorDateField
+from app.forms import BilingualForm
+from app.i18n import translate as t
 
 
-class MockOrderForm(FlaskForm):
-    po_no = StringField("Production Order No.", validators=[DataRequired(), Length(max=50)])
-    product_id = SelectField("Finish Good", coerce=int, validators=[Optional()], choices=[])
-    product_code = StringField("Finished Good Item Code", validators=[Optional(), Length(max=50)])
-    product_name = StringField("Finished Good Name", validators=[Optional(), Length(max=200)])
-    production_lot = StringField("Production Lot No.", validators=[DataRequired(), Length(max=100)])
+class MockOrderForm(BilingualForm):
+    po_no = StringField(t("Production Order No."), validators=[DataRequired(), Length(max=50)])
+    product_id = SelectField(t("Finish Good"), coerce=int, validators=[Optional()], choices=[])
+    product_code = StringField(
+        t("Finished Good Item Code"), validators=[Optional(), Length(max=50)]
+    )
+    product_name = StringField(t("Finished Good Name"), validators=[Optional(), Length(max=200)])
+    production_lot = StringField(
+        t("Production Lot No."), validators=[DataRequired(), Length(max=100)]
+    )
     quantity = DecimalField(
-        "Quantity to Produce (KG)", places=3, validators=[DataRequired(), NumberRange(min=0.001)]
+        t("Quantity to Produce (KG)"), places=3, validators=[DataRequired(), NumberRange(min=0.001)]
     )
-    formula_code = StringField("Formula Sheet No.", validators=[DataRequired(), Length(max=50)])
+    formula_code = StringField(t("Formula Sheet No."), validators=[DataRequired(), Length(max=50)])
     production_date = OperatorDateField(
-        "Production Date", validators=[DataRequired()], default=date.today
+        t("Production Date"), validators=[DataRequired()], default=date.today
     )
-    expected_finish_date = OperatorDateField(
-        "Expected Finish Date", validators=[DataRequired()]
-    )
-    submit = SubmitField("Create Mock Production Documents")
+    expected_finish_date = OperatorDateField(t("Expected Finish Date"), validators=[DataRequired()])
+    submit = SubmitField(t("Create Mock Production Documents"))
 
     def validate_expected_finish_date(self, field):
         if self.production_date.data and field.data < self.production_date.data:
-            raise ValidationError("Expected Finish Date must be on or after Production Date.")
+            raise ValidationError(t("Expected Finish Date must be on or after Production Date."))

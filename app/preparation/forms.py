@@ -1,11 +1,13 @@
-from flask_wtf import FlaskForm
 from wtforms import StringField, SubmitField
 from wtforms.validators import DataRequired, Length
 
+from app.forms import BilingualForm
+from app.i18n import translate as t
 
-class PreparationForm(FlaskForm):
-    po_no = StringField("Scan Production Order QR", validators=[DataRequired(), Length(max=120)])
+
+class PreparationForm(BilingualForm):
+    po_no = StringField(t("Scan Production Order QR"), validators=[DataRequired(), Length(max=120)])
     formula_code = StringField(
-        "Scan Formula Sheet QR", validators=[DataRequired(), Length(max=120)]
+        t("Scan Formula Sheet QR"), validators=[DataRequired(), Length(max=120)]
     )
-    submit = SubmitField("Validate PO + Formula Sheet")
+    submit = SubmitField(t("Validate PO + Formula Sheet"))

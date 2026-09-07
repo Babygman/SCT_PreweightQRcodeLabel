@@ -2,6 +2,7 @@ from flask import Blueprint, abort, flash, redirect, render_template, session, u
 from flask_login import current_user, login_required
 
 from app.auth.decorators import roles_required, station_required
+from app.i18n import message as ui_message
 from app.services.workset import (
     active_work_set_overview,
     cancel_active_work_set,
@@ -26,7 +27,7 @@ def prepare():
     if form.validate_on_submit():
         if overview.is_complete:
             flash(
-                "All required weighings are complete. Complete this weighing session.",
+                ui_message("All required weighings are complete. Complete this weighing session."),
                 "success",
             )
         else:
@@ -36,7 +37,7 @@ def prepare():
                 current_user.id,
                 session.get("station_id"),
             )
-            flash(result.message, "success" if result.success else "danger")
+            flash(ui_message(result.message), "success" if result.success else "danger")
             if result.success:
                 form.po_no.data = ""
                 form.formula_code.data = ""
@@ -61,7 +62,7 @@ def close_work_set():
         session.pop("active_material_tag", None)
         session.pop("selected_material_code", None)
         session.pop("weighing_mode", None)
-    flash(result.message, "success" if result.success else "danger")
+    flash(ui_message(result.message), "success" if result.success else "danger")
     return redirect(url_for("preparation.prepare"))
 
 
@@ -73,7 +74,7 @@ def complete_session(session_code):
     result = complete_work_set(
         session_code, current_user.id, session["station_id"]
     )
-    flash(result.message, "success" if result.success else "danger")
+    flash(ui_message(result.message), "success" if result.success else "danger")
     if not result.success:
         return redirect(url_for("preparation.prepare"))
     session.pop("active_material_tag", None)

@@ -111,7 +111,7 @@ def test_preparation_page_workflow(app, client):
     response = client.post("/preparation/", data={"po_no": "PO-OPEN", "formula_code": "FM-A"})
     assert response.status_code == 200
     assert b"added to this weighing session" in response.data
-    assert b"READY" in response.data
+    assert "พร้อม / Ready".encode() in response.data
     assert b'id="po_no"' in response.data
     assert b'id="formula_code"' in response.data
     assert b'value="PO-OPEN"' not in response.data
@@ -122,6 +122,7 @@ def test_preparation_page_workflow(app, client):
         order = db.session.scalar(
             db.select(ProductionOrder).where(ProductionOrder.po_no == "PO-OPEN")
         )
+        assert order.status == "READY"
         assert order.work_set_active is True
 
 
@@ -157,17 +158,26 @@ def test_material_preparation_uses_operator_terms_without_po_action(app, client)
     response = client.get("/preparation/")
 
     assert response.status_code == 200
-    assert b"Material-centric Preparation" in response.data
-    assert b"Prepare Production Orders before weighing materials." in response.data
-    assert b"1. Prepare Production Orders" in response.data
-    assert b'aria-current="step"' in response.data
-    assert b"Production Orders for This Weighing Session" in response.data
+    rendered = response.get_data(as_text=True)
+    assert "การเตรียมวัตถุดิบ / Material-centric Preparation" in rendered
     assert (
-        b"These Production Orders will be processed together during material weighing."
-        in response.data
-    )
-    assert b"Active Work Set" not in response.data
-    assert b"Optional: Weigh this PO" not in response.data
+        "เตรียมใบสั่งผลิตก่อนชั่งวัตถุดิบ / "
+        "Prepare Production Orders before weighing materials."
+    ) in rendered
+    assert "เตรียมใบสั่งผลิต" in rendered
+    assert "Prepare Production Orders" in rendered
+    assert "1. เตรียมใบสั่งผลิต / Prepare Production Orders" in rendered
+    assert b'aria-current="step"' in response.data
+    assert (
+        "ใบสั่งผลิตสำหรับเซสชันการชั่งนี้ / "
+        "Production Orders for This Weighing Session"
+    ) in rendered
+    assert (
+        "ใบสั่งผลิตเหล่านี้จะถูกดำเนินการร่วมกันระหว่างการชั่งวัตถุดิบ / "
+        "These Production Orders will be processed together during material weighing."
+    ) in rendered
+    assert "ชุดงานที่เปิดใช้งาน / Active Work Set" not in rendered
+    assert "ทางเลือก: ชั่ง PO นี้ / Optional: Weigh this PO" not in rendered
     assert b"/weighing/order/" not in response.data
 
 

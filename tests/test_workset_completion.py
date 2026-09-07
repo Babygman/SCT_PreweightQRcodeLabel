@@ -150,7 +150,7 @@ def test_complete_pages_replace_scan_loop_and_render_read_only_summary(app, clie
     assert b"Weighing Session Complete" in completed.data
     assert b"This session is finalized and read-only." in completed.data
     assert session_code.encode() in completed.data
-    assert b"COMPLETED" in completed.data
+    assert "เสร็จสมบูรณ์ / Completed" in completed.get_data(as_text=True)
     assert b"2 / 4" not in completed.data
     assert b"4 / 4" in completed.data
     assert b"PD001" in completed.data and b"PD002" in completed.data
@@ -158,6 +158,13 @@ def test_complete_pages_replace_scan_loop_and_render_read_only_summary(app, clie
     assert b"Thailand Time" in completed.data
     assert b"Cancel This Weighing Session" not in completed.data
     assert b"Actual Weight" not in completed.data
+    with app.app_context():
+        statuses = db.session.scalars(
+            db.select(ProductionOrder.status).where(
+                ProductionOrder.po_no.in_(("PD001", "PD002"))
+            )
+        ).all()
+        assert statuses == ["COMPLETED", "COMPLETED"]
 
 
 def test_completed_session_blocks_old_po_scan_material_and_cancel(app, client):

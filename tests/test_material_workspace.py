@@ -62,7 +62,11 @@ def test_selected_material_must_match_tag_and_mismatch_has_both_codes(app, clien
     )
     payload = mismatch.get_json()
     assert payload["code"] == "WRONG_SELECTED_MATERIAL"
-    assert payload["message"] == "Scanned Material does not match the selected Material."
+    assert payload["message"] == (
+        "ข้อความแจ้งเตือน / Message: "
+        "วัตถุดิบที่สแกนไม่ตรงกับวัตถุดิบที่เลือก / "
+        "Scanned Material does not match the selected Material."
+    )
     assert payload["selected_material_code"] == "MAT-A"
     assert payload["scanned_material_code"] == "MAT-B"
     with app.app_context():
@@ -156,6 +160,7 @@ def test_search_filter_ten_materials_and_unsaved_switch_warning_render(app, clie
 def test_local_datetime_formats_naive_and_aware_utc_without_mutation():
     naive = datetime(2026, 8, 17, 9, 30, 39, 853669)
     aware = naive.replace(tzinfo=UTC)
-    assert format_local_datetime(naive, "Asia/Bangkok") == "17/08/2026 16:30:39 (Thailand Time)"
-    assert format_local_datetime(aware, "Asia/Bangkok") == "17/08/2026 16:30:39 (Thailand Time)"
+    expected = "17/08/2026 16:30:39 (เวลาไทย / Thailand Time)"
+    assert format_local_datetime(naive, "Asia/Bangkok") == expected
+    assert format_local_datetime(aware, "Asia/Bangkok") == expected
     assert naive == datetime(2026, 8, 17, 9, 30, 39, 853669)

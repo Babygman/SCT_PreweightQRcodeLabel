@@ -15,6 +15,7 @@ from sqlalchemy import func, select, true
 from werkzeug.security import check_password_hash
 
 from app.extensions import db
+from app.i18n import message as ui_message
 from app.models import AuditLog, Station, User, utcnow
 
 from .forms import LoginForm, StationForm
@@ -72,7 +73,7 @@ def login():
 
         _audit("LOGIN_FAILED", user_id=user.id if user else None, detail="Invalid credentials")
         current_app.logger.warning("Invalid login attempt")
-        flash("Invalid username or password.", "danger")
+        flash(ui_message("Invalid username or password."), "danger")
 
     return render_template("auth/login.html", form=form)
 
@@ -89,7 +90,7 @@ def select_station():
     if form.validate_on_submit():
         station = db.session.get(Station, form.station_id.data)
         if station is None or not station.is_active:
-            flash("Selected station is unavailable.", "danger")
+            flash(ui_message("Selected station is unavailable."), "danger")
         else:
             if session.get("station_id") != station.id:
                 session.pop("active_material_tag", None)
@@ -99,7 +100,7 @@ def select_station():
             _audit("STATION_SELECTED", user_id=current_user.id, station_id=station.id)
             return redirect(_safe_next(request.args.get("next")) or url_for("index"))
     elif request.method == "POST":
-        flash("Selected station is unavailable.", "danger")
+        flash(ui_message("Selected station is unavailable."), "danger")
 
     return render_template("auth/station.html", form=form, stations=stations)
 
@@ -112,5 +113,5 @@ def logout():
     _audit("LOGOUT", user_id=user_id, station_id=station_id)
     logout_user()
     session.clear()
-    flash("You have been logged out.", "success")
+    flash(ui_message("You have been logged out."), "success")
     return redirect(url_for("auth.login"))

@@ -1,17 +1,17 @@
 {% extends "mock_erp/document_base.html" %}
 {% block document_title %}Production Order {{ order.po_no }}{% endblock %}
 {% block document %}
-<div class="header"><h1>PRODUCTION ORDER</h1><div>MOCK ERP — DEVELOPMENT / UAT</div></div>
+<div class="header"><h1>{{ t("PRODUCTION ORDER") }}</h1><div>{{ t("MOCK ERP — DEVELOPMENT / UAT") }}</div></div>
 <div class="grid">
-  <div><div class="label">Production Order No.</div><div class="value">{{ order.po_no }}</div></div>
-  <div><div class="label">Formula Sheet No.</div><div class="value">{{ order.formula.code }}</div></div>
-  <div><div class="label">Finished Good</div><div class="value">{% if config.FINISHED_GOODS_MASTER_ENABLED and order.product_snapshot %}{{ order.product_snapshot.product_code }} — {{ order.product_snapshot.product_name }}{% else %}{{ order.product.code }} — {{ order.product.name }}{% endif %}</div></div>
-  <div><div class="label">Production Lot No.</div><div class="value">{{ order.production_lot }}</div></div>
-  <div><div class="label">Quantity</div><div class="value">{{ order.quantity }} KG</div></div>
-  <div><div class="label">Production Date</div><div class="value">{{ order.production_date|local_date }}</div></div>
-  <div><div class="label">Expected Finish Date</div><div class="value">{{ order.expected_finish_date|local_date }}</div></div>
+  <div><div class="label">{{ t("Production Order No.") }}</div><div class="value">{{ order.po_no }}</div></div>
+  <div><div class="label">{{ t("Formula Sheet No.") }}</div><div class="value">{{ order.formula.code }}</div></div>
+  <div><div class="label">{{ t("Finished Good") }}</div><div class="value">{% if config.FINISHED_GOODS_MASTER_ENABLED and order.product_snapshot %}{{ order.product_snapshot.product_code }} — {{ order.product_snapshot.product_name }}{% else %}{{ order.product.code }} — {{ order.product.name }}{% endif %}</div></div>
+  <div><div class="label">{{ t("Production Lot No.") }}</div><div class="value">{{ order.production_lot }}</div></div>
+  <div><div class="label">{{ t("Quantity") }}</div><div class="value">{{ order.quantity }} KG</div></div>
+  <div><div class="label">{{ t("Production Date") }}</div><div class="value">{{ order.production_date|local_date }}</div></div>
+  <div><div class="label">{{ t("Expected Finish Date") }}</div><div class="value">{{ order.expected_finish_date|local_date }}</div></div>
 </div>
-<h2>Scan Production Order</h2>
-<img class="qr" src="{{ url_for('mock_erp.qr_image', kind='po', record_id=order.id) }}" alt="Production Order QR">
-<p class="footer-note">QR payload identifies this Production Order in the UAT system. Print this page and scan the QR at the Preweight station.</p>
+<h2>{{ t("Scan Production Order") }}</h2>
+<img class="qr" src="{{ url_for('mock_erp.qr_image', kind='po', record_id=order.id) }}" alt="{{ t('Production Order QR') }}">
+<p class="footer-note">{{ t("QR payload identifies this Production Order in the UAT system. Print this page and scan the QR at the Preweight station.") }}</p>
 {% endblock %}

@@ -1,14 +1,14 @@
 {% extends "base.html" %}
-{% block title %}Import Material Master{% endblock %}
+{% block title %}{{ t("Import Material Master") }}{% endblock %}
 {% block content %}
 <style>.material-import-upload :focus-visible { outline: 3px solid #0d6efd; outline-offset: 2px; }</style>
 <div class="material-import-upload">
 <div class="d-flex justify-content-between align-items-center mb-4">
   <div>
-    <h1 class="h3 mb-1">Import Material Master</h1>
-    <p class="text-muted mb-0">Upload and validate an approved .xlsx Material Master workbook.</p>
+    <h1 class="h3 mb-1">{{ t("Import Material Master") }}</h1>
+    <p class="text-muted mb-0">{{ t("Upload and validate an approved .xlsx Material Master workbook.") }}</p>
   </div>
-  <a class="btn btn-outline-secondary" href="{{ url_for('master_data.index') }}">Back to Master Data</a>
+  <a class="btn btn-outline-secondary" href="{{ url_for('master_data.index') }}">{{ t("Back to Master Data") }}</a>
 </div>
 <section class="card shadow-sm">
   <div class="card-body">
