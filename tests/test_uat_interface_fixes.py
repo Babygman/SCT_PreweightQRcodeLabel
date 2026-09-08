@@ -43,21 +43,40 @@ def test_operator_date_parser_blank_required_and_optional():
     assert parse_user_date(" ", required=False) is None
 
 
-def test_shared_date_and_datetime_output_are_unambiguous_and_timezone_once():
+def test_shared_date_and_datetime_output_are_unambiguous_in_bangkok_time():
     naive = datetime(2026, 8, 19, 9, 46, 57, 999999)
     aware = naive.replace(tzinfo=UTC)
-    expected = "19/08/2026 16:46:57 (เวลาไทย / Thailand Time)"
+    expected = "19/08/2026 16:46"
     assert format_local_date(date(2026, 8, 5)) == "05/08/2026"
     assert format_local_datetime(naive, "Asia/Bangkok") == expected
     assert format_local_datetime(aware, "Asia/Bangkok") == expected
-    assert expected.count("Thailand Time") == 1
+    assert ":57" not in expected
 
 
-def test_owned_templates_have_no_native_or_us_date_placeholders():
+def test_owned_templates_have_no_us_date_placeholders():
     templates = Path("app/templates")
     content = "\n".join(path.read_text() for path in templates.rglob("*.html"))
-    assert 'type="date"' not in content
     assert "mm/dd/yyyy" not in content.lower()
+
+
+def test_all_editable_date_surfaces_use_the_shared_picker():
+    templates = Path("app/templates")
+    content = "\n".join(path.read_text() for path in templates.rglob("*.html"))
+    assert 'inputmode="numeric"' not in content
+    assert 'type="datetime-local"' not in content
+    assert content.count('type="date"') == 1
+    assert "date_picker(field)" in Path("app/templates/mock_erp/index.html").read_text()
+    assert "date_picker(field)" in Path("app/templates/material_tags/new.html").read_text()
+    history = Path("app/templates/material_tags/history.html").read_text()
+    assert history.count("date_filter(") == 2
+
+    picker = Path("app/templates/_date_picker.html").read_text()
+    assert 'readonly aria-readonly="true"' in picker
+    assert picker.count("data-date-button") == 2
+    script = Path("app/static/date-picker.js").read_text()
+    assert "input.showPicker" in script
+    assert "input.focus()" in script
+    assert "input.click()" in script
 
 
 def test_home_template_has_responsive_semantic_card_groups(app):

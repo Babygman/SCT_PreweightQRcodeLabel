@@ -8,8 +8,7 @@ def format_local_datetime(value: datetime | None, timezone_name: str) -> str:
         return "—"
     utc_value = value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
     local_value = utc_value.astimezone(ZoneInfo(timezone_name))
-    zone_label = "เวลาไทย / Thailand Time" if timezone_name == "Asia/Bangkok" else timezone_name
-    return f"{local_value:%d/%m/%Y %H:%M:%S} ({zone_label})"
+    return f"{local_value:%d/%m/%Y %H:%M}"
 
 
 def format_local_date(value: date | None) -> str:

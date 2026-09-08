@@ -71,6 +71,9 @@ TRANSLATIONS = {
     "Expected Finish Date must be on or after Production Date.": (
         "วันที่คาดว่าจะผลิตเสร็จต้องตรงกับหรือหลังวันที่ผลิต"
     ),
+    "Expected Finish Date cannot be earlier than Production Date.": (
+        "วันที่คาดว่าจะผลิตเสร็จต้องไม่ก่อนวันที่ผลิต"
+    ),
     "Expiry Date": "วันที่หมดอายุ",
     "Expiry": "วันหมดอายุ",
     "Expired": "หมดอายุ",
@@ -188,6 +191,10 @@ TRANSLATIONS = {
     "Preweight ID": "รหัสชั่งล่วงหน้า",
     "Preview": "ดูตัวอย่าง",
     "Preweight Sticker {preweight_id}": "สติกเกอร์ชั่งล่วงหน้า {preweight_id}",
+    "Please select a valid date from the calendar.": (
+        "กรุณาเลือกวันที่ที่ถูกต้องจากปฏิทิน"
+    ),
+    "Open calendar for {field}": "เปิดปฏิทินสำหรับ {field}",
     "Previous": "ก่อนหน้า",
     "Print": "พิมพ์",
     "Print A4": "พิมพ์ A4",

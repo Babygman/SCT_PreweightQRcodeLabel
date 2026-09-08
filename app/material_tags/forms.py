@@ -1,7 +1,7 @@
 import unicodedata
 
 from wtforms import HiddenField, StringField, SubmitField, TextAreaField, ValidationError
-from wtforms.validators import DataRequired, Length, Optional
+from wtforms.validators import DataRequired, InputRequired, Length, Optional
 
 from app.form_fields import OperatorDateField
 from app.forms import BilingualForm
@@ -21,7 +21,7 @@ def _no_control_characters(_form, field):
 
 class MaterialTagDraftForm(BilingualForm):
     material_id = HiddenField(validators=[DataRequired()])
-    receiving_date = OperatorDateField(t("Receiving Date"), validators=[DataRequired()])
+    receiving_date = OperatorDateField(t("Receiving Date"), validators=[InputRequired()])
     purchase_order = StringField(t("Purchase Order"), validators=[DataRequired(), Length(max=100)])
     purchase_order_line = StringField(t("PO Line"), validators=[DataRequired(), Length(max=30)])
     delivery_invoice = StringField(

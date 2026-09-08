@@ -328,8 +328,8 @@ def test_mock_erp_post_rejects_forged_selection_and_uses_master_values(app, clie
         "product_name": "Forged Name",
         "production_lot": "LOT",
         "quantity": "30.000",
-        "production_date": "21/08/2026",
-        "expected_finish_date": "22/08/2026",
+        "production_date": "2026-08-21",
+        "expected_finish_date": "2026-08-22",
     }
     response = client.post("/mock-erp/", data=payload, follow_redirects=True)
     assert response.status_code == 200 and b"Mock Documents Ready" in response.data

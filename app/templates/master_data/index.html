@@ -8,7 +8,7 @@
       <table class="table table-sm mb-0">
         <thead><tr>{% for label, field in columns %}<th>{{ t(label) }}</th>{% endfor %}</tr></thead>
         <tbody>
-        {% for row in rows %}<tr>{% for label, field in columns %}<td>{% if field == 'is_active' %}{{ t("Active") if row|attr(field) else t("Inactive") }}{% elif field in ('status', 'qc_status') %}{{ row|attr(field)|status_label }}{% else %}{{ row | attr(field) }}{% endif %}</td>{% endfor %}</tr>{% else %}<tr><td colspan="{{ columns|length }}">{{ t("No data") }}</td></tr>{% endfor %}
+        {% for row in rows %}<tr>{% for label, field in columns %}<td>{% if field == 'is_active' %}{{ t("Active") if row|attr(field) else t("Inactive") }}{% elif field in ('status', 'qc_status') %}{{ row|attr(field)|status_label }}{% elif field == 'expiry_date' %}{{ row|attr(field)|local_date }}{% else %}{{ row | attr(field) }}{% endif %}</td>{% endfor %}</tr>{% else %}<tr><td colspan="{{ columns|length }}">{{ t("No data") }}</td></tr>{% endfor %}
         </tbody>
       </table>
     </div>

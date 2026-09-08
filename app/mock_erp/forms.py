@@ -1,7 +1,14 @@
 from datetime import date
 
 from wtforms import DecimalField, SelectField, StringField, SubmitField
-from wtforms.validators import DataRequired, Length, NumberRange, Optional, ValidationError
+from wtforms.validators import (
+    DataRequired,
+    InputRequired,
+    Length,
+    NumberRange,
+    Optional,
+    ValidationError,
+)
 
 from app.form_fields import OperatorDateField
 from app.forms import BilingualForm
@@ -23,11 +30,19 @@ class MockOrderForm(BilingualForm):
     )
     formula_code = StringField(t("Formula Sheet No."), validators=[DataRequired(), Length(max=50)])
     production_date = OperatorDateField(
-        t("Production Date"), validators=[DataRequired()], default=date.today
+        t("Production Date"), validators=[InputRequired()], default=date.today
     )
-    expected_finish_date = OperatorDateField(t("Expected Finish Date"), validators=[DataRequired()])
+    expected_finish_date = OperatorDateField(
+        t("Expected Finish Date"), validators=[InputRequired()]
+    )
     submit = SubmitField(t("Create Mock Production Documents"))
 
     def validate_expected_finish_date(self, field):
-        if self.production_date.data and field.data < self.production_date.data:
-            raise ValidationError(t("Expected Finish Date must be on or after Production Date."))
+        if (
+            isinstance(self.production_date.data, date)
+            and isinstance(field.data, date)
+            and field.data < self.production_date.data
+        ):
+            raise ValidationError(
+                t("Expected Finish Date cannot be earlier than Production Date.")
+            )

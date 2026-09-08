@@ -178,8 +178,8 @@ def test_duplicate_route_uses_prg_and_refresh_leaves_no_residue(app, client):
             "product_id": str(product_id),
             "production_lot": "  l001  ",
             "quantity": "30.000",
-            "production_date": "25/08/2026",
-            "expected_finish_date": "26/08/2026",
+            "production_date": "2026-08-25",
+            "expected_finish_date": "2026-08-26",
         },
     )
     assert response.status_code == 302

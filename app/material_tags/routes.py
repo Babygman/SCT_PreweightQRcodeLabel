@@ -1,3 +1,4 @@
+from datetime import date
 from functools import wraps
 
 from flask import (
@@ -27,7 +28,6 @@ from app.models import (
     Station,
     User,
 )
-from app.presentation import parse_user_date
 from app.services.material_tag_issuance import (
     MaterialTagIssuanceError,
     create_material_tag_draft,
@@ -305,8 +305,10 @@ def print_event_view(event_id):
 
 def _history_date(name):
     raw = request.args.get(name, "").strip()
+    if not raw:
+        return None
     try:
-        return parse_user_date(raw, required=False)
+        return date.fromisoformat(raw)
     except ValueError:
         abort(400)
 

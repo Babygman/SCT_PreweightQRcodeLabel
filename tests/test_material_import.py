@@ -473,7 +473,7 @@ def test_real_workbook_preview_apply_and_idempotency(app, client):
     assert preview.status_code == 200
     assert b"Preview only" in preview.data
     assert b"Next" in preview.data
-    assert b"Thailand Time" in preview.data
+    assert b"Thailand Time" not in preview.data
 
     with app.app_context():
         assert Material.query.count() == 2

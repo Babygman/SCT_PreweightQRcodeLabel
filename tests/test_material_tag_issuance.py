@@ -136,6 +136,31 @@ def test_approved_roles_can_access_with_station(app, client, role):
     assert b"Material Tag Management" in home.data
 
 
+def test_receiving_date_uses_shared_calendar_picker_and_iso_submission(app, client):
+    app.config["MATERIAL_TAG_ISSUANCE_ENABLED"] = True
+    user_id, station_id = identity(app)
+    material_id = add_material(app)
+    authenticate(client, user_id, station_id)
+
+    page = client.get(f"/material-tags/new?material_id={material_id}")
+
+    assert page.status_code == 200
+    assert b'name="receiving_date"' in page.data
+    assert b'type="date"' in page.data
+    assert b"data-date-display" in page.data
+    assert b"readonly" in page.data
+    assert b"data-date-button" in page.data
+    assert "เปิดปฏิทินสำหรับ".encode() in page.data
+
+    response = client.post(
+        "/material-tags/new",
+        data=values(material_id, receiving_date="2026-08-05"),
+    )
+    assert response.status_code == 302
+    with app.app_context():
+        assert MaterialTagDraft.query.one().receiving_date.isoformat() == "2026-08-05"
+
+
 @pytest.mark.parametrize("role", ["OPERATOR", "PRODUCTION"])
 def test_unapproved_roles_denied_direct_urls_and_navigation(app, client, role):
     app.config["MATERIAL_TAG_ISSUANCE_ENABLED"] = True
@@ -234,7 +259,7 @@ def test_preview_content_and_no_print_controls(app, client):
         b"200.000 = 200.000",
         b"share the same QR payload",
         b"become immutable",
-        b"Thailand Time",
+        b"/08/2026 ",
     ):
         assert expected in response.data
     assert b"Print" not in response.data and b"Reprint" not in response.data
@@ -245,7 +270,10 @@ def test_route_creates_preview_confirms_once_and_redirects_repeat(app, client):
     user_id, station_id = identity(app)
     material_id = add_material(app)
     authenticate(client, user_id, station_id)
-    response = client.post("/material-tags/new", data=values(material_id))
+    response = client.post(
+        "/material-tags/new",
+        data=values(material_id, receiving_date="2026-08-05"),
+    )
     assert response.status_code == 302
     preview_url = response.headers["Location"]
     assert "/material-tags/drafts/" in preview_url
@@ -262,17 +290,17 @@ def test_route_creates_preview_confirms_once_and_redirects_repeat(app, client):
         assert MaterialTag.query.count() == 8
 
 
-def test_receiving_date_field_is_strict_and_preserves_invalid_input(app, client):
+def test_receiving_date_field_rejects_bypassed_malformed_iso_without_data(app, client):
     app.config["MATERIAL_TAG_ISSUANCE_ENABLED"] = True
     user_id, station_id = identity(app)
     material_id = add_material(app)
     authenticate(client, user_id, station_id)
     response = client.post(
-        "/material-tags/new", data=values(material_id, receiving_date="31/04/2026")
+        "/material-tags/new", data=values(material_id, receiving_date="31042026")
     )
     assert response.status_code == 200
-    assert b"Enter a valid date in dd/mm/yyyy format" in response.data
-    assert b'value="31/04/2026"' in response.data
+    assert "กรุณาเลือกวันที่ที่ถูกต้องจากปฏิทิน".encode() in response.data
+    assert b"Please select a valid date from the calendar." in response.data
     with app.app_context():
         assert MaterialTagDraft.query.count() == 0
 

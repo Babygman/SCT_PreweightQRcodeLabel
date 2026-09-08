@@ -284,7 +284,7 @@ def test_detail_original_then_reprint_controls_and_print_history(app, client):
     ) == 9
     assert after.data.count(b'<input class="form-control form-control-sm"') == 8
     assert b"stored in print history" in after.data
-    assert b"Thailand Time) Thailand Time" not in after.data
+    assert b"Thailand Time" not in after.data
     with app.app_context():
         tag_ids = [tag.id for tag in MaterialTag.query.filter_by(batch_id=batch_id).all()]
     for tag_id in tag_ids:
@@ -306,16 +306,17 @@ def test_history_filters_order_counts_and_invalid_dates(app, client):
     assert b"Original rendered" in response.data
     assert client.get("/material-tags/history?date_from=invalid").status_code == 400
     bounded = client.get(
-        "/material-tags/history?date_from=05/08/2026&date_to=05/08/2026&material_code=R-alpha"
+        "/material-tags/history?date_from=2026-08-05&date_to=2026-08-05&material_code=R-alpha"
     )
     assert bounded.status_code == 200 and b"R-alpha" in bounded.data
     assert b'value="05/08/2026"' in bounded.data
+    assert b'value="2026-08-05"' in bounded.data
     assert b'placeholder="dd/mm/yyyy"' in bounded.data
     paged_filter = client.get(
-        "/material-tags/history?date_from=05/08/2026&date_to=05/08/2026"
+        "/material-tags/history?date_from=2026-08-05&date_to=2026-08-05"
     )
-    assert b"date_from=05/08/2026" in paged_filter.data
-    assert b"date_to=05/08/2026" in paged_filter.data
+    assert b"date_from=2026-08-05" in paged_filter.data
+    assert b"date_to=2026-08-05" in paged_filter.data
     page = client.get("/material-tags/history")
     assert b"Page 1 of 2" in page.data
 

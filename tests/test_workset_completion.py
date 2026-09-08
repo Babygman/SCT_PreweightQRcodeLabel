@@ -155,7 +155,7 @@ def test_complete_pages_replace_scan_loop_and_render_read_only_summary(app, clie
     assert b"4 / 4" in completed.data
     assert b"PD001" in completed.data and b"PD002" in completed.data
     assert b"Return Home" in completed.data
-    assert b"Thailand Time" in completed.data
+    assert b"Thailand Time" not in completed.data
     assert b"Cancel This Weighing Session" not in completed.data
     assert b"Actual Weight" not in completed.data
     with app.app_context():

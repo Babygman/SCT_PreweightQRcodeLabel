@@ -57,3 +57,15 @@ def test_translation_helpers_preserve_codes_and_stored_status_values():
         "วัตถุดิบไม่ถูกต้อง: ต้องการ MAT-A แต่สแกน MAT-B / "
         "Wrong Material: expected MAT-A, scanned MAT-B."
     )
+    assert translate("Please select a valid date from the calendar.") == (
+        "กรุณาเลือกวันที่ที่ถูกต้องจากปฏิทิน / "
+        "Please select a valid date from the calendar."
+    )
+    assert translate("Expected Finish Date cannot be earlier than Production Date.") == (
+        "วันที่คาดว่าจะผลิตเสร็จต้องไม่ก่อนวันที่ผลิต / "
+        "Expected Finish Date cannot be earlier than Production Date."
+    )
+    assert translate("Open calendar for {field}", field="วันที่ผลิต / Production Date") == (
+        "เปิดปฏิทินสำหรับ วันที่ผลิต / Production Date / "
+        "Open calendar for วันที่ผลิต / Production Date"
+    )

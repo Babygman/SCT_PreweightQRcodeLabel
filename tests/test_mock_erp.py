@@ -4,9 +4,28 @@ from decimal import Decimal
 from werkzeug.security import generate_password_hash
 
 from app.extensions import db
-from app.models import AuditLog, Formula, Product, ProductionOrder, Role, Station, User
+from app.models import (
+    AuditLog,
+    Formula,
+    FormulaItem,
+    Product,
+    ProductionOrder,
+    ProductionOrderProductSnapshot,
+    Role,
+    Station,
+    User,
+)
 from app.services.mock_erp import MockDocumentError, create_mock_order
 from app.services.preparation import prepare_production_order
+
+INVALID_DATE_MESSAGE = (
+    "กรุณาเลือกวันที่ที่ถูกต้องจากปฏิทิน / "
+    "Please select a valid date from the calendar."
+)
+EARLY_FINISH_MESSAGE = (
+    "วันที่คาดว่าจะผลิตเสร็จต้องไม่ก่อนวันที่ผลิต / "
+    "Expected Finish Date cannot be earlier than Production Date."
+)
 
 
 def seed_user(role_code="ADMIN"):
@@ -26,6 +45,32 @@ def seed_user(role_code="ADMIN"):
 def authenticate(client, station_id):
     client.post("/auth/login", data={"username": "mock_user", "password": "Mock-Only!"})
     client.post("/auth/station", data={"station_id": station_id})
+
+
+def mock_form_payload(**changes):
+    payload = {
+        "po_no": "PD-DATE",
+        "formula_code": "FS-DATE",
+        "product_code": "FG-DATE",
+        "product_name": "Finished Good Date Test",
+        "production_lot": "LOT-DATE",
+        "quantity": "100.000",
+        "production_date": "2026-09-07",
+        "expected_finish_date": "2026-09-08",
+    }
+    payload.update(changes)
+    return payload
+
+
+def document_counts():
+    return (
+        ProductionOrder.query.count(),
+        Formula.query.count(),
+        FormulaItem.query.count(),
+        ProductionOrderProductSnapshot.query.count(),
+        Product.query.count(),
+        AuditLog.query.count(),
+    )
 
 
 def build_order(po_no="PD001", formula_code="FS001", lot="LOT001", quantity="100.000"):
@@ -108,8 +153,8 @@ def test_mock_erp_page_generates_printable_qr_documents(app, client):
             "product_name": "Finished Good 100",
             "production_lot": "LOT100",
             "quantity": "90.000",
-            "production_date": "10/08/2026",
-            "expected_finish_date": "15/08/2026",
+            "production_date": "2026-08-10",
+            "expected_finish_date": "2026-08-15",
         },
         follow_redirects=True,
     )
@@ -119,6 +164,8 @@ def test_mock_erp_page_generates_printable_qr_documents(app, client):
         order = ProductionOrder.query.filter_by(po_no="PD100").one()
         po_id = order.id
         formula_id = order.formula_id
+        assert order.production_date == date(2026, 8, 10)
+        assert order.expected_finish_date == date(2026, 8, 15)
     po_document = client.get(f"/mock-erp/{po_id}/production-order")
     formula_document = client.get(f"/mock-erp/{po_id}/formula-sheet")
     po_qr = client.get(f"/mock-erp/qr/po/{po_id}.png")
@@ -163,3 +210,110 @@ def test_operator_cannot_access_mock_erp(app, client):
         station_id = station.id
     authenticate(client, station_id)
     assert client.get("/mock-erp/").status_code == 403
+
+
+def test_mock_erp_renders_shared_read_only_date_pickers_and_minimum_sync(app, client):
+    with app.app_context():
+        _, station = seed_user("ADMIN")
+        station_id = station.id
+    authenticate(client, station_id)
+
+    response = client.get("/mock-erp/")
+
+    assert response.status_code == 200
+    assert b'name="production_date"' in response.data
+    assert b'name="expected_finish_date"' in response.data
+    assert response.data.count(b'type="date"') == 2
+    assert response.data.count(b"data-date-picker") == 2
+    assert response.data.count(b"data-date-display") == 2
+    assert response.data.count(b"readonly") >= 2
+    assert response.data.count(b"data-date-button") == 2
+    assert response.data.count(b"data-date-input") == 2
+    assert "วันที่ผลิต / Production Date".encode() in response.data
+    assert "วันที่คาดว่าจะผลิตเสร็จ / Expected Finish Date".encode() in response.data
+    assert date.today().isoformat().encode() in response.data
+    assert date.today().strftime("%d/%m/%Y").encode() in response.data
+    assert b"expectedFinishDate.min = productionDate.value" in response.data
+    assert b"productionDate.addEventListener('input', syncExpectedFinishMinimum)" in response.data
+    picker_script = client.get("/static/date-picker.js")
+    assert picker_script.status_code == 200
+    assert b"input.showPicker" in picker_script.data
+    assert b"input.focus()" in picker_script.data
+    assert b"input.click()" in picker_script.data
+    assert b"`${match[3]}/${match[2]}/${match[1]}`" in picker_script.data
+
+
+def test_malformed_finish_date_is_bilingual_and_creates_no_partial_data(app, client):
+    with app.app_context():
+        _, station = seed_user("ADMIN")
+        station_id = station.id
+    authenticate(client, station_id)
+    with app.app_context():
+        before = document_counts()
+
+    response = client.post(
+        "/mock-erp/",
+        data=mock_form_payload(expected_finish_date="08092026"),
+    )
+
+    assert response.status_code == 200
+    assert INVALID_DATE_MESSAGE.encode() in response.data
+    with app.app_context():
+        assert document_counts() == before
+
+
+def test_malformed_production_date_does_not_compare_string_to_date(app, client):
+    with app.app_context():
+        _, station = seed_user("ADMIN")
+        station_id = station.id
+    authenticate(client, station_id)
+    with app.app_context():
+        before = document_counts()
+
+    response = client.post(
+        "/mock-erp/",
+        data=mock_form_payload(production_date="07092026"),
+    )
+
+    assert response.status_code == 200
+    assert INVALID_DATE_MESSAGE.encode() in response.data
+    with app.app_context():
+        assert document_counts() == before
+
+
+def test_finish_date_before_production_is_rejected_without_partial_data(app, client):
+    with app.app_context():
+        _, station = seed_user("ADMIN")
+        station_id = station.id
+    authenticate(client, station_id)
+    with app.app_context():
+        before = document_counts()
+
+    response = client.post(
+        "/mock-erp/",
+        data=mock_form_payload(expected_finish_date="2026-09-06"),
+    )
+
+    assert response.status_code == 200
+    assert EARLY_FINISH_MESSAGE.encode() in response.data
+    with app.app_context():
+        assert document_counts() == before
+
+
+def test_missing_date_uses_bilingual_required_error_without_partial_data(app, client):
+    with app.app_context():
+        _, station = seed_user("ADMIN")
+        station_id = station.id
+    authenticate(client, station_id)
+    with app.app_context():
+        before = document_counts()
+
+    response = client.post(
+        "/mock-erp/",
+        data=mock_form_payload(expected_finish_date=""),
+    )
+
+    assert response.status_code == 200
+    assert "จำเป็นต้องกรอกข้อมูลนี้ / This field is required.".encode() in response.data
+    with app.app_context():
+        assert document_counts() == before

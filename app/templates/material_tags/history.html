@@ -1,11 +1,12 @@
 {% extends "base.html" %}
+{% from "_date_picker.html" import date_filter %}
 {% block title %}{{ t("Material Tag History") }}{% endblock %}
 {% block content %}
 <h1 class="h3">{{ t("Material Tag Issuance History") }}</h1>
 <form method="get" class="card card-body mb-3"><div class="row g-2">
 {% for name,label in [('batch_no','Batch Number'),('material_code','Material Code'),('material_name','Material Name'),('vendor_lot','Vendor Lot'),('purchase_order','Purchase Order'),('delivery_invoice','Delivery Invoice')] %}<div class="col-md-4"><label class="form-label" for="{{ name }}">{{ t(label) }}</label><input class="form-control" id="{{ name }}" name="{{ name }}" value="{{ request.args.get(name,'') }}"></div>{% endfor %}
-<div class="col-md-3"><label class="form-label" for="date_from">{{ t("Receiving from") }}</label><input class="form-control" type="text" inputmode="numeric" autocomplete="off" id="date_from" name="date_from" placeholder="dd/mm/yyyy" value="{{ request.args.get('date_from','') }}"></div>
-<div class="col-md-3"><label class="form-label" for="date_to">{{ t("Receiving to") }}</label><input class="form-control" type="text" inputmode="numeric" autocomplete="off" id="date_to" name="date_to" placeholder="dd/mm/yyyy" value="{{ request.args.get('date_to','') }}"></div>
+<div class="col-md-3"><label class="form-label" for="date_from">{{ t("Receiving from") }}</label>{{ date_filter('date_from', t('Receiving from'), request.args.get('date_from','')) }}</div>
+<div class="col-md-3"><label class="form-label" for="date_to">{{ t("Receiving to") }}</label>{{ date_filter('date_to', t('Receiving to'), request.args.get('date_to','')) }}</div>
 <div class="col-md-3"><label class="form-label" for="issued_by">{{ t("Issued by") }}</label><select class="form-select" id="issued_by" name="issued_by"><option value="">{{ t("All") }}</option>{% for user in users %}<option value="{{ user.id }}" {% if request.args.get('issued_by')|int == user.id %}selected{% endif %}>{{ user.display_name }}</option>{% endfor %}</select></div>
 <div class="col-md-3 d-flex align-items-end"><button class="btn btn-primary w-100">{{ t("Search") }}</button></div>
 </div></form>

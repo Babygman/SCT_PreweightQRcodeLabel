@@ -1,0 +1,27 @@
+{% macro date_picker(field) -%}
+<div class="input-group date-picker" data-date-picker>
+  <input class="form-control" id="{{ field.id }}_display" type="text"
+         value="{{ field.data|local_date if field.data and field.data is not string else '' }}"
+         placeholder="dd/mm/yyyy" readonly aria-readonly="true"
+         aria-label="{{ field.label.text }}" data-date-display>
+  {{ field(class="date-picker-native", tabindex="-1", aria_hidden="true", data_date_input="") }}
+  <button class="btn btn-outline-secondary" type="button" data-date-button
+          aria-label="{{ t('Open calendar for {field}', field=field.label.text) }}"
+          title="{{ t('Open calendar for {field}', field=field.label.text) }}">📅</button>
+</div>
+{%- endmacro %}
+
+{% macro date_filter(name, label, value='') -%}
+{% set display_value = value[8:10] ~ '/' ~ value[5:7] ~ '/' ~ value[0:4] if value else '' %}
+<div class="input-group date-picker" data-date-picker>
+  <input class="form-control" id="{{ name }}_display" type="text" value="{{ display_value }}"
+         placeholder="dd/mm/yyyy" readonly aria-readonly="true"
+         aria-label="{{ label }}" data-date-display>
+  <input class="date-picker-native" id="{{ name }}" name="{{ name }}"
+         type="date" value="{{ value }}" tabindex="-1" aria-hidden="true"
+         data-date-input>
+  <button class="btn btn-outline-secondary" type="button" data-date-button
+          aria-label="{{ t('Open calendar for {field}', field=label) }}"
+          title="{{ t('Open calendar for {field}', field=label) }}">📅</button>
+</div>
+{%- endmacro %}
