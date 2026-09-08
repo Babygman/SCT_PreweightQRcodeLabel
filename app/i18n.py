@@ -348,12 +348,34 @@ TRANSLATIONS = {
         "สร้างและตรวจสอบชุดป้ายรับเข้าจากวัตถุดิบที่อนุมัติแล้ว"
     ),
     (
-        "Development/UAT only. The system creates 30 mock raw materials and "
-        "distributes the production quantity across their target weights "
-        "automatically."
+        "Development/UAT only. The system selects 30 active approved imported Materials and "
+        "distributes the production quantity across their target weights automatically."
     ): (
-        "สำหรับ Development/UAT เท่านั้น ระบบสร้างวัตถุดิบจำลอง 30 รายการ"
-        "และกระจายปริมาณการผลิตเป็นน้ำหนักเป้าหมายโดยอัตโนมัติ"
+        "สำหรับ Development/UAT เท่านั้น ระบบเลือกวัตถุดิบที่ใช้งานและผ่านการนำเข้า"
+        "ที่อนุมัติแล้ว 30 รายการ และกระจายปริมาณการผลิตเป็นน้ำหนักเป้าหมายโดยอัตโนมัติ"
+    ),
+    "Mock Production Document History": "ประวัติเอกสารการผลิตจำลอง",
+    "View and reprint previously generated Mock Production documents.": (
+        "ดูและพิมพ์ซ้ำเอกสารการผลิตจำลองที่สร้างไว้ก่อนหน้า"
+    ),
+    "Back to Mock ERP": "กลับไปยัง Mock ERP",
+    "Mock document history filters": "ตัวกรองประวัติเอกสารการผลิตจำลอง",
+    "Production Date From": "วันที่ผลิตตั้งแต่",
+    "Production Date To": "วันที่ผลิตถึง",
+    "Clear filters": "ล้างตัวกรอง",
+    "Created Date/Time": "วันที่/เวลาที่สร้าง",
+    "View Production Order": "ดูใบสั่งผลิต",
+    "Reprint Production Order": "พิมพ์ใบสั่งผลิตซ้ำ",
+    "View Formula Sheet": "ดูเอกสารสูตรการผลิต",
+    "Reprint Formula Sheet": "พิมพ์เอกสารสูตรการผลิตซ้ำ",
+    "No Mock Production documents found.": "ไม่พบเอกสารการผลิตจำลอง",
+    "Mock document history pages": "หน้าประวัติเอกสารการผลิตจำลอง",
+    "Select a valid history date.": "เลือกวันที่ประวัติที่ถูกต้อง",
+    "History start date cannot be after end date.": (
+        "วันที่เริ่มต้นของประวัติต้องไม่อยู่หลังวันที่สิ้นสุด"
+    ),
+    "At least 30 active approved imported Materials are required.": (
+        "ต้องมีวัตถุดิบที่ใช้งานและผ่านการนำเข้าที่อนุมัติแล้วอย่างน้อย 30 รายการ"
     ),
     "Issued data is immutable. Receiving details and print history are read-only.": (
         "ข้อมูลที่ออกแล้วไม่สามารถแก้ไขได้ รายละเอียดการรับและประวัติการพิมพ์เป็นแบบอ่านอย่างเดียว"

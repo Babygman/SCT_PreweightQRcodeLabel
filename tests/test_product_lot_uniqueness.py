@@ -28,6 +28,8 @@ from app.services.mock_erp import (
     create_mock_order,
 )
 
+pytestmark = pytest.mark.usefixtures("approved_materials")
+
 
 def product(code):
     value = Product(code=code, name=code, is_active=True)

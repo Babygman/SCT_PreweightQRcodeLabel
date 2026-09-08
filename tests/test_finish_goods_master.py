@@ -257,7 +257,9 @@ def test_real_workbook_first_and_second_import(app):
         assert Product.query.count() == 458
 
 
-def test_mock_erp_requires_active_master_selection_and_snapshots(app, client):
+def test_mock_erp_requires_active_master_selection_and_snapshots(
+    app, client, approved_materials
+):
     app.config["FINISHED_GOODS_MASTER_ENABLED"] = True
     user_id, station_id = identity(app)
     with app.app_context():
@@ -310,7 +312,9 @@ def test_mock_erp_requires_active_master_selection_and_snapshots(app, client):
     assert b"Selected Name" in formula.data
 
 
-def test_mock_erp_post_rejects_forged_selection_and_uses_master_values(app, client):
+def test_mock_erp_post_rejects_forged_selection_and_uses_master_values(
+    app, client, approved_materials
+):
     app.config["FINISHED_GOODS_MASTER_ENABLED"] = True
     user_id, station_id = identity(app)
     with app.app_context():

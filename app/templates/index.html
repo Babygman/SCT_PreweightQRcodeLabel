@@ -47,6 +47,7 @@
   <div class="home-nav-grid">
     {% if 'ADMIN' in role_codes %}<a class="home-nav-card" href="{{ url_for('master_data.index') }}"><strong>{{ t("Master Data") }}</strong><span>{{ t("Review controlled administrative data and Material Master import.") }}</span></a>{% endif %}
     {% if config.MOCK_ERP_ENABLED and ('SUPERVISOR' in role_codes or 'ADMIN' in role_codes) %}<a class="home-nav-card uat-utility" href="{{ url_for('mock_erp.index') }}"><strong>{{ t("Mock ERP / Print QR Documents") }} <span class="badge text-bg-warning ms-1">UAT</span></strong><span>{{ t("Test utility for generating non-production PO and Formula documents.") }}</span></a>{% endif %}
+    {% if config.MOCK_ERP_ENABLED and ('SUPERVISOR' in role_codes or 'ADMIN' in role_codes) %}<a class="home-nav-card uat-utility" href="{{ url_for('mock_erp.history') }}"><strong>{{ t("Mock Production Document History") }} <span class="badge text-bg-warning ms-1">UAT</span></strong><span>{{ t("View and reprint previously generated Mock Production documents.") }}</span></a>{% endif %}
   </div>
 </section>
 {% endif %}

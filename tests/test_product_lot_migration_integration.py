@@ -8,7 +8,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 PARENT = "d2f4a6b8c0e1"
-HEAD = "f3a6c9e2b7d1"
+HEAD = "a6d8e1f3b5c7"
 
 
 def migration(database, command, revision, *, check=True, database_url=None):

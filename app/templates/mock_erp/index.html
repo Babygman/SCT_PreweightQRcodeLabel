@@ -7,7 +7,7 @@
     <div class="card shadow-sm">
       <div class="card-body p-4">
         <h1 class="h3">{{ t("Mock ERP / Document Generator") }}</h1>
-        <p class="text-muted">{{ t("Development/UAT only. The system creates 30 mock raw materials and distributes the production quantity across their target weights automatically.") }}</p>
+        <p class="text-muted">{{ t("Development/UAT only. The system selects 30 active approved imported Materials and distributes the production quantity across their target weights automatically.") }}</p>
         <form method="post" novalidate>
           {{ form.hidden_tag() }}
           <div class="row g-3">
@@ -46,6 +46,7 @@
           </div>
           <div class="mt-4">
             {{ form.submit(class="btn btn-primary") }}
+            <a class="btn btn-outline-primary" href="{{ url_for('mock_erp.history') }}">{{ t("Mock Production Document History") }}</a>
             <a class="btn btn-outline-secondary" href="{{ url_for('index') }}">{{ t("Back") }}</a>
           </div>
         </form>

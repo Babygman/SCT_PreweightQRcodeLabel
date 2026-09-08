@@ -1,3 +1,4 @@
+from datetime import date
 from io import BytesIO
 
 import qrcode
@@ -18,6 +19,21 @@ from .forms import MockOrderForm
 def _enabled():
     if not current_app.config.get("MOCK_ERP_ENABLED", False):
         abort(404)
+
+
+def _history_date(name):
+    value = request.args.get(name, "").strip()
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError as exc:
+        raise MockDocumentError(ui_message("Select a valid history date.")) from exc
+
+
+def _contains(column, value):
+    escaped = value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return column.ilike(f"%{escaped}%", escape="\\")
 
 
 @bp.route("/", methods=["GET", "POST"])
@@ -101,6 +117,67 @@ def index():
         finish_goods_enabled=finish_goods_enabled,
         finish_goods_pagination=finish_goods_pagination,
         finish_goods_q=search_query,
+    )
+
+
+@bp.get("/history")
+@login_required
+@station_required
+@roles_required("SUPERVISOR", "ADMIN")
+def history():
+    _enabled()
+    values = {
+        name: request.args.get(name, "").strip()
+        for name in ("po", "formula", "product", "lot", "date_from", "date_to")
+    }
+    if any(len(value) > 200 for value in values.values()):
+        abort(400)
+    try:
+        date_from = _history_date("date_from")
+        date_to = _history_date("date_to")
+        if date_from and date_to and date_from > date_to:
+            raise MockDocumentError(ui_message("History start date cannot be after end date."))
+    except MockDocumentError as exc:
+        flash(str(exc), "danger")
+        return redirect(url_for("mock_erp.history"))
+
+    statement = (
+        select(ProductionOrder)
+        .join(Formula, Formula.id == ProductionOrder.formula_id)
+        .join(Product, Product.id == ProductionOrder.product_id)
+        .where(ProductionOrder.document_origin == "MOCK_ERP")
+    )
+    filters = {
+        "po": ProductionOrder.po_no,
+        "formula": Formula.code,
+        "lot": ProductionOrder.production_lot,
+    }
+    for name, column in filters.items():
+        if values[name]:
+            statement = statement.where(_contains(column, values[name]))
+    if values["product"]:
+        statement = statement.where(
+            _contains(Product.code, values["product"])
+            | _contains(Product.name, values["product"])
+        )
+    if date_from:
+        statement = statement.where(ProductionOrder.production_date >= date_from)
+    if date_to:
+        statement = statement.where(ProductionOrder.production_date <= date_to)
+    statement = statement.order_by(
+        ProductionOrder.created_at_utc.desc(), ProductionOrder.id.desc()
+    )
+    pagination = db.paginate(
+        statement,
+        page=max(request.args.get("page", 1, type=int), 1),
+        per_page=25,
+        max_per_page=25,
+        error_out=False,
+    )
+    return render_template(
+        "mock_erp/history.html",
+        pagination=pagination,
+        filters=values,
     )
 
 

@@ -1,6 +1,8 @@
 from datetime import date
 from decimal import Decimal
 
+import pytest
+from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.security import generate_password_hash
 
 from app.extensions import db
@@ -8,6 +10,9 @@ from app.models import (
     AuditLog,
     Formula,
     FormulaItem,
+    Material,
+    MaterialImportBatch,
+    MaterialImportRow,
     Product,
     ProductionOrder,
     ProductionOrderProductSnapshot,
@@ -17,6 +22,8 @@ from app.models import (
 )
 from app.services.mock_erp import MockDocumentError, create_mock_order
 from app.services.preparation import prepare_production_order
+
+pytestmark = pytest.mark.usefixtures("approved_materials")
 
 INVALID_DATE_MESSAGE = (
     "กรุณาเลือกวันที่ที่ถูกต้องจากปฏิทิน / "
@@ -84,6 +91,161 @@ def build_order(po_no="PD001", formula_code="FS001", lot="LOT001", quantity="100
         production_date=date(2026, 8, 10),
         expected_finish_date=date(2026, 8, 15),
     )
+
+
+def test_approved_material_selection_is_distinct_injectable_and_excludes_ineligible(
+    app, approved_materials
+):
+    with app.app_context():
+        applied_batch = MaterialImportBatch.query.filter_by(status="APPLIED").one()
+        excluded = [
+            Material(code="MOCK-RM001", name="Mock", unit="kg", is_active=True),
+            Material(
+                code="NOT-IMPORTED", name="Not imported", unit="kg", is_active=True,
+                source_category_no="MAT",
+            ),
+            Material(
+                code="INACTIVE-MAT", name="Inactive", unit="kg", is_active=False,
+                source_category_no="MAT",
+            ),
+            Material(
+                code="PREVIEWED-MAT", name="Previewed", unit="kg", is_active=True,
+                source_category_no="MAT",
+            ),
+            Material(
+                code="REJECTED-MAT", name="Rejected", unit="kg", is_active=True,
+                source_category_no="MAT",
+            ),
+        ]
+        db.session.add_all(excluded)
+        db.session.flush()
+        db.session.add(
+            MaterialImportRow(
+                import_batch_id=applied_batch.id,
+                row_number=100,
+                item_code_normalized="INACTIVE-MAT",
+                category_no_normalized="MAT",
+                name_normalized="Inactive",
+                result="INSERT",
+            )
+        )
+        previewed_batch = MaterialImportBatch(
+            original_filename="previewed.xlsx", file_sha256="b" * 64, status="PREVIEWED",
+            total_rows=1, inserted_count=1, updated_count=0, unchanged_count=0,
+            rejected_count=0, uploaded_by_user_id=applied_batch.uploaded_by_user_id,
+            uploaded_at_utc=applied_batch.uploaded_at_utc,
+            idempotency_key="00000000-0000-4000-8000-000000000002",
+        )
+        db.session.add(previewed_batch)
+        db.session.flush()
+        db.session.add_all(
+            [
+                MaterialImportRow(
+                    import_batch_id=previewed_batch.id, row_number=2,
+                    item_code_normalized="PREVIEWED-MAT", category_no_normalized="MAT",
+                    name_normalized="Previewed", result="INSERT",
+                ),
+                MaterialImportRow(
+                    import_batch_id=applied_batch.id, row_number=101,
+                    item_code_normalized="REJECTED-MAT", category_no_normalized="MAT",
+                    name_normalized="Rejected", result="REJECTED",
+                ),
+            ]
+        )
+        db.session.commit()
+        before = [
+            (
+                m.id,
+                m.code,
+                m.name,
+                m.unit,
+                m.classification,
+                m.source_category_no,
+                m.is_active,
+                m.updated_at_utc,
+                m.updated_by_user_id,
+            )
+            for m in Material.query.order_by(Material.id)
+        ]
+        sampled_codes = []
+
+        def sampler(population, count):
+            sampled_codes.extend(material.code for material in population)
+            return list(reversed(population))[:count]
+
+        order = create_mock_order(
+            po_no="ELIGIBLE-PO", product_code="FG-ELIGIBLE", product_name="Eligible",
+            production_lot="ELIGIBLE-LOT", quantity=Decimal("30"),
+            formula_code="ELIGIBLE-FM", production_date=date(2026, 9, 8),
+            expected_finish_date=date(2026, 9, 9), material_sampler=sampler,
+        )
+        selected_ids = [item.material_id for item in order.formula.items]
+        assert len(selected_ids) == len(set(selected_ids)) == 30
+        assert set(sampled_codes) == {
+            db.session.get(Material, material_id).code for material_id in approved_materials
+        }
+        assert not {
+            "MOCK-RM001", "NOT-IMPORTED", "INACTIVE-MAT", "PREVIEWED-MAT", "REJECTED-MAT"
+        } & set(sampled_codes)
+        after = [
+            (
+                m.id,
+                m.code,
+                m.name,
+                m.unit,
+                m.classification,
+                m.source_category_no,
+                m.is_active,
+                m.updated_at_utc,
+                m.updated_by_user_id,
+            )
+            for m in Material.query.order_by(Material.id)
+        ]
+        assert after == before
+
+
+def test_runtime_sampler_uses_system_random(app, monkeypatch):
+    called = []
+
+    def sample(_self, population, count):
+        called.append((len(population), count))
+        return population[:count]
+
+    monkeypatch.setattr("app.services.mock_erp.random.SystemRandom.sample", sample)
+    with app.app_context():
+        build_order()
+    assert called == [(30, 30)]
+
+
+def test_fewer_than_30_approved_materials_is_bilingual_with_zero_residue(app):
+    expected = (
+        "ต้องมีวัตถุดิบที่ใช้งานและผ่านการนำเข้าที่อนุมัติแล้วอย่างน้อย 30 รายการ / "
+        "At least 30 active approved imported Materials are required."
+    )
+    with app.app_context():
+        Material.query.filter_by(code="APPROVED-MAT-030").one().is_active = False
+        db.session.commit()
+        before = document_counts()
+        with pytest.raises(MockDocumentError, match="At least 30") as error:
+            build_order()
+        assert str(error.value) == expected
+        assert document_counts() == before
+
+
+def test_database_exception_rolls_back_every_pending_document_row(app, monkeypatch):
+    with app.app_context():
+        before = document_counts()
+        original_commit = db.session.commit
+
+        def fail_commit():
+            db.session.flush()
+            raise SQLAlchemyError("forced isolated failure")
+
+        monkeypatch.setattr(db.session, "commit", fail_commit)
+        with pytest.raises(SQLAlchemyError, match="forced isolated failure"):
+            build_order()
+        monkeypatch.setattr(db.session, "commit", original_commit)
+        assert document_counts() == before
 
 
 def test_mock_order_creates_one_to_one_documents_and_30_balanced_lines(app):
@@ -172,7 +334,8 @@ def test_mock_erp_page_generates_printable_qr_documents(app, client):
     formula_qr = client.get(f"/mock-erp/qr/formula/{formula_id}.png")
     assert b"PRODUCTION ORDER" in po_document.data
     assert b"FORMULA SHEET" in formula_document.data
-    assert b"MOCK-RM030" in formula_document.data
+    assert formula_document.data.count(b"APPROVED-MAT-") == 30
+    assert b"MOCK-RM" not in formula_document.data
     assert po_qr.content_type == "image/png"
     assert formula_qr.content_type == "image/png"
 

@@ -385,6 +385,12 @@ class ProductionOrder(db.Model):
             "production_lot_normalized",
             name="uq_production_orders_product_lot_normalized",
         ),
+        Index(
+            "ix_production_orders_document_origin_created",
+            "document_origin",
+            "created_at_utc",
+            "id",
+        ),
     )
     id: Mapped[int] = mapped_column(primary_key=True)
     po_no: Mapped[str] = mapped_column(db.Unicode(50), unique=True, nullable=False)
@@ -394,6 +400,8 @@ class ProductionOrder(db.Model):
     quantity: Mapped[Decimal | None] = mapped_column(db.Numeric(18, 3))
     production_date: Mapped[date | None] = mapped_column(SQL_DATE)
     expected_finish_date: Mapped[date | None] = mapped_column(SQL_DATE)
+    document_origin: Mapped[str | None] = mapped_column(db.Unicode(30))
+    created_at_utc: Mapped[datetime | None] = mapped_column(UTC_DATETIME)
     formula_id: Mapped[int | None] = mapped_column(db.ForeignKey("formulas.id"))
     status: Mapped[str] = mapped_column(db.Unicode(20), nullable=False)
     prepared_by_user_id: Mapped[int | None] = mapped_column(db.ForeignKey("users.id"))

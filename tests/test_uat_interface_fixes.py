@@ -69,6 +69,8 @@ def test_all_editable_date_surfaces_use_the_shared_picker():
     assert "date_picker(field)" in Path("app/templates/material_tags/new.html").read_text()
     history = Path("app/templates/material_tags/history.html").read_text()
     assert history.count("date_filter(") == 2
+    mock_history = Path("app/templates/mock_erp/history.html").read_text()
+    assert mock_history.count("date_filter(") == 2
 
     picker = Path("app/templates/_date_picker.html").read_text()
     assert 'readonly aria-readonly="true"' in picker
