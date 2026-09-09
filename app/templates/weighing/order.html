@@ -34,6 +34,7 @@
               <span class="badge text-bg-success">{{ transaction.status|status_label }}</span>
               <strong class="ms-2">{{ transaction.preweight_id }}</strong>
               <div class="small text-muted">Actual: {{ transaction.actual_weight }} {{ transaction.unit_snapshot }}</div>
+              <a class="btn btn-outline-primary btn-sm mt-2" href="{{ url_for('weighing.sticker', transaction_id=transaction.id) }}" target="_blank" rel="noopener">{{ t("Reprint Label") }}</a>
               {% else %}
               <form method="post" action="{{ url_for('weighing.weigh_line', po_id=order.id, formula_item_id=item.id) }}" class="row g-2 weighing-form" data-validate-url="{{ url_for('weighing.validate_material', po_id=order.id, formula_item_id=item.id) }}" data-matched="false">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

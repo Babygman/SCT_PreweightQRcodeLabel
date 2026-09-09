@@ -116,6 +116,9 @@ def test_partial_material_resumes_and_completed_material_is_read_only(app, clien
     assert b'name="actual_weight"' not in completed.data
     assert b"Recorded Actual Weight" in completed.data
     assert b"Preweight ID:" in completed.data
+    assert completed.data.count("พิมพ์ฉลากซ้ำ / Reprint Label".encode()) == 2
+    assert completed.data.count(b'target="_blank"') == 2
+    assert completed.data.count(b'rel="noopener"') == 2
     assert "Save Weighing —".encode() not in completed.data
 
 

@@ -356,23 +356,33 @@ def test_sticker_and_reprint_use_the_stored_immutable_payload(app, client):
         )
         transaction_id = result.transaction.id
         original_payload = result.transaction.erp_qr_payload
+        original_preweight_id = result.transaction.preweight_id
+        original_weight = result.transaction.actual_weight
+        original_weighed_at = result.transaction.weighed_at_utc
         items[0].material.name = "Changed Master Name"
         db.session.commit()
         station_id = station.id
     _login_for_weighing(client, station_id)
+    with app.app_context():
+        original_audit_count = AuditLog.query.count()
 
     sticker = client.get(f"/weighing/transaction/{transaction_id}/sticker")
+    reprint = client.get(f"/weighing/transaction/{transaction_id}/sticker")
     first_qr = client.get(f"/weighing/transaction/{transaction_id}/qr.png")
     reprint_qr = client.get(f"/weighing/transaction/{transaction_id}/qr.png")
 
     assert sticker.status_code == 200
+    assert reprint.status_code == 200
     for expected in (
         b"PO-WEIGH",
         b"LOT-W",
         b"FM-W",
         b"R07047S1",
         b"Required Material",
+        b"5.000 kg",
         b"5.125 kg",
+        b"weigher",
+        b"WEIGH-ST",
         b"Reprint",
         b"window.print()",
     ):
@@ -384,3 +394,80 @@ def test_sticker_and_reprint_use_the_stored_immutable_payload(app, client):
     with app.app_context():
         transaction = db.session.get(WeighingTransaction, transaction_id)
         assert transaction.erp_qr_payload == original_payload
+        assert transaction.preweight_id == original_preweight_id
+        assert transaction.actual_weight == original_weight
+        assert transaction.weighed_at_utc == original_weighed_at
+        assert WeighingTransaction.query.count() == 1
+        assert AuditLog.query.count() == original_audit_count
+
+
+def test_completed_weighing_renders_safe_reprint_action(app, client):
+    with app.app_context():
+        _, station, order, items = seed_weighing_data()
+        completed = save_weighing(
+            order.id, items[0].id, MATERIAL_TAG, "5.125", 1, station.id
+        ).transaction
+        transaction_id = completed.id
+        station_id = station.id
+        order_id = order.id
+    _login_for_weighing(client, station_id)
+
+    page = client.get(f"/weighing/order/{order_id}")
+    rendered = page.get_data(as_text=True)
+
+    assert page.status_code == 200
+    assert "พิมพ์ฉลากซ้ำ / Reprint Label" in rendered
+    assert f'/weighing/transaction/{transaction_id}/sticker' in rendered
+    assert 'target="_blank"' in rendered
+    assert 'rel="noopener"' in rendered
+    assert rendered.count("พิมพ์ฉลากซ้ำ / Reprint Label") == 1
+
+
+def test_pending_weighing_without_transaction_has_no_reprint_action(app, client):
+    with app.app_context():
+        _, station, order, _items = seed_weighing_data()
+        station_id = station.id
+        order_id = order.id
+    _login_for_weighing(client, station_id)
+
+    page = client.get(f"/weighing/order/{order_id}")
+
+    assert page.status_code == 200
+    assert "พิมพ์ฉลากซ้ำ / Reprint Label" not in page.get_data(as_text=True)
+    with app.app_context():
+        assert WeighingTransaction.query.count() == 0
+
+
+def test_sticker_access_requires_login_station_role_and_matching_station(app, client):
+    with app.app_context():
+        _, station, order, items = seed_weighing_data()
+        transaction = save_weighing(
+            order.id, items[0].id, MATERIAL_TAG, "5.125", 1, station.id
+        ).transaction
+        transaction_id = transaction.id
+        other_station = Station(code="OTHER-ST", name="Other Station")
+        production_role = Role(code="PRODUCTION", name="Production")
+        production_user = User(
+            username="production-user",
+            password_hash=generate_password_hash("Production-Only!"),
+            display_name="Production User",
+            roles=[production_role],
+        )
+        db.session.add_all([other_station, production_role, production_user])
+        db.session.commit()
+        station_id = station.id
+        other_station_id = other_station.id
+
+    assert client.get(f"/weighing/transaction/{transaction_id}/sticker").status_code == 302
+    client.post("/auth/login", data={"username": "weigher", "password": "Weigh-Only!"})
+    assert client.get(f"/weighing/transaction/{transaction_id}/sticker").status_code == 302
+    client.post("/auth/station", data={"station_id": other_station_id})
+    assert client.get(f"/weighing/transaction/{transaction_id}/sticker").status_code == 404
+    assert client.get(f"/weighing/transaction/{transaction_id}/qr.png").status_code == 404
+    client.post("/auth/logout")
+    client.post(
+        "/auth/login",
+        data={"username": "production-user", "password": "Production-Only!"},
+    )
+    client.post("/auth/station", data={"station_id": station_id})
+    assert client.get(f"/weighing/transaction/{transaction_id}/sticker").status_code == 403

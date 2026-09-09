@@ -20,6 +20,7 @@
         <div><div class="small text-body-secondary">{{ t("Recorded Actual Weight") }}</div>
           <strong>{{ queue_item.transaction.actual_weight }} {{ queue_item.transaction.unit_snapshot }}</strong>
           <div class="small text-body-secondary">Preweight ID: {{ queue_item.transaction.preweight_id }}</div>
+          {% if queue_item.transaction.preweight_id %}<a class="btn btn-outline-primary btn-sm mt-2" href="{{ url_for('weighing.sticker', transaction_id=queue_item.transaction.id) }}" target="_blank" rel="noopener">{{ t("Reprint Label") }}</a>{% endif %}
         </div>
       </div>
       {% elif queue %}

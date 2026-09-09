@@ -20,7 +20,10 @@
     <dt class="col-5">{{ t("Item Code") }}</dt><dd class="col-7"><strong>{{ payload.item_code }}</strong></dd>
     <dt class="col-5">{{ t("Item Name") }}</dt><dd class="col-7">{{ payload.item_name }}</dd>
     <dt class="col-5">{{ t("Actual Weight") }}</dt><dd class="col-7"><strong>{{ payload.actual_weight }} {{ payload.unit }}</strong></dd>
+    <dt class="col-5">{{ t("Target Weight") }}</dt><dd class="col-7">{{ transaction.target_weight_snapshot }} {{ transaction.unit_snapshot }}</dd>
     <dt class="col-5">{{ t("Preweight ID") }}</dt><dd class="col-7">{{ payload.preweight_id }}</dd>
+    <dt class="col-5">{{ t("Weighed by") }}</dt><dd class="col-7">{{ weighed_by.username }}</dd>
+    <dt class="col-5">{{ t("Station") }}</dt><dd class="col-7">{{ weighing_station.code }}</dd>
     <dt class="col-5">{{ t("Weighed at") }}</dt><dd class="col-7">{{ transaction.weighed_at_utc|local_datetime }}</dd>
   </dl>
   <div class="text-center">

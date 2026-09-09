@@ -19,7 +19,7 @@ from sqlalchemy import select
 from app.auth.decorators import roles_required, station_required
 from app.extensions import db
 from app.i18n import message as ui_message
-from app.models import ProductionOrder, WeighingTransaction
+from app.models import ProductionOrder, Station, User, WeighingTransaction
 from app.services.material_workflow import (
     build_material_queue,
     build_material_selection,
@@ -30,6 +30,17 @@ from app.services.workset import active_work_set_overview
 
 from . import bp
 from .forms import MaterialQueueWeightForm, WeighingForm
+
+
+def _completed_transaction_for_selected_station(transaction_id):
+    transaction = db.get_or_404(WeighingTransaction, transaction_id)
+    if (
+        transaction.station_id != session["station_id"]
+        or transaction.status not in ("COMPLETED", "CONSUMED")
+        or not transaction.preweight_id
+    ):
+        abort(404)
+    return transaction
 
 
 @bp.get("/order/<int:po_id>")
@@ -106,13 +117,15 @@ def validate_material(po_id, formula_item_id):
 @station_required
 @roles_required("OPERATOR", "SUPERVISOR", "ADMIN")
 def sticker(transaction_id):
-    transaction = db.get_or_404(WeighingTransaction, transaction_id)
+    transaction = _completed_transaction_for_selected_station(transaction_id)
     if not transaction.erp_qr_payload:
         abort(404)
     return render_template(
         "weighing/sticker.html",
         transaction=transaction,
         payload=json.loads(transaction.erp_qr_payload),
+        weighed_by=db.session.get(User, transaction.weighed_by_user_id),
+        weighing_station=db.session.get(Station, transaction.station_id),
         material_mode=session.get("weighing_mode") == "material",
     )
 
@@ -122,7 +135,7 @@ def sticker(transaction_id):
 @station_required
 @roles_required("OPERATOR", "SUPERVISOR", "ADMIN")
 def sticker_qr(transaction_id):
-    transaction = db.get_or_404(WeighingTransaction, transaction_id)
+    transaction = _completed_transaction_for_selected_station(transaction_id)
     if not transaction.erp_qr_payload:
         abort(404)
     image = qrcode.make(transaction.erp_qr_payload)
