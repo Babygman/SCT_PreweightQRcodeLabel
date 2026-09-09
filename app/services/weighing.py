@@ -80,7 +80,11 @@ def _next_preweight_id(timestamp):
     statement = select(func.max(WeighingTransaction.preweight_id)).where(
         WeighingTransaction.preweight_id.like(f"{prefix}%")
     )
-    if db.session.get_bind().dialect.name in {"mssql", "postgresql"}:
+    dialect_name = db.session.get_bind().dialect.name
+    if dialect_name == "postgresql":
+        daily_lock_key = int(timestamp.strftime("%Y%m%d"))
+        db.session.execute(select(func.pg_advisory_xact_lock(daily_lock_key)))
+    elif dialect_name == "mssql":
         statement = statement.with_for_update().with_hint(
             WeighingTransaction, "WITH (UPDLOCK, HOLDLOCK)", dialect_name="mssql"
         )

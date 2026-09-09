@@ -1,8 +1,9 @@
 import json
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 
 import pytest
+from sqlalchemy.dialects import postgresql
 from werkzeug.security import generate_password_hash
 
 from app.extensions import db
@@ -20,6 +21,7 @@ from app.models import (
 )
 from app.services.weighing import (
     MaterialTagError,
+    _next_preweight_id,
     parse_material_tag,
     save_weighing,
     validate_material_tag,
@@ -92,6 +94,34 @@ def test_valid_material_tag_parses_all_11_fields():
     assert tag.warehouse == "MAT"
     assert tag.location == "1"
     assert tag.shelf == "1"
+
+
+def test_postgresql_preweight_sequence_uses_advisory_lock_without_aggregate_for_update(
+    app, monkeypatch
+):
+    executed = []
+    scalar_statements = []
+
+    class PostgreSQLBind:
+        dialect = postgresql.dialect()
+
+    monkeypatch.setattr(db.session, "get_bind", lambda: PostgreSQLBind())
+    monkeypatch.setattr(db.session, "execute", executed.append)
+    monkeypatch.setattr(
+        db.session,
+        "scalar",
+        lambda statement: scalar_statements.append(statement) or None,
+    )
+
+    with app.app_context():
+        value = _next_preweight_id(datetime(2026, 9, 9, 4, 21))
+
+    assert value == "PW-20260909-000001"
+    assert len(executed) == 1
+    lock_sql = str(executed[0].compile(dialect=postgresql.dialect()))
+    max_sql = str(scalar_statements[0].compile(dialect=postgresql.dialect()))
+    assert "pg_advisory_xact_lock" in lock_sql
+    assert "FOR UPDATE" not in max_sql
 
 
 @pytest.mark.parametrize(
