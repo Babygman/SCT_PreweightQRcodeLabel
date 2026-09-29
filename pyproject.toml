@@ -1,5 +1,5 @@
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "scale_bridge/tests"]
 addopts = "-q"
 pythonpath = ["."]
 
