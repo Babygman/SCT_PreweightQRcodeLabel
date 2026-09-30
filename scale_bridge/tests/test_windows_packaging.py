@@ -112,7 +112,7 @@ def test_windows_security_controls_are_not_bypassed_and_upx_is_disabled():
     )
     assert not any(item in implementation for item in forbidden)
     assert implementation.count("upx=false") == 4
-    assert implementation.count("--noupx") == 2
+    assert "--noupx" not in implementation
 
 
 def test_installer_paths_identity_acls_and_service_registration_are_restricted():
@@ -150,11 +150,30 @@ def test_runtime_has_no_remote_download_or_unexpected_listener_surface():
 
 def test_signing_is_external_sha256_timestamped_and_contains_no_key_material():
     build = (ROOT / "windows" / "build.ps1").read_text()
-    assert "/fd SHA256" in build
-    assert "/tr $TimestampUrl" in build
-    assert "/td SHA256" in build
+    assert "'/fd', 'SHA256'" in build
+    assert "'/tr', $TimestampUrl" in build
+    assert "'/td', 'SHA256'" in build
     assert "Get-Command signtool.exe" in build
     lowered = build.lower()
     assert ".pfx" not in lowered
     assert "certificatepassword" not in lowered
     assert "private key" not in lowered
+
+
+def test_build_script_stops_after_failed_native_stage_and_checks_artifacts():
+    build = (ROOT / "windows" / "build.ps1").read_text()
+    assert "function Invoke-NativeStage" in build
+    assert "if ($LASTEXITCODE -ne 0)" in build
+    assert 'throw "Build stage failed: $Stage' in build
+    assert "function Assert-BuildPath" in build
+    for stage in (
+        "Install pinned build dependencies",
+        "Run Scale Bridge tests",
+        "Build Scale Bridge service bundle",
+        "Build diagnostics bundle",
+        "Compile Inno Setup installer",
+        "Verify final installer artifact",
+    ):
+        assert stage in build
+    assert "Get-FileHash -LiteralPath $Installer -Algorithm SHA256" in build
+    assert "--noupx" not in build

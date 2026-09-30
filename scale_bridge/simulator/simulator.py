@@ -1,7 +1,10 @@
 import os
-import pty
 import time
 from decimal import Decimal
+
+
+class PseudoTerminalUnavailableError(RuntimeError):
+    pass
 
 
 class MemoryTransport:
@@ -41,6 +44,17 @@ class PseudoTerminalTransport:
 
     def reconnect(self):
         self.disconnect()
+        if os.name != "posix":
+            raise PseudoTerminalUnavailableError(
+                "Pseudo-terminal transport is available only on POSIX systems; "
+                "use MemoryTransport on Windows."
+            )
+        try:
+            import pty
+        except ImportError as exc:
+            raise PseudoTerminalUnavailableError(
+                "POSIX pseudo-terminal support is unavailable on this Python installation."
+            ) from exc
         self.master_fd, self.slave_fd = pty.openpty()
         self.device = os.ttyname(self.slave_fd)
 

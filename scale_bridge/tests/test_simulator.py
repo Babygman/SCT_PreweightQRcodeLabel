@@ -1,9 +1,19 @@
+import ast
+import os
 from decimal import Decimal
+from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 from scale_bridge.ids701 import IDS701StreamParser
-from scale_bridge.simulator import IDS701Simulator, MemoryTransport
+from scale_bridge.simulator import (
+    IDS701Simulator,
+    MemoryTransport,
+    PseudoTerminalTransport,
+    PseudoTerminalUnavailableError,
+)
+from scale_bridge.simulator import simulator as simulator_module
 
 
 def parse_chunks(chunks):
@@ -47,3 +57,38 @@ def test_partial_multiple_disconnect_and_reconnect_scenarios():
     simulator.reconnect()
     simulator.stable_zero()
     assert parse_chunks(transport.chunks[-1:])[0].weight == Decimal("0.00")
+
+
+def test_simulator_module_does_not_import_posix_dependencies_at_module_import_time():
+    source = Path(simulator_module.__file__).read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    module_imports = {
+        alias.name
+        for node in tree.body
+        if isinstance(node, ast.Import)
+        for alias in node.names
+    }
+    module_imports.update(
+        node.module
+        for node in tree.body
+        if isinstance(node, ast.ImportFrom) and node.module
+    )
+    assert {"pty", "tty", "termios"}.isdisjoint(module_imports)
+    IDS701Simulator(MemoryTransport(), interval=0).stable_zero()
+
+
+def test_pseudo_terminal_transport_fails_cleanly_on_windows(monkeypatch):
+    monkeypatch.setattr(simulator_module, "os", SimpleNamespace(name="nt"))
+    with pytest.raises(PseudoTerminalUnavailableError, match="only on POSIX"):
+        PseudoTerminalTransport()
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX pseudo-terminal behavior")
+def test_pseudo_terminal_transport_preserves_posix_behavior():
+    transport = PseudoTerminalTransport()
+    try:
+        assert transport.device
+        assert transport.master_fd is not None
+        assert transport.slave_fd is not None
+    finally:
+        transport.disconnect()
