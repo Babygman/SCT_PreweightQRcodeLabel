@@ -1,6 +1,7 @@
 param(
     [string]$CertificateThumbprint = '',
-    [string]$TimestampUrl = 'http://timestamp.digicert.com'
+    [string]$TimestampUrl = 'http://timestamp.digicert.com',
+    [string]$InnoSetupPath = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -31,6 +32,65 @@ function Assert-BuildPath {
     if (-not (Test-Path -LiteralPath $Path)) {
         throw "Build stage failed: $Stage did not produce expected path: $Path"
     }
+}
+
+function Resolve-InnoCandidate {
+    param(
+        [Parameter(Mandatory = $true)][string]$Candidate,
+        [Parameter(Mandatory = $true)]$CheckedLocations
+    )
+    $Expanded = [Environment]::ExpandEnvironmentVariables($Candidate)
+    if ([IO.Path]::IsPathRooted($Expanded)) {
+        $Absolute = [IO.Path]::GetFullPath($Expanded)
+    }
+    else {
+        $Absolute = [IO.Path]::GetFullPath((Join-Path (Get-Location) $Expanded))
+    }
+    $CheckedLocations.Add($Absolute)
+    if (Test-Path -LiteralPath $Absolute -PathType Leaf) {
+        return (Resolve-Path -LiteralPath $Absolute).Path
+    }
+    return $null
+}
+
+function Resolve-InnoSetupCompiler {
+    param([string]$ExplicitPath = '')
+    $CheckedLocations = [Collections.Generic.List[string]]::new()
+
+    if ($ExplicitPath) {
+        $Resolved = Resolve-InnoCandidate $ExplicitPath $CheckedLocations
+        if ($Resolved) { return $Resolved }
+    }
+
+    $PathCommand = Get-Command ISCC.exe -CommandType Application -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    if ($PathCommand -and $PathCommand.Source) {
+        $Resolved = Resolve-InnoCandidate $PathCommand.Source $CheckedLocations
+        if ($Resolved) { return $Resolved }
+    }
+    else {
+        $CheckedLocations.Add('PATH:ISCC.exe')
+    }
+
+    $Candidates = @(
+        $(if (${env:ProgramFiles(x86)}) {
+            Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+        } else { '%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe' }),
+        $(if ($env:ProgramFiles) {
+            Join-Path $env:ProgramFiles 'Inno Setup 6\ISCC.exe'
+        } else { '%ProgramFiles%\Inno Setup 6\ISCC.exe' }),
+        $(if ($env:LOCALAPPDATA) {
+            Join-Path $env:LOCALAPPDATA 'Programs\Inno Setup 6\ISCC.exe'
+        } else { '%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe' })
+    )
+    foreach ($Candidate in $Candidates) {
+        $Resolved = Resolve-InnoCandidate $Candidate $CheckedLocations
+        if ($Resolved) { return $Resolved }
+    }
+
+    $Checked = $CheckedLocations -join '; '
+    throw "Build stage failed: locate Inno Setup compiler. Checked: $Checked. " +
+        "Install Inno Setup 6 or pass -InnoSetupPath with the full ISCC.exe path."
 }
 
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
@@ -87,10 +147,7 @@ Get-ChildItem $Dist -Recurse -File -Filter *.exe | ForEach-Object {
     Invoke-AuthenticodeSign $_.FullName
 }
 
-$Iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
-if (-not (Test-Path $Iscc)) {
-    throw 'Inno Setup 6 is required.'
-}
+$Iscc = Resolve-InnoSetupCompiler -ExplicitPath $InnoSetupPath
 Invoke-NativeStage -Stage 'Compile Inno Setup installer' -FilePath $Iscc `
     -Arguments @((Join-Path $RepoRoot 'scale_bridge\windows\installer.iss'))
 

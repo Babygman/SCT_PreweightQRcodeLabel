@@ -47,6 +47,19 @@ From a clean repository checkout:
 powershell -ExecutionPolicy Bypass -File .\scale_bridge\windows\build.ps1
 ```
 
+The build discovers `ISCC.exe` from an explicit `-InnoSetupPath`, the current process `PATH`,
+64-bit and 32-bit Program Files locations, then the supported per-user LocalAppData installation.
+An explicit path is useful on managed workstations and paths containing spaces are passed without
+shell reconstruction:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scale_bridge\windows\build.ps1 `
+  -InnoSetupPath "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe"
+```
+
+The script does not modify `PATH`, install, copy, download, or relocate Inno Setup. If discovery
+fails, it reports every checked location and exits before signing or artifact verification.
+
 The script creates an isolated build environment, installs pinned build dependencies, runs Scale
 Bridge tests, builds two standalone one-directory bundles, then invokes Inno Setup. The bundles
 include Python and all runtime dependencies, but avoid self-extracting one-file executable packing.

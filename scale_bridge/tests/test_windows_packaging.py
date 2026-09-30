@@ -184,6 +184,43 @@ def test_build_script_stops_after_failed_native_stage_and_checks_artifacts():
     assert "--noupx" not in build
 
 
+def test_inno_setup_discovery_uses_approved_precedence_and_file_validation():
+    build = (ROOT / "windows" / "build.ps1").read_text(encoding="utf-8")
+    assert "[string]$InnoSetupPath = ''" in build
+    resolver = build[build.index("function Resolve-InnoSetupCompiler") :]
+    positions = [
+        resolver.index("if ($ExplicitPath)"),
+        resolver.index("Get-Command ISCC.exe"),
+        resolver.index("${env:ProgramFiles(x86)}"),
+        resolver.index("$env:ProgramFiles"),
+        resolver.index("$env:LOCALAPPDATA"),
+    ]
+    assert positions == sorted(positions)
+    assert "Test-Path -LiteralPath $Absolute -PathType Leaf" in build
+    assert "Resolve-Path -LiteralPath $Absolute" in build
+
+
+@pytest.mark.parametrize(
+    "location",
+    [
+        "Inno Setup 6\\ISCC.exe",
+        "Programs\\Inno Setup 6\\ISCC.exe",
+        "PATH:ISCC.exe",
+    ],
+)
+def test_inno_setup_discovery_covers_path_program_files_and_per_user_locations(location):
+    build = (ROOT / "windows" / "build.ps1").read_text(encoding="utf-8")
+    assert location in build
+
+
+def test_inno_setup_discovery_preserves_paths_with_spaces_and_has_controlled_failure():
+    build = (ROOT / "windows" / "build.ps1").read_text(encoding="utf-8")
+    assert "-FilePath $Iscc" in build
+    assert "-Arguments @((Join-Path $RepoRoot" in build
+    assert "Checked: $Checked" in build
+    assert "pass -InnoSetupPath with the full ISCC.exe path" in build
+
+
 def test_all_scale_bridge_path_text_io_declares_utf8_encoding():
     violations = []
     for path in sorted(ROOT.rglob("*.py")):
