@@ -1,7 +1,9 @@
 import json
 import os
+import stat
 from dataclasses import asdict, dataclass, fields
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 from urllib.parse import urlsplit
 
 DEFAULT_CONFIG_DIR = Path(os.environ.get("PROGRAMDATA", r"C:\ProgramData")) / "SCT" / "ScaleBridge"
@@ -87,11 +89,39 @@ def save_config(config: BridgeConfig, path=DEFAULT_CONFIG_PATH):
     config.validate()
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
-    payload = json.dumps(config.as_json_dict(), indent=2) + "\n"
-    if target.exists():
-        # Overwriting the existing file preserves its installer-managed Windows ACL.
-        target.write_text(payload, encoding="utf-8")
+    payload = json.dumps(config.as_json_dict(), indent=2, ensure_ascii=False) + "\n"
+    temporary = None
+    try:
+        with NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            newline="\n",
+            prefix=f".{target.name}.",
+            suffix=".tmp",
+            dir=target.parent,
+            delete=False,
+        ) as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+            temporary = Path(handle.name)
+        if target.exists():
+            _copy_existing_permissions(target, temporary)
+        temporary.replace(target)
+        temporary = None
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+
+
+def _copy_existing_permissions(existing, temporary, *, platform_name=None, windows_security=None):
+    platform_name = platform_name or os.name
+    if platform_name == "nt":
+        if windows_security is None:
+            import win32security as windows_security
+
+        security_information = windows_security.DACL_SECURITY_INFORMATION
+        descriptor = windows_security.GetFileSecurity(str(existing), security_information)
+        windows_security.SetFileSecurity(str(temporary), security_information, descriptor)
         return
-    temporary = target.with_suffix(".tmp")
-    temporary.write_text(payload, encoding="utf-8")
-    temporary.replace(target)
+    temporary.chmod(stat.S_IMODE(existing.stat().st_mode))

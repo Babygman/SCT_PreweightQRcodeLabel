@@ -1,3 +1,4 @@
+import ast
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -24,13 +25,17 @@ def test_service_lifecycle_helper_allows_only_safe_lifecycle_actions():
 
 def test_pyinstaller_metadata_is_standalone_receive_only_and_unsigned():
     packaging = ROOT / "packaging"
-    build_requirements = (packaging / "requirements-build-windows.txt").read_text()
+    build_requirements = (packaging / "requirements-build-windows.txt").read_text(
+        encoding="utf-8"
+    )
     assert "pyinstaller==" in build_requirements.lower()
     assert "pyserial==3.5" in build_requirements.lower()
     assert "pywin32==" in build_requirements.lower()
     assert "pytest==" in build_requirements.lower()
-    service_spec = (packaging / "scale_bridge_service.spec").read_text()
-    diagnostics_spec = (packaging / "scale_bridge_diagnostics.spec").read_text()
+    service_spec = (packaging / "scale_bridge_service.spec").read_text(encoding="utf-8")
+    diagnostics_spec = (packaging / "scale_bridge_diagnostics.spec").read_text(
+        encoding="utf-8"
+    )
     assert 'name="SCTPreweightScaleBridgeService"' in service_spec
     assert 'name="SCTPreweightScaleBridgeDiagnostics"' in diagnostics_spec
     assert "uac_admin=True" in diagnostics_spec
@@ -43,7 +48,7 @@ def test_pyinstaller_metadata_is_standalone_receive_only_and_unsigned():
 
 
 def test_installer_creates_auto_recovering_least_privilege_service_and_preserves_config():
-    installer = (ROOT / "windows" / "installer.iss").read_text()
+    installer = (ROOT / "windows" / "installer.iss").read_text(encoding="utf-8")
     assert "ArchitecturesAllowed=x64compatible" in installer
     assert "PrivilegesRequired=admin" in installer
     assert "start= auto" in installer
@@ -62,13 +67,13 @@ def test_installer_creates_auto_recovering_least_privilege_service_and_preserves
 
 
 def test_build_script_and_ci_build_artifacts_without_release_or_deployment():
-    build = (ROOT / "windows" / "build.ps1").read_text()
+    build = (ROOT / "windows" / "build.ps1").read_text(encoding="utf-8")
     assert "pyinstaller.exe" in build
     assert "ISCC.exe" in build
     workflow_path = (
         ROOT.parent / ".github" / "workflows" / "scale-bridge-windows-build.yml"
     )
-    workflow = workflow_path.read_text()
+    workflow = workflow_path.read_text(encoding="utf-8")
     assert "runs-on: windows-2022" in workflow
     assert "workflow_dispatch:" in workflow
     assert "upload-artifact@v4" in workflow
@@ -80,7 +85,7 @@ def test_windows_security_controls_are_not_bypassed_and_upx_is_disabled():
     windows = ROOT / "windows"
     packaging = ROOT / "packaging"
     implementation = "\n".join(
-        path.read_text()
+        path.read_text(encoding="utf-8")
         for path in (
             windows / "build.ps1",
             windows / "diagnostics.py",
@@ -116,7 +121,7 @@ def test_windows_security_controls_are_not_bypassed_and_upx_is_disabled():
 
 
 def test_installer_paths_identity_acls_and_service_registration_are_restricted():
-    installer = (ROOT / "windows" / "installer.iss").read_text()
+    installer = (ROOT / "windows" / "installer.iss").read_text(encoding="utf-8")
     lowered = installer.lower()
     assert "defaultdirname={autopf}\\sct\\scalebridge" in lowered
     assert "{commonappdata}\\sct\\scalebridge" in lowered
@@ -138,9 +143,9 @@ def test_installer_paths_identity_acls_and_service_registration_are_restricted()
 
 
 def test_runtime_has_no_remote_download_or_unexpected_listener_surface():
-    diagnostics = (ROOT / "windows" / "diagnostics.py").read_text()
-    host = (ROOT / "host.py").read_text()
-    api = (ROOT / "api.py").read_text()
+    diagnostics = (ROOT / "windows" / "diagnostics.py").read_text(encoding="utf-8")
+    host = (ROOT / "host.py").read_text(encoding="utf-8")
+    api = (ROOT / "api.py").read_text(encoding="utf-8")
     assert 'urlopen(f"http://127.0.0.1:' in diagnostics
     assert "https://" not in diagnostics
     assert 'LOOPBACK_HOST = "127.0.0.1"' in api
@@ -149,7 +154,7 @@ def test_runtime_has_no_remote_download_or_unexpected_listener_surface():
 
 
 def test_signing_is_external_sha256_timestamped_and_contains_no_key_material():
-    build = (ROOT / "windows" / "build.ps1").read_text()
+    build = (ROOT / "windows" / "build.ps1").read_text(encoding="utf-8")
     assert "'/fd', 'SHA256'" in build
     assert "'/tr', $TimestampUrl" in build
     assert "'/td', 'SHA256'" in build
@@ -161,7 +166,7 @@ def test_signing_is_external_sha256_timestamped_and_contains_no_key_material():
 
 
 def test_build_script_stops_after_failed_native_stage_and_checks_artifacts():
-    build = (ROOT / "windows" / "build.ps1").read_text()
+    build = (ROOT / "windows" / "build.ps1").read_text(encoding="utf-8")
     assert "function Invoke-NativeStage" in build
     assert "if ($LASTEXITCODE -ne 0)" in build
     assert 'throw "Build stage failed: $Stage' in build
@@ -177,3 +182,24 @@ def test_build_script_stops_after_failed_native_stage_and_checks_artifacts():
         assert stage in build
     assert "Get-FileHash -LiteralPath $Installer -Algorithm SHA256" in build
     assert "--noupx" not in build
+
+
+def test_all_scale_bridge_path_text_io_declares_utf8_encoding():
+    violations = []
+    for path in sorted(ROOT.rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+                continue
+            if node.func.attr not in {"read_text", "write_text"}:
+                continue
+            encoding = next(
+                (keyword.value for keyword in node.keywords if keyword.arg == "encoding"),
+                None,
+            )
+            if not (
+                isinstance(encoding, ast.Constant)
+                and encoding.value.lower().replace("-", "") == "utf8"
+            ):
+                violations.append(f"{path}:{node.lineno}:{node.func.attr}")
+    assert violations == []
