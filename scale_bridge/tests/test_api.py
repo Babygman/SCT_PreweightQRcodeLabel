@@ -60,6 +60,26 @@ def test_api_binds_loopback_and_exposes_only_reading_state(running_api):
     _, _, state = request(address, "/status", origin=ORIGIN)
     assert state["connected"] is True
     assert state["gross"] == "0.80"
+    _, _, capabilities = request(address, "/capabilities", origin=ORIGIN)
+    assert capabilities["api_version"] == 2
+    assert capabilities["receive_only"] is True
+    assert capabilities["serial_write"] is False
+    assert capabilities["states"]["READY"] == {
+        "th": "พร้อมบันทึก",
+        "en": "Ready to save",
+    }
+
+
+def test_status_reports_multiple_scales_as_a_bilingual_controlled_state(running_api):
+    engine, address, _server = running_api
+    engine.disconnect("MULTIPLE_SCALES")
+    _, _, state = request(address, "/status", origin=ORIGIN)
+    assert state["connected"] is False
+    assert state["user_state"] == {
+        "code": "MULTIPLE_SCALES",
+        "label_th": "พบเครื่องชั่งหลายเครื่อง",
+        "label_en": "Multiple scales detected",
+    }
 
 
 def test_origin_validation_and_no_device_control_endpoint(running_api):

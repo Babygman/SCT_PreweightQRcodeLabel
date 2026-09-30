@@ -1,6 +1,6 @@
-# IDS701 Scale Integration Prototype — Phase 1
+# IDS701 Scale Integration — Windows Client Package
 
-This directory is independent of Flask and the application database. Phase 1 receives IDS701
+This directory is independent of Flask and the application database. The bridge receives IDS701
 ASCII frames, calculates Software Tare in memory, and exposes local state on loopback only. It
 never sends bytes to a scale and never writes a weighing transaction.
 
@@ -39,18 +39,18 @@ operator-controlled identity; the software does not invent hardware identity.
 State-changing calls require an allowed `Origin`. CORS never uses `*`. There is no endpoint for
 serial output, Zero, Hardware Tare, Calibration, Reset, Print, or device configuration.
 
-Start the Windows prototype from the repository root:
+Development-mode startup remains available from the repository root:
 
 ```powershell
-.venv-scale\Scripts\python -m scale_bridge --scale-code SCALE-01 --port COM3 `
-  --origin http://127.0.0.1:5000 --api-port 8765
+.venv-scale\Scripts\python -m scale_bridge `
+  --config C:\ProgramData\SCT\ScaleBridge\config.json
 ```
 
-Add `--usb-serial SERIAL` when the FTDI adapter exposes a reliable unique serial number. Phase 1
-rediscovers that adapter before every reconnect, so Windows may assign a different COM number.
-Phase 1 intentionally does not install a Windows Service. A later packaging phase can use
-PyInstaller with a pinned lock file and signed executable; no Windows executable was built or tested
-on macOS.
+The packaged service discovers FTDI `0403:6001` devices automatically. One matching device is
+selected automatically; multiple matches remain safely disconnected until an administrator stores
+the preferred USB serial through diagnostics. Discovery runs again after every reconnect.
+
+See [Browser Integration Contract](api-contract.md) and [Windows Package](windows-package.md).
 
 Controlled states exposed by the bridge include `PORT_MISSING`, `PORT_BUSY`, `DISCONNECTED`,
 `NOT_DECODED`, `OVERLOAD`, and reconnect-session changes.

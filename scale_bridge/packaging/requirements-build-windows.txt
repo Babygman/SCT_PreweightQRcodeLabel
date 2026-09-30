@@ -1,0 +1,4 @@
+pyinstaller==6.16.0
+pyserial==3.5
+pywin32==311
+pytest==8.4.2

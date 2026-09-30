@@ -20,9 +20,13 @@ class ScaleDisconnectedError(SerialSourceError):
     code = "DISCONNECTED"
 
 
+class MultipleScalesError(SerialSourceError):
+    code = "MULTIPLE_SCALES"
+
+
 @dataclass(frozen=True, slots=True)
 class SerialConfig:
-    port: str = "COM3"
+    port: str | None = None
     baudrate: int = 9600
     bytesize: int = 8
     parity: str = "N"
@@ -80,13 +84,17 @@ def resolve_port(identity: ScaleIdentity, configured_port: str | None = None, **
         usb_serial_number=identity.usb_serial_number,
         **kwargs,
     )
-    if identity.usb_serial_number and len(matches) == 1:
-        return matches[0].device
+    if identity.usb_serial_number:
+        if len(matches) == 1:
+            return matches[0].device
+        raise PortMissingError("preferred scale is unavailable")
     if configured_port:
         return configured_port
     if len(matches) == 1:
         return matches[0].device
-    raise PortMissingError("configured scale port is unavailable or ambiguous")
+    if not matches:
+        raise PortMissingError("no eligible FTDI scale is available")
+    raise MultipleScalesError("multiple eligible scales require administrator selection")
 
 
 class ReadOnlySerialSource:

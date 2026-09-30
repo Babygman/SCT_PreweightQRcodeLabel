@@ -14,6 +14,7 @@ class ScaleBridgeRuntime:
         *,
         reconnect_interval=2.0,
         sleep=time.sleep,
+        logger=None,
     ):
         self.source = source
         self.engine = engine
@@ -21,6 +22,7 @@ class ScaleBridgeRuntime:
         self.parser = IDS701StreamParser()
         self.reconnect_interval = reconnect_interval
         self.sleep = sleep
+        self.logger = logger
 
     def run(self, stop_event: Event):
         while not stop_event.is_set():
@@ -29,13 +31,15 @@ class ScaleBridgeRuntime:
                     self.source.open()
                     self.parser.reset()
                     self.identity = self.identity.with_port(self.source.config.port)
-                    self.engine.connect(self.identity)
+                    self.engine.begin_connection(self.identity)
                 chunk = self.source.read()
                 for result in self.parser.feed(chunk):
                     self.engine.ingest(result)
             except SerialSourceError as exc:
                 self.source.close()
                 self.engine.disconnect(exc.code)
+                if self.logger:
+                    self.logger.warning("Scale connection state: %s", exc.code)
                 stop_event.wait(self.reconnect_interval)
 
     def close(self):

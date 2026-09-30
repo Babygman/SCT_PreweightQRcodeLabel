@@ -5,7 +5,9 @@ import pytest
 
 from scale_bridge.identity import ScaleIdentity
 from scale_bridge.serial_source import (
+    MultipleScalesError,
     PortBusyError,
+    PortMissingError,
     ReadOnlySerialSource,
     SerialConfig,
     discover_ports,
@@ -29,7 +31,7 @@ class FakeConnection:
 
 
 def test_serial_source_uses_9600_8n1_no_flow_control_and_reads_only():
-    source = ReadOnlySerialSource(SerialConfig(), serial_factory=FakeConnection)
+    source = ReadOnlySerialSource(SerialConfig(port="COM3"), serial_factory=FakeConnection)
     source.open()
     assert source.read(64).endswith(b"\r\n")
     assert source._connection.options == {
@@ -85,6 +87,37 @@ def test_discovery_follows_ftdi_serial_and_manual_port_fallback():
     assert resolve_port(manual, configured_port="COM3", list_ports_provider=provider) == "COM3"
 
 
+def test_automatic_discovery_handles_zero_one_multiple_and_preferred_devices():
+    def port(device, serial):
+        return SimpleNamespace(
+            device=device,
+            vid=0x0403,
+            pid=0x6001,
+            serial_number=serial,
+            description="FTDI FT232",
+        )
+
+    identity = ScaleIdentity(scale_code="SCALE-01")
+    with pytest.raises(PortMissingError, match="no eligible"):
+        resolve_port(identity, list_ports_provider=lambda: [])
+    assert resolve_port(identity, list_ports_provider=lambda: [port("COM7", "FT-A")]) == "COM7"
+    with pytest.raises(MultipleScalesError, match="multiple eligible"):
+        resolve_port(
+            identity,
+            list_ports_provider=lambda: [port("COM7", "FT-A"), port("COM9", "FT-B")],
+        )
+    preferred = ScaleIdentity(scale_code="SCALE-01", usb_serial_number="FT-B")
+    assert (
+        resolve_port(
+            preferred,
+            list_ports_provider=lambda: [port("COM7", "FT-A"), port("COM9", "FT-B")],
+        )
+        == "COM9"
+    )
+    with pytest.raises(PortMissingError, match="preferred scale"):
+        resolve_port(preferred, list_ports_provider=lambda: [port("COM7", "FT-A")])
+
+
 def test_reconnect_closes_previous_connection_and_reopens():
     connections = []
     assigned_ports = iter(["COM3", "COM7"])
@@ -95,7 +128,7 @@ def test_reconnect_closes_previous_connection_and_reopens():
         return connection
 
     source = ReadOnlySerialSource(
-        SerialConfig(port="COM3"),
+        SerialConfig(port=None),
         serial_factory=factory,
         port_resolver=lambda: next(assigned_ports),
     )

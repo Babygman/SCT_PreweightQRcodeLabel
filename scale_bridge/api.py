@@ -4,6 +4,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit
 
 from .state import ScaleStateEngine, ScaleStateError, WeighingContext
+from .status import USER_STATES, bilingual_state
 
 LOOPBACK_HOST = "127.0.0.1"
 
@@ -37,8 +38,22 @@ def _handler_for(engine, allowed_origins):
             path = urlsplit(self.path).path
             if path == "/health":
                 self._json(200, {"status": "ok"})
+            elif path == "/capabilities":
+                self._json(
+                    200,
+                    {
+                        "api_version": 2,
+                        "receive_only": True,
+                        "software_tare": True,
+                        "serial_write": False,
+                        "states": USER_STATES,
+                    },
+                )
             elif path in {"/status", "/reading"}:
-                self._json(200, engine.snapshot())
+                state = engine.snapshot()
+                code = _user_state_code(state)
+                state["user_state"] = bilingual_state(code)
+                self._json(200, state)
             else:
                 self._json(404, {"error": "NOT_FOUND"})
 
@@ -96,3 +111,14 @@ def _handler_for(engine, allowed_origins):
             return
 
     return Handler
+
+
+def _user_state_code(state):
+    if not state["connected"]:
+        reason = state["connection_reason"]
+        if reason == "MULTIPLE_SCALES":
+            return reason
+        if reason == "READING_MISSING":
+            return reason
+        return "DISCONNECTED"
+    return "READY" if state["save_eligible"] else state["save_block_reason"]

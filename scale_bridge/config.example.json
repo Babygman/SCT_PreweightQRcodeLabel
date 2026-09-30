@@ -1,0 +1,19 @@
+{
+  "workstation_code": "WEIGH-01",
+  "scale_code": "SCALE-01",
+  "preferred_usb_serial": null,
+  "allowed_origins": [
+    "http://preweight-uat.sct.local"
+  ],
+  "vid": "0403",
+  "pid": "6001",
+  "baudrate": 9600,
+  "bytesize": 8,
+  "parity": "N",
+  "stopbits": 1,
+  "xonxoff": false,
+  "rtscts": false,
+  "dsrdtr": false,
+  "api_port": 8765,
+  "stale_seconds": 2.0
+}

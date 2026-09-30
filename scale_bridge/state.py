@@ -35,8 +35,13 @@ class ScaleStateEngine:
         self._session_number = 0
 
     def connect(self, identity: ScaleIdentity):
+        self.begin_connection(identity)
         self.connected = True
         self.connection_reason = None
+
+    def begin_connection(self, identity: ScaleIdentity):
+        self.connected = False
+        self.connection_reason = "READING_MISSING"
         self.identity = identity
         self._session_number += 1
         self.latest = None
@@ -53,6 +58,9 @@ class ScaleStateEngine:
     def ingest(self, reading: ParseResult, *, received_at=None):
         self.latest = reading
         self.last_reading_at = received_at or self.clock()
+        if reading.decoded:
+            self.connected = True
+            self.connection_reason = None
 
     def set_context(self, context: WeighingContext):
         if context != self.context:
