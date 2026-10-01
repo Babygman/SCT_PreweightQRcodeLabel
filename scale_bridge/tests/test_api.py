@@ -127,6 +127,18 @@ def test_tare_and_context_api_clear_tare_without_persistence(running_api):
     engine, address, _server = running_api
     status, _, captured = request(address, "/tare/capture", method="POST", origin=ORIGIN)
     assert status == 200 and captured["tare"] == "0.80"
+    with pytest.raises(HTTPError) as duplicate:
+        request(address, "/tare/capture", method="POST", origin=ORIGIN)
+    assert duplicate.value.code == 409
+    duplicate_payload = json.loads(duplicate.value.read())
+    assert duplicate_payload["error"] == "TARE_ALREADY_CAPTURED"
+    assert duplicate_payload["state"]["tare"] == "0.80"
+    status, _, cleared = request(address, "/tare/clear", method="POST", origin=ORIGIN)
+    assert status == 200
+    assert cleared["tare"] is None
+    assert cleared["actual"] is None
+    status, _, recaptured = request(address, "/tare/capture", method="POST", origin=ORIGIN)
+    assert status == 200 and recaptured["tare"] == "0.80"
     status, _, changed = request(
         address,
         "/context",

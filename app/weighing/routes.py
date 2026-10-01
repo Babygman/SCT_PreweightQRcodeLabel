@@ -1,5 +1,6 @@
 import json
 from io import BytesIO
+from uuid import uuid4
 
 import qrcode
 from flask import (
@@ -29,7 +30,7 @@ from app.services.weighing import save_weighing, validate_material_tag
 from app.services.workset import active_work_set_overview
 
 from . import bp
-from .forms import MaterialQueueWeightForm, WeighingForm
+from .forms import MaterialQueueWeightForm, ReweighForm, WeighingForm
 
 
 def _completed_transaction_for_selected_station(transaction_id):
@@ -40,6 +41,13 @@ def _completed_transaction_for_selected_station(transaction_id):
         or not transaction.preweight_id
     ):
         abort(404)
+    return transaction
+
+
+def _current_transaction_for_selected_station(transaction_id):
+    transaction = _completed_transaction_for_selected_station(transaction_id)
+    if transaction.superseded_at_utc is not None:
+        abort(409)
     return transaction
 
 
@@ -55,6 +63,7 @@ def order(po_id):
         select(WeighingTransaction).where(
             WeighingTransaction.production_order_id == production_order.id,
             WeighingTransaction.status.in_(("COMPLETED", "CONSUMED")),
+            WeighingTransaction.superseded_at_utc.is_(None),
         )
     ).all()
     transactions_by_item = {
@@ -65,6 +74,7 @@ def order(po_id):
         order=production_order,
         form=WeighingForm(),
         transactions_by_item=transactions_by_item,
+        reweigh_form=ReweighForm(),
     )
 
 
@@ -127,6 +137,16 @@ def sticker(transaction_id):
         weighed_by=db.session.get(User, transaction.weighed_by_user_id),
         weighing_station=db.session.get(Station, transaction.station_id),
         material_mode=session.get("weighing_mode") == "material",
+        is_superseded=transaction.superseded_at_utc is not None,
+        replacement_chain=db.session.scalars(
+            select(WeighingTransaction)
+            .where(
+                WeighingTransaction.production_order_id
+                == transaction.production_order_id,
+                WeighingTransaction.formula_item_id == transaction.formula_item_id,
+            )
+            .order_by(WeighingTransaction.weighed_at_utc, WeighingTransaction.id)
+        ).all(),
     )
 
 
@@ -143,6 +163,42 @@ def sticker_qr(transaction_id):
     image.save(stream, format="PNG")
     stream.seek(0)
     return send_file(stream, mimetype="image/png", max_age=0)
+
+
+@bp.post("/transaction/<int:transaction_id>/reweigh")
+@login_required
+@station_required
+@roles_required("OPERATOR", "SUPERVISOR", "ADMIN")
+def start_reweigh(transaction_id):
+    transaction = _current_transaction_for_selected_station(transaction_id)
+    form = ReweighForm()
+    if not form.validate_on_submit():
+        for messages in form.errors.values():
+            for message in messages:
+                flash(ui_message(message), "danger")
+        return redirect(url_for("weighing.order", po_id=transaction.production_order_id))
+    session["reweigh_original_transaction_id"] = transaction.id
+    session["reweigh_reason"] = form.reason.data.strip()
+    session["reweigh_workflow_attempt"] = uuid4().hex
+    session["selected_material_code"] = transaction.material_code_snapshot
+    session["active_material_tag"] = transaction.material_tag_raw_payload
+    session["weighing_mode"] = "material"
+    flash(ui_message("Reweigh started. Capture a new Tare before saving."), "success")
+    return redirect(
+        url_for("weighing.material_mode", material=transaction.material_code_snapshot)
+    )
+
+
+@bp.post("/reweigh/cancel")
+@login_required
+@station_required
+@roles_required("OPERATOR", "SUPERVISOR", "ADMIN")
+def cancel_reweigh():
+    session.pop("reweigh_original_transaction_id", None)
+    session.pop("reweigh_reason", None)
+    session.pop("reweigh_workflow_attempt", None)
+    flash(ui_message("Reweigh cancelled. The original weighing remains current."), "success")
+    return redirect(url_for("weighing.material_mode"))
 
 
 @bp.get("/material")
@@ -175,12 +231,14 @@ def material_mode():
             selection = None
 
     active_payload = session.get("active_material_tag")
+    reweigh_transaction_id = session.get("reweigh_original_transaction_id")
     queue = (
         build_material_queue(
             session["station_id"],
             active_payload,
             require_pending=False,
             expected_material_code=selection.material.code,
+            reweigh_transaction_id=reweigh_transaction_id,
         )
         if active_payload and selection
         else None
@@ -195,6 +253,9 @@ def material_mode():
         overview=overview,
         weight_form=MaterialQueueWeightForm(),
         weighing_station=db.session.get(Station, session["station_id"]),
+        reweigh_form=ReweighForm(),
+        reweigh_transaction_id=reweigh_transaction_id,
+        reweigh_workflow_attempt=session.get("reweigh_workflow_attempt"),
     )
 
 
@@ -259,9 +320,14 @@ def weigh_material_queue_item(po_id, formula_item_id):
             form.actual_weight.data,
             current_user.id,
             expected_material_code=selected_code,
+            replaces_transaction_id=session.get("reweigh_original_transaction_id"),
+            reweigh_reason=session.get("reweigh_reason"),
         )
         flash(ui_message(result.message), "success" if result.success else "danger")
         if result.success:
+            session.pop("reweigh_original_transaction_id", None)
+            session.pop("reweigh_reason", None)
+            session.pop("reweigh_workflow_attempt", None)
             session["weighing_mode"] = "material"
             return redirect(url_for("weighing.sticker", transaction_id=result.transaction.id))
     else:

@@ -44,7 +44,7 @@ def test_upgrade_preserves_existing_rows_nullable_and_downgrade_removes_columns(
             "(id,po_no,product_id,production_lot,production_lot_normalized,status) "
             "VALUES(901,'LEGACY',901,'LOT','LOT','OPEN')"
         )
-    migration(database, "upgrade", "head")
+    migration(database, "upgrade", HEAD)
     with sqlite3.connect(database) as connection:
         assert connection.execute("SELECT version_num FROM alembic_version").fetchone()[0] == HEAD
         assert connection.execute(
@@ -63,7 +63,7 @@ def test_upgrade_preserves_existing_rows_nullable_and_downgrade_removes_columns(
         assert legacy_po == (
             "LEGACY",
         )
-    migration(database, "upgrade", "head")
+    migration(database, "upgrade", HEAD)
 
 
 def test_provenance_migration_compiles_offline_for_postgresql_and_sql_server(tmp_path):

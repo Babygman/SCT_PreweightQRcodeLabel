@@ -59,8 +59,11 @@
   "TARE_MISSING": t("Capture Tare before saving"), "ACTUAL_WEIGHT_NOT_POSITIVE": t("Actual Weight must be greater than zero"),
   "CONTEXT_MISMATCH": t("Scale context does not match the selected weighing line"),
   "BRIDGE_UNAVAILABLE": t("Scale Bridge unavailable"), "FINAL_CHECK_FAILED": t("Scale changed before save. Weighing was not saved"),
-  "tare": t("Tare captured")
+  "TARE_ALREADY_CAPTURED": t("Tare has already been captured"),
+  "tare": t("Tare captured"), "tareAlready": t("Tare has already been captured"),
+  "cancelled": t("Tare cancelled"), "under": t("Under"), "onTarget": t("On Target"), "over": t("Over")
 }|tojson|forceescape }}'></div>{% endif %}
+{% if reweigh_transaction_id %}<form class="mt-3" method="post" action="{{ url_for('weighing.cancel_reweigh') }}">{{ reweigh_form.csrf_token }}<button class="btn btn-outline-danger" type="submit">{{ t("Cancel Reweigh") }}</button></form>{% endif %}
 <script>
 (() => {
   const search = document.getElementById("material-search"); const filter = document.getElementById("material-filter"); const choices = [...document.querySelectorAll("[data-material-choice]")]; const empty = document.getElementById("material-filter-empty");

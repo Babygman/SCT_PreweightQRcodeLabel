@@ -4,7 +4,7 @@ from datetime import datetime
 from decimal import Decimal, InvalidOperation
 
 from sqlalchemy import func, select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from app.extensions import db
 from app.models import (
@@ -140,7 +140,17 @@ def validate_material_tag(po_id, formula_item_id, material_tag_payload, station_
     return WeighingResult(True, "MATCH", f"MATCH — {item.material.code}")
 
 
-def save_weighing(po_id, formula_item_id, material_tag_payload, actual_weight, user_id, station_id):
+def save_weighing(
+    po_id,
+    formula_item_id,
+    material_tag_payload,
+    actual_weight,
+    user_id,
+    station_id,
+    *,
+    replaces_transaction_id=None,
+    reweigh_reason=None,
+):
     try:
         tag = parse_material_tag(material_tag_payload)
     except MaterialTagError as exc:
@@ -170,14 +180,39 @@ def save_weighing(po_id, formula_item_id, material_tag_payload, actual_weight, u
             f"Wrong Material: expected {item.material.code}, scanned {tag.material_code}.",
         )
 
+    original = None
+    if replaces_transaction_id is not None:
+        original = db.session.scalar(
+            select(WeighingTransaction)
+            .where(WeighingTransaction.id == replaces_transaction_id)
+            .with_for_update()
+        )
+        if (
+            original is None
+            or original.production_order_id != po.id
+            or original.formula_item_id != item.id
+            or original.station_id != station_id
+            or original.status not in ("COMPLETED", "CONSUMED")
+            or original.superseded_at_utc is not None
+            or not reweigh_reason
+            or len(reweigh_reason.strip()) < 10
+        ):
+            db.session.rollback()
+            return WeighingResult(
+                False,
+                "REWEIGH_UNAVAILABLE",
+                "Reweigh request is unavailable or has already been completed.",
+            )
+
     existing = db.session.scalar(
         select(WeighingTransaction).where(
             WeighingTransaction.production_order_id == po.id,
             WeighingTransaction.formula_item_id == item.id,
             WeighingTransaction.status.in_(("COMPLETED", "CONSUMED")),
+            WeighingTransaction.superseded_at_utc.is_(None),
         )
     )
-    if existing is not None:
+    if existing is not None and existing.id != replaces_transaction_id:
         return WeighingResult(
             False,
             "FORMULA_LINE_ALREADY_WEIGHED",
@@ -228,9 +263,36 @@ def save_weighing(po_id, formula_item_id, material_tag_payload, actual_weight, u
         weighed_by_user_id=user_id,
         weighed_at_utc=weighed_at,
         status="COMPLETED",
+        replaces_transaction_id=original.id if original else None,
     )
+    if original is not None:
+        original.superseded_at_utc = weighed_at
+        original.superseded_by_user_id = user_id
+        original.supersede_reason = reweigh_reason.strip()
     db.session.add(transaction)
     try:
+        db.session.flush()
+        if original is not None:
+            original.superseded_by_transaction_id = transaction.id
+            db.session.add(
+                AuditLog(
+                    event_type="WEIGHING_REPLACED",
+                    entity_type="WeighingTransaction",
+                    entity_id=str(transaction.id),
+                    user_id=user_id,
+                    station_id=station_id,
+                    occurred_at_utc=weighed_at,
+                    detail=json.dumps(
+                        {
+                            "original_transaction_id": original.id,
+                            "replacement_transaction_id": transaction.id,
+                            "reason": reweigh_reason.strip(),
+                        },
+                        ensure_ascii=False,
+                        separators=(",", ":"),
+                    ),
+                )
+            )
         db.session.commit()
     except IntegrityError:
         db.session.rollback()
@@ -238,6 +300,13 @@ def save_weighing(po_id, formula_item_id, material_tag_payload, actual_weight, u
             False,
             "SAVE_CONFLICT",
             "The Formula line or Preweight ID was saved by another request. Refresh and retry.",
+        )
+    except SQLAlchemyError:
+        db.session.rollback()
+        return WeighingResult(
+            False,
+            "SAVE_FAILED",
+            "Weighing could not be saved. No weighing data was created.",
         )
     return WeighingResult(
         True,

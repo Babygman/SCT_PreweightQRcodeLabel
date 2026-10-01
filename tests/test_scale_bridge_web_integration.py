@@ -1,6 +1,7 @@
 import html
 import json
 import re
+import subprocess
 from pathlib import Path
 
 from app.extensions import db
@@ -51,6 +52,9 @@ def test_material_queue_uses_read_only_bridge_weight_and_bilingual_status(app, c
     assert messages["READING_STALE"] == "ค่าน้ำหนักเก่าเกินกำหนด / Scale reading is stale"
     assert messages["OVERLOAD"] == "เครื่องชั่งน้ำหนักเกิน / Scale overload"
     assert messages["NOT_DECODED"] == "รูปแบบค่าน้ำหนักไม่ถูกต้อง / Malformed scale reading"
+    assert messages["TARE_ALREADY_CAPTURED"] == (
+        "บันทึกน้ำหนักภาชนะแล้ว / Tare has already been captured"
+    )
 
 
 def test_material_queue_sends_exact_context_and_keeps_save_gated(app, client):
@@ -61,6 +65,7 @@ def test_material_queue_sends_exact_context_and_keeps_save_gated(app, client):
     assert 'data-production-order="PD001"' in rendered
     assert 'data-formula-item="1"' in rendered
     assert 'data-station="POWDER-ST"' in rendered
+    assert 'data-workflow-attempt=""' in rendered
     assert 'class="btn btn-primary save-weighing" type="submit" disabled' in rendered
 
     script = Path("app/static/weighing_scale_bridge.js").read_text(encoding="utf-8")
@@ -71,6 +76,8 @@ def test_material_queue_sends_exact_context_and_keeps_save_gated(app, client):
     assert "state.save_block_reason" in script
     assert "HTMLFormElement.prototype.submit.call(form)" in script
     assert "state.actual" in script
+    assert "workflow_attempt: form.dataset.workflowAttempt || null" in script
+    assert "refreshSerial" in script
 
 
 def test_bridge_ui_gets_do_not_create_weighing_data(app, client):
@@ -97,4 +104,52 @@ def test_scale_bridge_adapter_exposes_no_physical_scale_control_surface():
         "/context",
         "/tare/capture",
         "/tare/clear",
+    }
+
+
+def test_browser_deviation_calculation_executes_exact_decimal_cases():
+    program = r"""
+const {calculateDeviation} = require('./app/static/weighing_scale_bridge.js');
+const cases = [
+  ['9.500', '10.000'], ['10.000', '10.000'], ['10.500', '10.000'],
+  ['1.000', '0'], ['1.000', null], ['1.000', 'bad'],
+  ['-1.000', '1.000'], ['bad', '1.000'], ['0', '1.000'],
+  ['1.0045', '1.000'], ['1.0044', '1.000']
+];
+console.log(JSON.stringify(cases.map(([actual, target]) => calculateDeviation(actual, target))));
+"""
+    result = subprocess.run(
+        ["node", "-e", program],
+        cwd=Path.cwd(),
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    values = json.loads(result.stdout)
+    assert values[0] == {
+        "difference": "-0.500",
+        "percentage": "-5.00",
+        "status": "UNDER",
+    }
+    assert values[1] == {
+        "difference": "0.000",
+        "percentage": "0.00",
+        "status": "ON_TARGET",
+    }
+    assert values[2] == {
+        "difference": "0.500",
+        "percentage": "5.00",
+        "status": "OVER",
+    }
+    assert values[3:6] == [{"error": "INVALID_TARGET"}] * 3
+    assert values[6:9] == [{"error": "INVALID_ACTUAL"}] * 3
+    assert values[9] == {
+        "difference": "0.005",
+        "percentage": "0.50",
+        "status": "OVER",
+    }
+    assert values[10] == {
+        "difference": "0.004",
+        "percentage": "0.40",
+        "status": "OVER",
     }

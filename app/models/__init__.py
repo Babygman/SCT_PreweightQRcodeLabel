@@ -444,9 +444,31 @@ class WeighingTransaction(db.Model):
             "production_order_id",
             "formula_item_id",
             unique=True,
-            mssql_where=text("status IN ('COMPLETED', 'CONSUMED')"),
-            postgresql_where=text("status IN ('COMPLETED', 'CONSUMED')"),
-            sqlite_where=text("status IN ('COMPLETED', 'CONSUMED')"),
+            mssql_where=text(
+                "status IN ('COMPLETED', 'CONSUMED') AND superseded_at_utc IS NULL"
+            ),
+            postgresql_where=text(
+                "status IN ('COMPLETED', 'CONSUMED') AND superseded_at_utc IS NULL"
+            ),
+            sqlite_where=text(
+                "status IN ('COMPLETED', 'CONSUMED') AND superseded_at_utc IS NULL"
+            ),
+        ),
+        Index(
+            "ix_weighing_replaces_transaction",
+            "replaces_transaction_id",
+            unique=True,
+            mssql_where=text("replaces_transaction_id IS NOT NULL"),
+            postgresql_where=text("replaces_transaction_id IS NOT NULL"),
+            sqlite_where=text("replaces_transaction_id IS NOT NULL"),
+        ),
+        Index(
+            "ix_weighing_superseded_by_transaction",
+            "superseded_by_transaction_id",
+            unique=True,
+            mssql_where=text("superseded_by_transaction_id IS NOT NULL"),
+            postgresql_where=text("superseded_by_transaction_id IS NOT NULL"),
+            sqlite_where=text("superseded_by_transaction_id IS NOT NULL"),
         ),
     )
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -483,6 +505,15 @@ class WeighingTransaction(db.Model):
     voided_by_user_id: Mapped[int | None] = mapped_column(db.ForeignKey("users.id"))
     voided_at_utc: Mapped[datetime | None] = mapped_column(UTC_DATETIME)
     void_reason: Mapped[str | None] = mapped_column(db.Unicode(500))
+    replaces_transaction_id: Mapped[int | None] = mapped_column(
+        db.ForeignKey("weighing_transactions.id"), nullable=True
+    )
+    superseded_by_transaction_id: Mapped[int | None] = mapped_column(
+        db.ForeignKey("weighing_transactions.id"), nullable=True
+    )
+    superseded_at_utc: Mapped[datetime | None] = mapped_column(UTC_DATETIME)
+    superseded_by_user_id: Mapped[int | None] = mapped_column(db.ForeignKey("users.id"))
+    supersede_reason: Mapped[str | None] = mapped_column(db.Unicode(500))
 
 
 class LabelPrintLog(db.Model):

@@ -49,6 +49,7 @@ def _material_queue_items(station_id, material_id):
                 WeighingTransaction.production_order_id == ProductionOrder.id,
                 WeighingTransaction.formula_item_id == FormulaItem.id,
                 WeighingTransaction.status.in_(("COMPLETED", "CONSUMED")),
+                WeighingTransaction.superseded_at_utc.is_(None),
             ),
         )
         .where(
@@ -91,7 +92,11 @@ def build_material_selection(station_id, material_code):
 
 
 def build_material_queue(
-    station_id, material_tag_payload, require_pending=True, expected_material_code=None
+    station_id,
+    material_tag_payload,
+    require_pending=True,
+    expected_material_code=None,
+    reweigh_transaction_id=None,
 ):
     try:
         tag = parse_material_tag(material_tag_payload)
@@ -119,6 +124,14 @@ def build_material_queue(
         )
 
     items = _material_queue_items(station_id, material.id)
+    if reweigh_transaction_id is not None:
+        items = tuple(
+            MaterialQueueItem(item.production_order, item.formula_item, None)
+            if item.transaction is not None
+            and item.transaction.id == reweigh_transaction_id
+            else item
+            for item in items
+        )
     if not items:
         return MaterialQueueResult(
             False,
@@ -154,12 +167,15 @@ def save_material_queue_item(
     actual_weight,
     user_id,
     expected_material_code=None,
+    replaces_transaction_id=None,
+    reweigh_reason=None,
 ):
     queue = build_material_queue(
         station_id,
         material_tag_payload,
         require_pending=False,
         expected_material_code=expected_material_code,
+        reweigh_transaction_id=replaces_transaction_id,
     )
     if not queue.success:
         return WeighingResult(False, queue.code, queue.message)
@@ -187,4 +203,6 @@ def save_material_queue_item(
         actual_weight,
         user_id,
         station_id,
+        replaces_transaction_id=replaces_transaction_id,
+        reweigh_reason=reweigh_reason,
     )

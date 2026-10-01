@@ -13,6 +13,7 @@ class WeighingContext:
     formula_item: str | None = None
     station: str | None = None
     scale: str | None = None
+    workflow_attempt: str | None = None
 
 
 class ScaleStateError(RuntimeError):
@@ -71,6 +72,8 @@ class ScaleStateEngine:
         self.tare_weight = None
 
     def capture_tare(self):
+        if self.tare_weight is not None:
+            raise ScaleStateError("TARE_ALREADY_CAPTURED")
         reason = self._tare_block_reason()
         if reason:
             raise ScaleStateError(reason)

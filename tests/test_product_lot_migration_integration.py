@@ -62,7 +62,7 @@ def test_upgrade_downgrade_reupgrade_preserves_original_and_enforces_composite(t
             (1003, "PO-A2", 1001, "L002"),
         ],
     )
-    migration(database, "upgrade", "head")
+    migration(database, "upgrade", HEAD)
     with sqlite3.connect(database) as connection:
         assert connection.execute("SELECT version_num FROM alembic_version").fetchone()[0] == HEAD
         assert connection.execute(
@@ -82,7 +82,7 @@ def test_upgrade_downgrade_reupgrade_preserves_original_and_enforces_composite(t
         assert connection.execute(
             "SELECT production_lot FROM production_orders WHERE id>=1001 ORDER BY id"
         ).fetchall() == [(" L001 ",), ("l001",), ("L002",)]
-    migration(database, "upgrade", "head")
+    migration(database, "upgrade", HEAD)
 
 
 def test_migration_aborts_before_schema_change_when_normalized_duplicates_exist(tmp_path):
@@ -92,7 +92,7 @@ def test_migration_aborts_before_schema_change_when_normalized_duplicates_exist(
         database,
         [(1001, "PO-A1", 1001, "L001"), (1002, "PO-A2", 1001, " l001 ")],
     )
-    result = migration(database, "upgrade", "head", check=False)
+    result = migration(database, "upgrade", HEAD, check=False)
     assert result.returncode != 0
     assert "Duplicate Product and normalized Production Lot detected" in result.stderr
     with sqlite3.connect(database) as connection:

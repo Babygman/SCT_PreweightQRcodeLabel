@@ -225,6 +225,33 @@ TRANSLATIONS = {
     "Reject": "ไม่ผ่าน",
     "Reprint": "พิมพ์ซ้ำ",
     "Reprint Label": "พิมพ์ฉลากซ้ำ",
+    "Reweigh": "ชั่งใหม่",
+    "Reweigh reason": "เหตุผลในการชั่งใหม่",
+    "Replacement chain": "ลำดับการชั่งทดแทน",
+    "Confirm Reweigh": "ยืนยันการชั่งใหม่",
+    "Cancel Reweigh": "ยกเลิกการชั่งใหม่",
+    "Cancel Tare": "ยกเลิกน้ำหนักภาชนะ",
+    "Tare has already been captured": "บันทึกน้ำหนักภาชนะแล้ว",
+    "Tare cancelled": "ยกเลิกน้ำหนักภาชนะแล้ว",
+    "Difference": "ผลต่าง",
+    "Difference Percentage": "เปอร์เซ็นต์ผลต่าง",
+    "Target status": "สถานะเทียบเป้าหมาย",
+    "Under": "ต่ำกว่าเป้าหมาย",
+    "On Target": "ตรงเป้าหมาย",
+    "Over": "สูงกว่าเป้าหมาย",
+    "VOID": "ยกเลิก",
+    "Reweigh started. Capture a new Tare before saving.": (
+        "เริ่มการชั่งใหม่แล้ว โปรดบันทึกน้ำหนักภาชนะใหม่ก่อนบันทึก"
+    ),
+    "Reweigh cancelled. The original weighing remains current.": (
+        "ยกเลิกการชั่งใหม่แล้ว รายการชั่งเดิมยังคงใช้งานอยู่"
+    ),
+    "Reweigh request is unavailable or has already been completed.": (
+        "คำขอชั่งใหม่ไม่พร้อมใช้งานหรือดำเนินการเสร็จแล้ว"
+    ),
+    "Weighing could not be saved. No weighing data was created.": (
+        "ไม่สามารถบันทึกการชั่งได้ และไม่มีการสร้างข้อมูลการชั่ง"
+    ),
     "Reprint Tag {tag_number}": "พิมพ์ป้าย {tag_number} ซ้ำ",
     "Reprint Tag {tag_number} of {count}": "พิมพ์ป้าย {tag_number} จาก {count} ซ้ำ",
     "Reprints: {count}": "พิมพ์ซ้ำ: {count}",

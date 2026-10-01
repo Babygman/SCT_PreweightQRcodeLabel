@@ -49,6 +49,38 @@ def test_software_tare_and_decimal_actual_weight():
     assert state["save_block_reason"] is None
 
 
+def test_tare_is_single_use_until_explicitly_cleared():
+    engine, clock = connected_engine()
+    engine.ingest(reading(b"ST,GS,+   0.80kg"), received_at=clock())
+    engine.capture_tare()
+    engine.ingest(reading(b"ST,GS,+   0.90kg"), received_at=clock())
+    with pytest.raises(ScaleStateError, match="TARE_ALREADY_CAPTURED"):
+        engine.capture_tare()
+    assert engine.tare_weight == Decimal("0.80")
+    engine.clear_tare()
+    assert engine.tare_weight is None
+    assert engine.actual_weight is None
+    assert engine.capture_tare() == Decimal("0.90")
+
+
+def test_new_workflow_attempt_clears_tare_when_business_context_is_unchanged():
+    engine, clock = connected_engine()
+    engine.set_context(
+        WeighingContext(
+            "R01006S1", "PO-1", "LINE-1", "ST-1", "SCALE-01", "attempt-1"
+        )
+    )
+    engine.ingest(reading(b"ST,GS,+   0.80kg"), received_at=clock())
+    engine.capture_tare()
+    engine.set_context(
+        WeighingContext(
+            "R01006S1", "PO-1", "LINE-1", "ST-1", "SCALE-01", "attempt-2"
+        )
+    )
+    assert engine.tare_weight is None
+    assert engine.actual_weight is None
+
+
 @pytest.mark.parametrize(
     ("frame", "reason"),
     [
@@ -126,6 +158,7 @@ def test_exact_web_weighing_context_is_reported_and_required_for_save():
         "formula_item": "42",
         "station": "UAT-ST01",
         "scale": "SCALE-01",
+        "workflow_attempt": None,
     }
     assert state["actual"] == "3.33"
     assert state["save_eligible"] is True

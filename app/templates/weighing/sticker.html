@@ -11,6 +11,7 @@
   }
 </style>
 <div class="sticker shadow-sm" id="preweight-sticker">
+  {% if is_superseded %}<div class="alert alert-danger text-center fs-2 fw-bold">{{ t("VOID") }}</div>{% endif %}
   <h1 class="h4 text-center">SCT PREWEIGHT</h1>
   <div class="text-center mb-2"><span class="badge text-bg-success">{{ transaction.status|status_label }}</span></div>
   <dl class="row mb-2">
@@ -30,13 +31,14 @@
     <img class="sticker-qr" src="{{ url_for('weighing.sticker_qr', transaction_id=transaction.id) }}" alt="{{ t("ERP Preweight QR") }}">
   </div>
 </div>
+{% if replacement_chain|length > 1 %}<section class="card mt-3"><div class="card-body"><h2 class="h5">{{ t("Replacement chain") }}</h2><ol class="mb-0">{% for entry in replacement_chain %}<li>{{ entry.preweight_id }} — {{ entry.weighed_at_utc|local_datetime }}{% if entry.superseded_at_utc %} — {{ t("VOID") }}{% endif %}</li>{% endfor %}</ol></div></section>{% endif %}
 <div class="print-actions text-center mt-3">
-  <button class="btn btn-primary" type="button" onclick="window.print()">{{ t("Reprint") }}</button>
+  {% if not is_superseded %}<button class="btn btn-primary" type="button" onclick="window.print()">{{ t("Reprint") }}</button>{% endif %}
   {% if material_mode %}
   <a class="btn btn-success" href="{{ url_for('weighing.material_mode') }}">{{ t("Continue Material Queue") }}</a>
   {% else %}
   <a class="btn btn-outline-secondary" href="{{ url_for('weighing.order', po_id=transaction.production_order_id) }}">{{ t("Back to Weighing") }}</a>
   {% endif %}
 </div>
-<script>window.addEventListener("load", () => window.print());</script>
+{% if not is_superseded %}<script>window.addEventListener("load", () => window.print());</script>{% endif %}
 {% endblock %}
