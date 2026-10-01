@@ -5,6 +5,7 @@ from unittest.mock import Mock
 import pytest
 
 from scale_bridge.config import BridgeConfig, ConfigurationError, load_config, save_config
+from scale_bridge.windows import admin_config
 from scale_bridge.windows.admin_config import (
     UAT_ORIGIN,
     AdministratorConfigurationError,
@@ -165,9 +166,36 @@ def test_service_restart_can_recover_when_service_is_already_stopped():
     assert calls[-1] == ["sc.exe", "start", SERVICE_NAME]
 
 
-def test_configuration_elevation_is_controlled_off_windows():
+def test_configuration_elevation_is_controlled_off_windows(monkeypatch):
+    monkeypatch.setattr(admin_config.sys, "platform", "linux")
     with pytest.raises(AdministratorConfigurationError, match="only on Windows"):
         launch_elevated_configuration()
+
+
+def test_windows_configuration_elevation_uses_runas_with_safe_arguments(monkeypatch):
+    shell_execute = Mock(return_value=42)
+    list2cmdline = Mock(return_value="--configure")
+    monkeypatch.setattr(admin_config.sys, "platform", "win32")
+    monkeypatch.setattr(
+        admin_config.ctypes,
+        "windll",
+        SimpleNamespace(shell32=SimpleNamespace(ShellExecuteW=shell_execute)),
+        raising=False,
+    )
+    monkeypatch.setattr(admin_config.subprocess, "list2cmdline", list2cmdline)
+    executable = r"C:\Program Files\SCT\ScaleBridge\Diagnostics.exe"
+
+    launch_elevated_configuration(executable=executable)
+
+    list2cmdline.assert_called_once_with(["--configure"])
+    shell_execute.assert_called_once_with(
+        None,
+        "runas",
+        executable,
+        "--configure",
+        None,
+        1,
+    )
 
 
 def test_administrator_ui_displays_exact_environment_urls_and_bilingual_errors():
