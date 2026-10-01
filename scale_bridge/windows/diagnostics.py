@@ -14,11 +14,12 @@ from scale_bridge.config import (
     ConfigurationError,
     load_config,
 )
-from scale_bridge.logging_setup import sanitize_message
+from scale_bridge.logging_setup import configure_logging, sanitize_message
 from scale_bridge.serial_source import discover_ports
 from scale_bridge.windows.admin_config import (
     UAT_ORIGIN,
     AdministratorConfigurationError,
+    AdministratorConfigurationValidationError,
     apply_administrator_config,
     build_administrator_config,
     is_administrator,
@@ -230,12 +231,20 @@ class AdministratorConfigurationApp:
                 production_origin=self.production.get(),
             )
             apply_administrator_config(updated, DEFAULT_CONFIG_PATH)
-        except (ConfigurationError, AdministratorConfigurationError):
+        except AdministratorConfigurationValidationError as exc:
             messagebox.showerror(
                 "SCT Scale Bridge",
-                "ไม่สามารถบันทึกการกำหนดค่าได้ โปรดตรวจสอบค่าที่ป้อน / "
-                "Configuration could not be saved. Check the entered values.",
+                str(exc),
             )
+            return
+        except ConfigurationError:
+            messagebox.showerror(
+                "SCT Scale Bridge",
+                "ค่าการกำหนดค่าไม่ถูกต้อง / Configuration values are invalid.",
+            )
+            return
+        except AdministratorConfigurationError as exc:
+            messagebox.showerror("SCT Scale Bridge", str(exc))
             return
         messagebox.showinfo(
             "SCT Scale Bridge",
@@ -257,6 +266,7 @@ def main():
             )
             root.destroy()
             return
+        configure_logging(DEFAULT_CONFIG_DIR / "logs")
         AdministratorConfigurationApp(root)
     else:
         DiagnosticsApp(root)

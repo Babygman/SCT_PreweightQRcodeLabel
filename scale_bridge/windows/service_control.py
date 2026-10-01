@@ -1,6 +1,10 @@
 import subprocess
+import time
 
 SERVICE_NAME = "SCTPreweightScaleBridge"
+SERVICE_STOPPED = 1
+SERVICE_RUNNING = 4
+SERVICE_TRANSITION_TIMEOUT_SECONDS = 30
 
 
 def service_command(action, *, runner=subprocess.run):
@@ -20,12 +24,47 @@ def service_command(action, *, runner=subprocess.run):
     }
 
 
-def restart_service(*, runner=subprocess.run):
-    stop = service_command("stop", runner=runner)
-    already_stopped = "STOPPED" in stop["output"] or "1062" in stop["output"]
-    if stop["returncode"] != 0 and not already_stopped:
-        raise RuntimeError("Scale Bridge service could not be stopped")
+def query_service_state():
+    import win32serviceutil
+
+    return win32serviceutil.QueryServiceStatus(SERVICE_NAME)[1]
+
+
+def _wait_for_state(expected, *, state_reader, sleeper, monotonic, timeout):
+    deadline = monotonic() + timeout
+    while state_reader() != expected:
+        if monotonic() >= deadline:
+            raise RuntimeError("Scale Bridge service state transition timed out")
+        sleeper(0.25)
+
+
+def restart_service(
+    *,
+    runner=subprocess.run,
+    state_reader=query_service_state,
+    sleeper=time.sleep,
+    monotonic=time.monotonic,
+    timeout=SERVICE_TRANSITION_TIMEOUT_SECONDS,
+):
+    if state_reader() != SERVICE_STOPPED:
+        stop = service_command("stop", runner=runner)
+        if stop["returncode"] != 0:
+            raise RuntimeError("Scale Bridge service could not be stopped")
+        _wait_for_state(
+            SERVICE_STOPPED,
+            state_reader=state_reader,
+            sleeper=sleeper,
+            monotonic=monotonic,
+            timeout=timeout,
+        )
     start = service_command("start", runner=runner)
     if start["returncode"] != 0:
         raise RuntimeError("Scale Bridge service could not be started")
+    _wait_for_state(
+        SERVICE_RUNNING,
+        state_reader=state_reader,
+        sleeper=sleeper,
+        monotonic=monotonic,
+        timeout=timeout,
+    )
     return start
