@@ -7,12 +7,16 @@ import pytest
 from scale_bridge.config import BridgeConfig, load_config, save_config
 from scale_bridge.windows import admin_config
 from scale_bridge.windows.admin_config import (
+    AUTOMATIC_DISCOVERY,
+    EDITABLE_CONFIGURATION_FIELDS,
     UAT_ORIGIN,
     AdministratorConfigurationError,
     AdministratorConfigurationValidationError,
     apply_administrator_config,
     build_administrator_config,
+    configuration_display,
     launch_elevated_configuration,
+    save_and_reload_administrator_config,
 )
 from scale_bridge.windows.service_control import (
     SERVICE_NAME,
@@ -321,13 +325,95 @@ def test_windows_configuration_elevation_uses_runas_with_safe_arguments(monkeypa
 
 def test_administrator_ui_displays_exact_environment_urls_and_bilingual_errors():
     diagnostics = Path("scale_bridge/windows/diagnostics.py").read_text(encoding="utf-8")
-    assert "UAT_ORIGIN if self.enable_uat.get()" in diagnostics
+    admin = Path("scale_bridge/windows/admin_config.py").read_text(encoding="utf-8")
+    assert "self.uat_display.set(UAT_ORIGIN)" in diagnostics
     assert "self.production.get().strip()" in diagnostics
-    assert "ไม่ได้เลือก / Not selected" in diagnostics
-    assert "Production URL is required when Production is selected." in Path(
-        "scale_bridge/windows/admin_config.py"
-    ).read_text(encoding="utf-8")
+    assert "ไม่ได้เลือก / Not selected" in admin
+    assert "Production URL is required when Production is selected." in admin
     assert "Configuration values are invalid." in diagnostics
-    assert "The Scale Bridge service could not be restarted" in Path(
-        "scale_bridge/windows/admin_config.py"
-    ).read_text(encoding="utf-8")
+    assert "The Scale Bridge service could not be restarted" in admin
+
+
+def test_normal_diagnostics_configuration_display_is_read_only_and_persisted():
+    display = configuration_display(
+        {
+            "workstation_code": "WEIGH-01",
+            "scale_code": "SCALE-01",
+            "preferred_usb_serial": "AJ03K7N2A",
+            "allowed_origins": [UAT_ORIGIN, "https://preweight.sct.local"],
+        }
+    )
+
+    assert display == {
+        "workstation_code": "WEIGH-01",
+        "scale_code": "SCALE-01",
+        "preferred_usb_serial": "AJ03K7N2A",
+        "selected_environments": "UAT, Production",
+        "uat_origin": UAT_ORIGIN,
+        "production_origin": "https://preweight.sct.local",
+    }
+    source = Path("scale_bridge/windows/diagnostics.py").read_text(encoding="utf-8")
+    assert source.count("ttk.Combobox(") == 1
+    assert "if self.edit_mode:" in source
+    assert "แก้ไขในฐานะผู้ดูแลระบบ / Edit as Administrator" in source
+    assert "การกำหนดค่าสำหรับผู้ดูแลระบบ / Administrator Configuration" not in source
+
+
+def test_missing_preferred_device_displays_bilingual_automatic_discovery():
+    display = configuration_display(
+        {
+            "workstation_code": "WEIGH-01",
+            "scale_code": "SCALE-01",
+            "preferred_usb_serial": None,
+            "allowed_origins": [UAT_ORIGIN],
+        }
+    )
+
+    assert display["preferred_usb_serial"] == AUTOMATIC_DISCOVERY
+
+
+def test_elevated_edit_mode_exposes_only_approved_configuration_fields():
+    assert EDITABLE_CONFIGURATION_FIELDS == (
+        "workstation_code",
+        "scale_code",
+        "preferred_usb_serial",
+        "enable_uat",
+        "enable_production",
+        "production_origin",
+    )
+    source = Path("scale_bridge/windows/diagnostics.py").read_text(encoding="utf-8")
+    assert "URL ของ UAT / UAT Origin" in source
+    assert "self.uat_display.set(UAT_ORIGIN)" in source
+
+
+def test_successful_save_reloads_persisted_values_for_same_ui():
+    persisted = BridgeConfig(
+        workstation_code="WEIGH-02",
+        scale_code="SCALE-02",
+        preferred_usb_serial="AJ03K7N2A",
+        allowed_origins=(UAT_ORIGIN,),
+    )
+    apply = Mock()
+    loader = Mock(return_value=persisted)
+
+    reloaded = save_and_reload_administrator_config(
+        persisted,
+        Path("config.json"),
+        applier=apply,
+        loader=loader,
+    )
+
+    apply.assert_called_once_with(persisted, Path("config.json"))
+    loader.assert_called_once_with(Path("config.json"))
+    assert reloaded == persisted
+    source = Path("scale_bridge/windows/diagnostics.py").read_text(encoding="utf-8")
+    assert "self._set_configuration(self.config)" in source
+    assert "self.refresh()" in source
+
+
+def test_cancel_closes_window_without_save_or_service_restart():
+    source = Path("scale_bridge/windows/diagnostics.py").read_text(encoding="utf-8")
+    cancel = source[source.index("    def cancel(self):") : source.index("\n\n\ndef main():")]
+    assert "self.root.destroy()" in cancel
+    assert "save_and_reload_administrator_config" not in cancel
+    assert "restart_service" not in cancel

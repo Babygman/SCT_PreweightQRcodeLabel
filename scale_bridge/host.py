@@ -42,6 +42,12 @@ class BridgeHost:
             self.engine,
             port=self.config.api_port,
             allowed_origins=self.config.allowed_origins,
+            diagnostic_configuration={
+                "workstation_code": self.config.workstation_code,
+                "scale_code": self.config.scale_code,
+                "preferred_usb_serial": self.config.preferred_usb_serial,
+                "allowed_origins": list(self.config.allowed_origins),
+            },
         )
         self.reader = Thread(target=self.runtime.run, args=(self.stop_event,), daemon=True)
         self._serving = False

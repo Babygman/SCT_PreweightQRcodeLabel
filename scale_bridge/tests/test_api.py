@@ -22,7 +22,17 @@ def running_api():
         ScaleIdentity(scale_code="SCALE-01", com_port="COM3", workstation="WEIGH-01")
     )
     engine.ingest(IDS701FrameParser().parse(b"ST,GS,+   0.80kg"), received_at=now)
-    server = create_server(engine, port=0, allowed_origins=[ORIGIN])
+    server = create_server(
+        engine,
+        port=0,
+        allowed_origins=[ORIGIN],
+        diagnostic_configuration={
+            "workstation_code": "WEIGH-01",
+            "scale_code": "SCALE-01",
+            "preferred_usb_serial": "AJ03K7N2A",
+            "allowed_origins": [ORIGIN],
+        },
+    )
     thread = Thread(target=server.serve_forever, daemon=True)
     thread.start()
     yield engine, server.server_address, server
@@ -60,6 +70,12 @@ def test_api_binds_loopback_and_exposes_only_reading_state(running_api):
     _, _, state = request(address, "/status", origin=ORIGIN)
     assert state["connected"] is True
     assert state["gross"] == "0.80"
+    assert state["configuration"] == {
+        "workstation_code": "WEIGH-01",
+        "scale_code": "SCALE-01",
+        "preferred_usb_serial": "AJ03K7N2A",
+        "allowed_origins": [ORIGIN],
+    }
     _, _, capabilities = request(address, "/capabilities", origin=ORIGIN)
     assert capabilities["api_version"] == 2
     assert capabilities["receive_only"] is True

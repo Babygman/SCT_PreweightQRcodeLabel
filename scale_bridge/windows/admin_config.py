@@ -9,6 +9,17 @@ from scale_bridge.logging_setup import sanitize_message
 from scale_bridge.windows.service_control import restart_service
 
 UAT_ORIGIN = "http://preweight-uat.sct.local"
+AUTOMATIC_DISCOVERY = "ค้นหาอัตโนมัติ / Automatic discovery"
+NOT_SELECTED = "ไม่ได้เลือก / Not selected"
+UNAVAILABLE = "ไม่พร้อมใช้งาน / Unavailable"
+EDITABLE_CONFIGURATION_FIELDS = (
+    "workstation_code",
+    "scale_code",
+    "preferred_usb_serial",
+    "enable_uat",
+    "enable_production",
+    "production_origin",
+)
 logger = logging.getLogger("scale_bridge.windows.admin_config")
 
 
@@ -18,6 +29,25 @@ class AdministratorConfigurationError(RuntimeError):
 
 class AdministratorConfigurationValidationError(ValueError):
     pass
+
+
+def configuration_display(configuration):
+    origins = tuple(configuration.get("allowed_origins") or ())
+    production = next((origin for origin in origins if origin != UAT_ORIGIN), "")
+    selected = []
+    if UAT_ORIGIN in origins:
+        selected.append("UAT")
+    if production:
+        selected.append("Production")
+    return {
+        "workstation_code": configuration.get("workstation_code") or UNAVAILABLE,
+        "scale_code": configuration.get("scale_code") or UNAVAILABLE,
+        "preferred_usb_serial": configuration.get("preferred_usb_serial")
+        or AUTOMATIC_DISCOVERY,
+        "selected_environments": ", ".join(selected) if selected else NOT_SELECTED,
+        "uat_origin": UAT_ORIGIN if UAT_ORIGIN in origins else NOT_SELECTED,
+        "production_origin": production or NOT_SELECTED,
+    }
 
 
 def build_administrator_config(
@@ -116,6 +146,17 @@ def apply_administrator_config(
         raise AdministratorConfigurationError(
             f"{user_message}{detail}"
         ) from exc
+
+
+def save_and_reload_administrator_config(
+    config,
+    path,
+    *,
+    applier=apply_administrator_config,
+    loader=load_config,
+):
+    applier(config, path)
+    return loader(path)
 
 
 def is_administrator():

@@ -15,7 +15,8 @@ Origin. Responses echo only an exact allowed Origin and include `Vary: Origin`.
 - `GET /capabilities`: API version, receive-only guarantee, Software Tare support, and bilingual
   state definitions.
 - `GET /status` and `GET /reading`: current connection, identity, frame, Gross, Tare, Actual,
-  stability, freshness, and save eligibility.
+  stability, freshness, save eligibility, and the non-secret persisted Workstation Code, Scale
+  Code, preferred FTDI USB serial, and exact allowed Origins used by read-only diagnostics.
 - `POST /context`: non-sensitive Material, PO, Formula Item, Station, and Scale context. Any change
   clears Software Tare.
 - `POST /tare/capture`: captures the latest valid, fresh `ST,GS` kg value in memory.

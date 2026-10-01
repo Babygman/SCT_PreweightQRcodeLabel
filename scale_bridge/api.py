@@ -9,15 +9,21 @@ from .status import USER_STATES, bilingual_state
 LOOPBACK_HOST = "127.0.0.1"
 
 
-def create_server(engine: ScaleStateEngine, *, port=8765, allowed_origins=()):
+def create_server(
+    engine: ScaleStateEngine,
+    *,
+    port=8765,
+    allowed_origins=(),
+    diagnostic_configuration=None,
+):
     origins = frozenset(allowed_origins)
     if not origins or "*" in origins:
         raise ValueError("an explicit non-wildcard Origin allowlist is required")
-    handler = _handler_for(engine, origins)
+    handler = _handler_for(engine, origins, diagnostic_configuration or {})
     return ThreadingHTTPServer((LOOPBACK_HOST, port), handler)
 
 
-def _handler_for(engine, allowed_origins):
+def _handler_for(engine, allowed_origins, diagnostic_configuration):
     class Handler(BaseHTTPRequestHandler):
         server_version = "IDS701ScaleBridge/0.1"
 
@@ -53,6 +59,7 @@ def _handler_for(engine, allowed_origins):
                 state = engine.snapshot()
                 code = _user_state_code(state)
                 state["user_state"] = bilingual_state(code)
+                state["configuration"] = diagnostic_configuration
                 self._json(200, state)
             else:
                 self._json(404, {"error": "NOT_FOUND"})

@@ -93,21 +93,26 @@ signing, UAT access, or production access.
 
 ## Administration and diagnostics
 
-The diagnostic executable runs without elevation and displays service state, detected FTDI
-devices, VID/PID, USB serial, COM port, decoded frame status, stable state, Gross, Tare, Actual,
-timestamp, and sanitized recent errors. It has no serial-output or scale-control functions.
+The diagnostic executable runs without elevation and uses one consistent information layout for
+service and bridge state, the IDS701 reading, persisted Workstation Code, Scale Code, preferred
+FTDI USB serial, selected environments, exact allowed Origins, and sanitized recent errors. The
+preferred device is read-only in this normal view and shows `ค้นหาอัตโนมัติ / Automatic discovery`
+when no USB serial is configured. It has no serial-output or scale-control functions.
 
-`Administrator Configuration` launches a separate UAC-elevated instance only when configuration
-changes are requested. An administrator configures Workstation Code, Scale Code, preferred FTDI
-USB serial, and the exact browser Origins allowed to call the loopback API. UAT is fixed at
+`แก้ไขในฐานะผู้ดูแลระบบ / Edit as Administrator` launches the same executable and layout through
+UAC, enabling only the approved configuration fields. An administrator configures Workstation
+Code, Scale Code, preferred FTDI USB serial, and the exact browser Origins allowed to call the
+loopback API. UAT is fixed and non-editable at
 `http://preweight-uat.sct.local`; Production accepts a separately supplied exact HTTP/HTTPS Origin.
 Either environment or both may be selected, and the utility shows every selected URL before save.
 Wildcard, credential-bearing, malformed, or non-Origin URLs are rejected.
 
 Configuration replacement is atomic and preserves the existing hardened DACL. After a successful
-save, only `SCTPreweightScaleBridge` is restarted. If save or restart fails, the utility restores
-the prior configuration and reports a controlled Thai/English error. The same installer supports
-UAT and Production; upgrades and uninstall continue preserving `config.json`.
+save, only `SCTPreweightScaleBridge` is restarted. The utility waits for the service to stop and
+start, then refreshes the same layout with the persisted values. Cancel and window close do not
+save or restart anything. If save or restart fails, the utility restores the prior configuration
+and reports a controlled Thai/English error. The same installer supports UAT and Production;
+upgrades and uninstall continue preserving `config.json`.
 
 Service lifecycle commands for troubleshooting are:
 
@@ -181,8 +186,8 @@ sc.exe query SCTPreweightScaleBridge
 
 Sign in as a standard user and open diagnostics plus SCT Preweight in the approved browser. Confirm
 diagnostics and weighing pages can read the loopback bridge while attempts to modify files in
-`$InstallDir` or `$Config` are denied. Select Administrator Configuration and confirm UAC is
-requested only at that boundary.
+`$InstallDir` or `$Config` are denied. Select `แก้ไขในฐานะผู้ดูแลระบบ / Edit as Administrator`
+and confirm UAC is requested only at that boundary.
 
 ### Listener, firewall, Defender, and persistence checks
 

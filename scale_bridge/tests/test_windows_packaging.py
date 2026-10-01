@@ -162,7 +162,7 @@ def test_diagnostics_elevates_only_administrator_configuration_boundary():
     assert "uac_admin=False" in spec
     assert '"runas"' in admin
     assert 'subprocess.list2cmdline(["--configure"])' in admin
-    assert 'if "--configure" in sys.argv' in diagnostics
+    assert 'edit_mode = "--configure" in sys.argv' in diagnostics
     assert "Administrator privileges are required" in diagnostics
     assert "launch_elevated_configuration()" in diagnostics
     assert 'workstation_code="DIAGNOSTICS"' in diagnostics
