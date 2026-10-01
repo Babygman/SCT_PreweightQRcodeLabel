@@ -96,6 +96,50 @@ def test_every_work_context_change_clears_tare(replacement):
     engine.capture_tare()
     engine.set_context(replacement)
     assert engine.tare_weight is None
+
+
+def test_exact_web_weighing_context_is_reported_and_required_for_save():
+    engine = ScaleStateEngine(clock=lambda: datetime(2026, 9, 29, 8, 0, tzinfo=UTC))
+    engine.connect(ScaleIdentity(scale_code="SCALE-01", workstation="UAT-ST01"))
+    context = WeighingContext(
+        material="R01006S1",
+        production_order="PD001",
+        formula_item="42",
+        station="UAT-ST01",
+        scale="SCALE-01",
+    )
+    engine.set_context(context)
+    engine.ingest(
+        IDS701FrameParser().parse(b"ST,GS,+   0.80kg"),
+        received_at=datetime(2026, 9, 29, 8, 0, tzinfo=UTC),
+    )
+    engine.capture_tare()
+    engine.ingest(
+        IDS701FrameParser().parse(b"ST,GS,+   4.13kg"),
+        received_at=datetime(2026, 9, 29, 8, 0, tzinfo=UTC),
+    )
+
+    state = engine.snapshot()
+    assert state["context"] == {
+        "material": "R01006S1",
+        "production_order": "PD001",
+        "formula_item": "42",
+        "station": "UAT-ST01",
+        "scale": "SCALE-01",
+    }
+    assert state["actual"] == "3.33"
+    assert state["save_eligible"] is True
+
+    engine.set_context(
+        WeighingContext(
+            material="R01006S1",
+            production_order="PD002",
+            formula_item="43",
+            station="UAT-ST01",
+            scale="SCALE-01",
+        )
+    )
+    assert engine.snapshot()["tare"] is None
     assert engine.snapshot()["save_block_reason"] == "TARE_MISSING"
 
 

@@ -39,6 +39,11 @@ operator-controlled identity; the software does not invent hardware identity.
 State-changing calls require an allowed `Origin`. CORS never uses `*`. There is no endpoint for
 serial output, Zero, Hardware Tare, Calibration, Reset, Print, or device configuration.
 
+The Material-centric browser sends the selected Material, Production Order, Formula Item,
+Station, and Scale identity to `POST /context`. It polls `GET /status`, uses only
+`POST /tare/capture` for Software Tare, and submits the bridge-reported Actual Weight only after a
+fresh eligible, matching-context status check. The bridge remains loopback-only and receive-only.
+
 Development-mode startup remains available from the repository root:
 
 ```powershell

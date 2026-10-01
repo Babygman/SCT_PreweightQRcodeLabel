@@ -38,7 +38,7 @@ def test_pyinstaller_metadata_is_standalone_receive_only_and_unsigned():
     )
     assert 'name="SCTPreweightScaleBridgeService"' in service_spec
     assert 'name="SCTPreweightScaleBridgeDiagnostics"' in diagnostics_spec
-    assert "uac_admin=True" in diagnostics_spec
+    assert "uac_admin=False" in diagnostics_spec
     assert "codesign_identity=None" in service_spec + diagnostics_spec
     assert "flask" in service_spec and "sqlalchemy" in service_spec
     assert service_spec.count("upx=False") == 2
@@ -151,6 +151,21 @@ def test_runtime_has_no_remote_download_or_unexpected_listener_surface():
     assert 'LOOPBACK_HOST = "127.0.0.1"' in api
     assert "0.0.0.0" not in api + host
     assert "subprocess" not in host + api
+
+
+def test_diagnostics_elevates_only_administrator_configuration_boundary():
+    diagnostics = (ROOT / "windows" / "diagnostics.py").read_text(encoding="utf-8")
+    admin = (ROOT / "windows" / "admin_config.py").read_text(encoding="utf-8")
+    spec = (ROOT / "packaging" / "scale_bridge_diagnostics.spec").read_text(
+        encoding="utf-8"
+    )
+    assert "uac_admin=False" in spec
+    assert '"runas"' in admin
+    assert 'subprocess.list2cmdline(["--configure"])' in admin
+    assert 'if "--configure" in sys.argv' in diagnostics
+    assert "Administrator privileges are required" in diagnostics
+    assert "launch_elevated_configuration()" in diagnostics
+    assert 'workstation_code="DIAGNOSTICS"' in diagnostics
 
 
 def test_signing_is_external_sha256_timestamped_and_contains_no_key_material():

@@ -49,6 +49,18 @@
   {% else %}<h2 class="h4" id="workspace-heading">{{ queue.material.code }} — {{ queue.material.name }}</h2><div class="alert alert-success"><strong>{{ t("MATCH") }}</strong> · {{ t("Detected Material") }} {{ queue.material.code }} · {{ queue.completed_count }} / {{ queue.items|length }} {{ t("Production Orders completed") }}</div>{% set display_queue = queue %}{% include "weighing/_material_queue_table.html" %}{% endif %}
   </div></section>
 </div>
+{% if queue %}<div id="scale-bridge-config" hidden data-base-url="http://127.0.0.1:8765" data-messages='{{ {
+  "connected": t("Scale connected"), "disconnected": t("Scale disconnected"),
+  "stable": t("Stable"), "unstable": t("Unstable"),
+  "DISCONNECTED": t("Scale disconnected"), "READING_MISSING": t("No decoded scale reading"),
+  "NOT_DECODED": t("Malformed scale reading"), "READING_STALE": t("Scale reading is stale"),
+  "OVERLOAD": t("Scale overload"), "READING_UNSTABLE": t("Scale reading is unstable"),
+  "GROSS_MODE_REQUIRED": t("Gross Weight mode is required"), "KG_REQUIRED": t("Scale unit must be kg"),
+  "TARE_MISSING": t("Capture Tare before saving"), "ACTUAL_WEIGHT_NOT_POSITIVE": t("Actual Weight must be greater than zero"),
+  "CONTEXT_MISMATCH": t("Scale context does not match the selected weighing line"),
+  "BRIDGE_UNAVAILABLE": t("Scale Bridge unavailable"), "FINAL_CHECK_FAILED": t("Scale changed before save. Weighing was not saved"),
+  "tare": t("Tare captured")
+}|tojson|forceescape }}'></div>{% endif %}
 <script>
 (() => {
   const search = document.getElementById("material-search"); const filter = document.getElementById("material-filter"); const choices = [...document.querySelectorAll("[data-material-choice]")]; const empty = document.getElementById("material-filter-empty");

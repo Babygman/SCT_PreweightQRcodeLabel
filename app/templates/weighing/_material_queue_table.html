@@ -24,13 +24,26 @@
         </div>
       </div>
       {% elif queue %}
-      <form class="po-action material-queue-form" method="post" action="{{ url_for('weighing.weigh_material_queue_item', po_id=order.id, formula_item_id=item.id) }}">
+      <form class="po-action material-queue-form" method="post" action="{{ url_for('weighing.weigh_material_queue_item', po_id=order.id, formula_item_id=item.id) }}" data-scale-weighing-form data-material="{{ item.material.code }}" data-production-order="{{ order.po_no }}" data-formula-item="{{ item.id }}" data-station="{{ weighing_station.code }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div><div class="small text-body-secondary">{{ t("Target Weight") }}</div><strong>{{ item.target_weight }} {{ item.unit }}</strong></div>
         <div>
+          <div class="scale-status border rounded p-3 mb-3" aria-live="polite">
+            <div class="d-flex justify-content-between gap-2 flex-wrap"><strong>{{ t("Scale status") }}</strong><span data-scale-connection>{{ t("Scale disconnected") }}</span></div>
+            <dl class="row small mb-2 mt-2">
+              <dt class="col-6">{{ t("Reading status") }}</dt><dd class="col-6 mb-1" data-scale-stability>—</dd>
+              <dt class="col-6">{{ t("Gross Weight") }}</dt><dd class="col-6 mb-1"><span data-scale-gross>—</span> <span data-scale-unit>—</span></dd>
+              <dt class="col-6">{{ t("Tare Weight") }}</dt><dd class="col-6 mb-1"><span data-scale-tare>—</span> <span data-scale-unit>—</span></dd>
+              <dt class="col-6">{{ t("Actual Weight") }}</dt><dd class="col-6 mb-1"><span data-scale-actual>—</span> <span data-scale-unit>—</span></dd>
+            </dl>
+            <div class="small text-danger" data-scale-reason>{{ t("Scale Bridge unavailable") }}</div>
+          </div>
           <label class="form-label" for="actual-weight-{{ order.id }}-{{ item.id }}">{{ t("Actual Weight") }}</label>
-          <div class="weight-entry mb-2"><input class="form-control actual-weight" id="actual-weight-{{ order.id }}-{{ item.id }}" name="actual_weight" type="number" min="0.001" step="0.001" required><span>{{ item.unit }}</span></div>
-          <button class="btn btn-primary save-weighing" type="submit" disabled aria-label="{{ t('Save Weighing') }} — {{ item.material.code }} / {{ order.po_no }}">{{ t("Save Weighing") }} — {{ order.po_no }}</button>
+          <div class="weight-entry mb-2"><input class="form-control actual-weight" id="actual-weight-{{ order.id }}-{{ item.id }}" name="actual_weight" type="text" inputmode="none" readonly required aria-readonly="true"><span>{{ item.unit }}</span></div>
+          <div class="d-grid gap-2">
+            <button class="btn btn-outline-secondary capture-tare" type="button">{{ t("Tare") }}</button>
+            <button class="btn btn-primary save-weighing" type="submit" disabled aria-label="{{ t('Save Weighing') }} — {{ item.material.code }} / {{ order.po_no }}">{{ t("Save Weighing") }} — {{ order.po_no }}</button>
+          </div>
         </div>
       </form>
       {% else %}
@@ -40,6 +53,4 @@
   </article>
 {% endfor %}
 </div>
-{% if queue %}<script>
-document.querySelectorAll(".material-queue-form").forEach((form) => { const weight = form.querySelector(".actual-weight"); const save = form.querySelector(".save-weighing"); weight.addEventListener("input", () => { save.disabled = !(Number(weight.value) > 0); }); form.addEventListener("submit", (event) => { if (!(Number(weight.value) > 0)) event.preventDefault(); save.disabled = true; }); });
-</script>{% endif %}
+{% if queue %}<script src="{{ url_for('static', filename='weighing_scale_bridge.js') }}" defer></script>{% endif %}

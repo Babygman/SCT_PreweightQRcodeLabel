@@ -13,6 +13,7 @@ from scale_bridge.config import (
     _copy_existing_permissions,
     load_config,
     save_config,
+    validate_origin,
 )
 
 
@@ -56,6 +57,42 @@ def test_machine_configuration_round_trip_contains_only_non_secret_settings(tmp_
 def test_invalid_configuration_is_rejected(changes):
     with pytest.raises(ConfigurationError):
         valid_config(**changes).validate()
+
+
+@pytest.mark.parametrize(
+    "origin",
+    [
+        "*",
+        "https://*.example.com",
+        "ftp://preweight.example",
+        "https://preweight.example/",
+        "https://preweight.example/path",
+        "https://preweight.example?query=1",
+        "https://preweight.example#fragment",
+        "https://user:password@preweight.example",
+        "https://bad_host.example",
+        "https://preweight.example.",
+        "https://preweight.example:99999",
+        "https://preweight example",
+        "not-a-url",
+    ],
+)
+def test_origin_validation_rejects_non_exact_or_unsafe_urls(origin):
+    with pytest.raises(ConfigurationError):
+        validate_origin(origin)
+
+
+@pytest.mark.parametrize(
+    "origin",
+    [
+        "http://preweight-uat.sct.local",
+        "https://preweight.sct.local",
+        "https://preweight.sct.local:8443",
+        "http://127.0.0.1:5000",
+    ],
+)
+def test_origin_validation_accepts_exact_http_and_https_origins(origin):
+    assert validate_origin(origin) == origin
 
 
 def test_unknown_or_secret_configuration_field_is_rejected(tmp_path):

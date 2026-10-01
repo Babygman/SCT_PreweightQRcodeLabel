@@ -17,7 +17,7 @@ An administrator runs `SCT-Preweight-Scale-Bridge-2.0.0-x64.exe`. The installer:
 4. creates restrictive machine configuration and log directories under
    `C:\ProgramData\SCT\ScaleBridge`;
 5. starts the service; and
-6. creates an administrator diagnostic shortcut.
+6. creates a diagnostic shortcut that runs without elevation for ordinary inspection.
 
 No inbound firewall rule is created because the API binds only to `127.0.0.1`.
 
@@ -93,10 +93,21 @@ signing, UAT access, or production access.
 
 ## Administration and diagnostics
 
-The administrator-only diagnostic executable displays service state, detected FTDI devices,
-VID/PID, USB serial, COM port, decoded frame status, stable state, Gross, Tare, Actual, timestamp,
-and sanitized recent errors. It can select a preferred USB serial when more than one matching
-adapter exists. It has no serial-output or scale-control functions.
+The diagnostic executable runs without elevation and displays service state, detected FTDI
+devices, VID/PID, USB serial, COM port, decoded frame status, stable state, Gross, Tare, Actual,
+timestamp, and sanitized recent errors. It has no serial-output or scale-control functions.
+
+`Administrator Configuration` launches a separate UAC-elevated instance only when configuration
+changes are requested. An administrator configures Workstation Code, Scale Code, preferred FTDI
+USB serial, and the exact browser Origins allowed to call the loopback API. UAT is fixed at
+`http://preweight-uat.sct.local`; Production accepts a separately supplied exact HTTP/HTTPS Origin.
+Either environment or both may be selected, and the utility shows every selected URL before save.
+Wildcard, credential-bearing, malformed, or non-Origin URLs are rejected.
+
+Configuration replacement is atomic and preserves the existing hardened DACL. After a successful
+save, only `SCTPreweightScaleBridge` is restarted. If save or restart fails, the utility restores
+the prior configuration and reports a controlled Thai/English error. The same installer supports
+UAT and Production; upgrades and uninstall continue preserving `config.json`.
 
 Service lifecycle commands for troubleshooting are:
 
@@ -168,9 +179,10 @@ if ($BeforeConfigHash -ne $AfterConfigHash) { throw 'Configuration changed durin
 sc.exe query SCTPreweightScaleBridge
 ```
 
-Sign in as a standard user and open SCT Preweight in the approved browser. Confirm weighing pages
-can read the loopback bridge while attempts to modify files in `$InstallDir` or `$Config` are
-denied. Diagnostics intentionally requests administrator elevation.
+Sign in as a standard user and open diagnostics plus SCT Preweight in the approved browser. Confirm
+diagnostics and weighing pages can read the loopback bridge while attempts to modify files in
+`$InstallDir` or `$Config` are denied. Select Administrator Configuration and confirm UAC is
+requested only at that boundary.
 
 ### Listener, firewall, Defender, and persistence checks
 

@@ -1,7 +1,9 @@
 import json
 import os
+import re
 import stat
 from dataclasses import asdict, dataclass, fields
+from ipaddress import ip_address
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from urllib.parse import urlsplit
@@ -12,6 +14,46 @@ DEFAULT_CONFIG_PATH = DEFAULT_CONFIG_DIR / "config.json"
 
 class ConfigurationError(ValueError):
     pass
+
+
+_HOST_LABEL = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$")
+
+
+def validate_origin(origin):
+    if not isinstance(origin, str) or not origin or origin != origin.strip() or "*" in origin:
+        raise ConfigurationError(f"invalid approved Origin: {origin!r}")
+    try:
+        parsed = urlsplit(origin)
+        port = parsed.port
+    except ValueError as exc:
+        raise ConfigurationError(f"invalid approved Origin: {origin!r}") from exc
+    if (
+        parsed.scheme not in {"http", "https"}
+        or not parsed.netloc
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.path
+        or parsed.query
+        or parsed.fragment
+    ):
+        raise ConfigurationError(f"invalid approved Origin: {origin!r}")
+    hostname = parsed.hostname
+    if not hostname or hostname.endswith(".") or any(character.isspace() for character in hostname):
+        raise ConfigurationError(f"invalid approved Origin: {origin!r}")
+    try:
+        ip_address(hostname)
+    except ValueError:
+        try:
+            ascii_hostname = hostname.encode("idna").decode("ascii")
+        except UnicodeError as exc:
+            raise ConfigurationError(f"invalid approved Origin: {origin!r}") from exc
+        if len(ascii_hostname) > 253 or any(
+            not _HOST_LABEL.fullmatch(label) for label in ascii_hostname.split(".")
+        ):
+            raise ConfigurationError(f"invalid approved Origin: {origin!r}") from None
+    if port is not None and not 1 <= port <= 65535:
+        raise ConfigurationError(f"invalid approved Origin: {origin!r}")
+    return origin
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,11 +80,7 @@ class BridgeConfig:
         if not self.allowed_origins:
             raise ConfigurationError("at least one approved Origin is required")
         for origin in self.allowed_origins:
-            parsed = urlsplit(origin)
-            if origin == "*" or parsed.scheme not in {"http", "https"} or not parsed.netloc:
-                raise ConfigurationError(f"invalid approved Origin: {origin!r}")
-            if parsed.path not in {"", "/"} or parsed.query or parsed.fragment:
-                raise ConfigurationError("Origins must not include paths, queries, or fragments")
+            validate_origin(origin)
         if (self.vid, self.pid) != (0x0403, 0x6001):
             raise ConfigurationError("only the approved FTDI 0403:6001 adapter is supported")
         if (self.baudrate, self.bytesize, self.parity, self.stopbits) != (9600, 8, "N", 1):

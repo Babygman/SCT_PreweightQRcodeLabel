@@ -194,6 +194,7 @@ def material_mode():
         selection=selection,
         overview=overview,
         weight_form=MaterialQueueWeightForm(),
+        weighing_station=db.session.get(Station, session["station_id"]),
     )
 
 
