@@ -1,45 +1,79 @@
 {% extends "base.html" %}
 {% block title %}{{ t("Material-centric Weighing") }}{% endblock %}
+{% block body_class %}operator-weighing-page{% endblock %}
+{% block nav_class %}operator-nav{% endblock %}
+{% block main_class %}operator-main{% endblock %}
 {% block content %}
 <style>
-  .material-workspace { display: grid; grid-template-columns: minmax(20rem, 22rem) minmax(0, 1fr); gap: 1.5rem; align-items: start; }
+  .operator-weighing-page { overflow-x: hidden; }
+  .operator-nav { --bs-navbar-padding-y: .3rem; }
+  .operator-main { max-width: none; padding: clamp(.45rem, 1vw, 1rem) clamp(.5rem, 1.2vw, 1.5rem) !important; }
+  .operator-main > .alert { margin-bottom: .45rem; padding: .45rem .75rem; }
+  .operator-topbar { min-height: 2.5rem; }
+  .operator-topbar h1 { font-size: clamp(1.1rem, 1.5vw, 1.75rem); }
+  .operator-session-strip { display: flex; gap: clamp(.75rem, 2vw, 2rem); align-items: center; padding: .45rem .75rem; font-size: clamp(.82rem, 1vw, 1rem); }
+  .operator-session-strip strong { white-space: nowrap; }
+  .operator-workflow { margin-bottom: .45rem !important; }
+  .operator-workflow .list-group-item { padding: .25rem .55rem; font-size: .78rem; }
+  .material-workspace { display: grid; grid-template-columns: minmax(17rem, 1fr) minmax(0, 3fr); gap: clamp(.5rem, 1vw, 1rem); align-items: start; }
   .material-workspace > * { min-width: 0; }
   .material-queue-pane { min-width: 0; }
-  .material-list { max-height: max(16rem, calc(100vh - 25rem)); overflow-y: auto; overscroll-behavior: contain; padding: .2rem; margin: -.2rem; }
+  .queue-disclosure > summary { cursor: pointer; font-weight: 700; padding: .7rem .85rem; list-style-position: inside; }
+  .material-list { max-height: max(14rem, calc(100vh - 18rem)); overflow-y: auto; overscroll-behavior: contain; padding: .2rem; margin: -.2rem; }
   .weighing-workspace { min-width: 0; overflow: hidden; }
+  .weighing-workspace > .card-body { padding: clamp(.6rem, 1vw, 1rem); }
   .material-choice { width: 100%; text-align: left; border: 1px solid var(--bs-border-color); background: white; }
   .material-choice[aria-current="true"] { border-color: var(--bs-primary); box-shadow: 0 0 0 .2rem rgba(13,110,253,.18); }
   .material-choice:focus-visible { outline: .2rem solid var(--bs-warning); outline-offset: .15rem; }
   .po-work-card { min-width: 0; }
-  .po-details { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: .75rem 1rem; }
-  .po-action { display: grid; grid-template-columns: minmax(8rem, auto) minmax(14rem, 1fr); gap: 1rem; align-items: end; }
+  .po-details { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .4rem .75rem; padding: .45rem .6rem; background: var(--bs-tertiary-bg); border-radius: .4rem; }
+  .po-details dd { overflow-wrap: anywhere; }
+  .po-action { display: grid; grid-template-columns: minmax(7rem, .6fr) minmax(0, 3fr); gap: .75rem; align-items: start; }
   .weight-entry { display: grid; grid-template-columns: minmax(8rem, 1fr) auto; gap: .5rem; align-items: center; }
   .weight-entry .form-control, .po-action .btn { min-width: 0; width: 100%; }
-  @media (max-width: 1199.98px) { .po-action { grid-template-columns: minmax(0, 1fr); } }
-  @media (max-width: 991.98px) { .material-workspace { grid-template-columns: minmax(0, 1fr); } .material-list { max-height: 24rem; } }
+  .operator-status-row { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+  .operator-status-pill { border: 2px solid currentColor; border-radius: 999px; padding: .35rem .7rem; text-align: center; font-size: clamp(1rem, 1.5vw, 1.45rem); font-weight: 800; }
+  .operator-status-pill[data-state="connected"], .operator-status-pill[data-state="stable"] { color: var(--bs-success-text-emphasis); background: var(--bs-success-bg-subtle); }
+  .operator-status-pill[data-state="disconnected"], .operator-status-pill[data-state="overload"], .operator-status-pill[data-state="stale"] { color: var(--bs-danger-text-emphasis); background: var(--bs-danger-bg-subtle); }
+  .operator-status-pill[data-state="unstable"] { color: var(--bs-warning-text-emphasis); background: var(--bs-warning-bg-subtle); }
+  .operator-metrics { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: .45rem; }
+  .operator-metrics .metric { border: 1px solid var(--bs-border-color); border-radius: .45rem; padding: clamp(.35rem, .6vw, .65rem); min-width: 0; }
+  .operator-metrics dt { font-size: clamp(.72rem, .85vw, .95rem); color: var(--bs-secondary-color); }
+  .operator-metrics dd { margin: 0; font-weight: 800; line-height: 1.05; overflow-wrap: anywhere; }
+  .operator-metrics .gross dd, .operator-metrics .tare dd, .operator-metrics .target dd { font-size: clamp(2rem, 2.15vw, 2.65rem); }
+  .operator-metrics .actual { grid-column: span 3; border-width: 3px; border-color: var(--bs-primary); }
+  .operator-metrics .actual dd { font-size: clamp(4.5rem, 5vw, 6rem); }
+  .operator-metrics .difference, .operator-metrics .percentage { grid-column: span 1; }
+  .operator-metrics .difference dd, .operator-metrics .percentage dd, .operator-metrics .target-state dd { font-size: clamp(2.25rem, 2.6vw, 3rem); }
+  .operator-metrics .target-state { grid-column: span 1; }
+  .operator-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .6rem; }
+  .operator-actions .btn { min-height: clamp(4rem, 4.5vw, 4.5rem); font-size: clamp(1rem, 1.35vw, 1.35rem); font-weight: 700; }
+  [data-operator-state="UNDER"] .target-state { background: var(--bs-warning-bg-subtle); }
+  [data-operator-state="ON_TARGET"] .target-state { background: var(--bs-success-bg-subtle); }
+  [data-operator-state="OVER"] .target-state, [data-operator-state="OVERLOAD"] .target-state { background: var(--bs-danger-bg-subtle); }
+  @media (max-width: 1199.98px) { .po-action { grid-template-columns: minmax(0, 1fr); } .operator-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); } .operator-metrics .actual { grid-column: span 3; } }
+  @media (max-width: 991.98px) { .material-workspace { grid-template-columns: minmax(0, 1fr); } .material-list { max-height: 14rem; } .po-details { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 575.98px) { .operator-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } .operator-metrics .actual { grid-column: span 2; } .operator-actions { grid-template-columns: 1fr; } .operator-status-row { grid-template-columns: 1fr; } }
 </style>
-<header class="mb-3 d-flex justify-content-between align-items-start gap-3 flex-wrap">
-  <div><h1 class="display-6 mb-2">{{ t("Material-centric Weighing") }}</h1><p class="lead text-muted mb-0">{{ t("Choose a material, scan its physical tag, then weigh its prepared Production Orders.") }}</p></div>
-  <a class="btn btn-outline-secondary" href="{{ url_for('preparation.prepare') }}">{{ t("Back to Production Order Preparation") }}</a>
+<header class="operator-topbar mb-2 d-flex justify-content-between align-items-center gap-2 flex-wrap">
+  <div><h1 class="mb-0">{{ t("Material-centric Weighing") }}</h1><p class="visually-hidden">{{ t("Choose a material, scan its physical tag, then weigh its prepared Production Orders.") }}</p></div>
+  <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('preparation.prepare') }}">{{ t("Back to Production Order Preparation") }}</a>
 </header>
-{% set current_step = 3 if overview.is_complete else 2 %}{% include "_material_workflow_steps.html" %}
-<section class="card shadow-sm mb-4" aria-labelledby="session-summary-heading"><div class="card-body">
-  <h2 class="h5 mb-1" id="session-summary-heading">{{ t("Production Orders for This Weighing Session") }}</h2>
-  <p class="text-muted mb-0">{{ overview.orders|length }} Production Order(s) · Overall progress {{ overview.completed_count }} / {{ overview.required_count }}</p>
-</div></section>
+{% set current_step = 3 if overview.is_complete else 2 %}<div class="operator-workflow">{% include "_material_workflow_steps.html" %}</div>
+<section class="card shadow-sm mb-2 operator-session-strip" aria-label="{{ t('Production Orders for This Weighing Session') }}"><strong>{{ t("Session ID") }}: {{ overview.session_code }}</strong><span>{{ overview.orders|length }} Production Order(s)</span><span>{{ t("Overall progress") }} {{ overview.completed_count }} / {{ overview.required_count }}</span></section>
 <div class="material-workspace">
-  <aside class="card shadow-sm material-queue-pane" aria-labelledby="materials-heading"><div class="card-body">
-    <h2 class="h5" id="materials-heading">{{ t("Material Queue") }}</h2>
+  <aside class="card shadow-sm material-queue-pane" aria-labelledby="materials-heading"><details class="queue-disclosure" open><summary id="materials-heading">{{ t("Material Queue") }}</summary><div class="card-body pt-0">
     <label class="form-label" for="material-search">{{ t("Search code or description") }}</label><input class="form-control mb-2" id="material-search" type="search" autocomplete="off">
     <label class="form-label" for="material-filter">{{ t("Filter by status") }}</label><select class="form-select mb-3" id="material-filter"><option value="all">{{ t("All") }}</option><option value="not-started">{{ t("Not started") }}</option><option value="in-progress">{{ t("In progress") }}</option><option value="completed">{{ t("Completed") }}</option></select>
     <div class="d-grid gap-2 material-list" id="material-list">
-    {% for summary in overview.materials %}{% set status_key = 'completed' if summary.status == 'Completed' else ('in-progress' if summary.completed_count else 'not-started') %}
-      <a class="btn material-choice p-3" href="{{ url_for('weighing.material_mode', material=summary.material.code) }}" data-material-choice data-search="{{ summary.material.code|lower }} {{ summary.material.name|lower }}" data-status="{{ status_key }}" data-selected="{{ 'true' if selection and selection.material.code == summary.material.code else 'false' }}" aria-current="{{ 'true' if selection and selection.material.code == summary.material.code else 'false' }}">
-        <span class="d-flex justify-content-between gap-2"><strong>{{ summary.material.code }}</strong>{% if status_key == 'completed' %}<span class="badge text-bg-success">{{ t("Completed") }}</span>{% elif status_key == 'in-progress' %}<span class="badge text-bg-warning">{{ t("In progress") }}</span>{% else %}<span class="badge text-bg-secondary">{{ t("Not started") }}</span>{% endif %}</span>
+    {% for summary in overview.materials %}{% set status_key = 'completed' if summary.status == 'Completed' else ('in-progress' if summary.completed_count else 'not-started') %}{% set reweighed = reweighed_material_context.get(summary.material.code) %}
+      <a class="btn material-choice p-3" href="{{ url_for('weighing.weighing_history', transaction_id=reweighed.transaction.id) if reweighed else url_for('weighing.material_mode', material=summary.material.code) }}" data-material-choice data-search="{{ summary.material.code|lower }} {{ summary.material.name|lower }}" data-status="{{ status_key }}" data-selected="{{ 'true' if selection and selection.material.code == summary.material.code else 'false' }}" aria-current="{{ 'true' if selection and selection.material.code == summary.material.code else 'false' }}">
+        <span class="d-flex justify-content-between gap-2"><strong>{{ summary.material.code }}</strong><span>{% if status_key == 'completed' %}<span class="badge text-bg-success">{{ t("Completed") }}</span>{% elif status_key == 'in-progress' %}<span class="badge text-bg-warning">{{ t("In progress") }}</span>{% else %}<span class="badge text-bg-secondary">{{ t("Not started") }}</span>{% endif %}{% if reweighed %} <span class="badge text-bg-warning">{{ t("Reweighed") }}</span>{% endif %}</span></span>
         <span class="d-block small text-body-secondary">{{ summary.material.name }}</span><span class="d-block small mt-1">{{ summary.completed_count }} of {{ summary.required_count }} Production Orders completed</span>
+        {% if reweighed %}<span class="d-block small mt-1"><strong>{{ t("Replaces") }}:</strong> {{ reweighed.replaced.preweight_id }}</span><span class="d-block small"><strong>{{ t("Reweigh reason") }}:</strong> {{ reweighed.replaced.supersede_reason }}</span><span class="d-block small"><strong>{{ t("Reweighed at") }}:</strong> {{ reweighed.transaction.weighed_at_utc|local_datetime }}</span><span class="d-block small"><strong>{{ t("Reweighed by") }}:</strong> {{ reweighed.user.display_name }}</span><span class="d-block small text-decoration-underline">{{ t("View Weighing History") }}</span>{% endif %}
       </a>
     {% endfor %}</div><p class="text-muted mt-3 mb-0 d-none" id="material-filter-empty">{{ t("No materials match this search and filter.") }}</p>
-  </div></aside>
+  </div></details></aside>
   <section class="card shadow-sm weighing-workspace" aria-labelledby="workspace-heading"><div class="card-body">
   {% if overview.is_complete %}<h2 class="h4" id="workspace-heading">{{ t("All required weighings are complete") }}</h2><p>{{ t("Session ID") }}: <strong>{{ overview.session_code }}</strong></p>{% set completion_dialog_id = "complete-session-from-weighing" %}{% include "_complete_weighing_session.html" %}
   {% elif not selection %}<div class="text-center py-5"><h2 class="h4" id="workspace-heading">{{ t("Select a Material to begin weighing.") }}</h2><p class="text-muted mb-0">{{ t("Choose any incomplete or partially completed Material from the queue.") }}</p></div>

@@ -32,8 +32,13 @@
             <td class="w-50">
               {% if transaction %}
               <span class="badge text-bg-success">{{ transaction.status|status_label }}</span>
+              {% if transaction.replaces_transaction_id %}<span class="badge text-bg-warning">{{ t("Reweighed") }}</span>{% endif %}
               <strong class="ms-2">{{ transaction.preweight_id }}</strong>
               <div class="small text-muted">Actual: {{ transaction.actual_weight }} {{ transaction.unit_snapshot }}</div>
+              {% set replaced = replaced_transactions_by_id.get(transaction.replaces_transaction_id) %}
+              {% set reweighed_by = weighed_users_by_id.get(transaction.weighed_by_user_id) %}
+              {% if replaced %}<div class="small mt-2"><strong>{{ t("Replaces") }}:</strong> {{ replaced.preweight_id }}</div><div class="small"><strong>{{ t("Reweigh reason") }}:</strong> {{ replaced.supersede_reason }}</div><div class="small"><strong>{{ t("Reweighed at") }}:</strong> {{ transaction.weighed_at_utc|local_datetime }}</div><div class="small"><strong>{{ t("Reweighed by") }}:</strong> {{ reweighed_by.display_name if reweighed_by else "—" }}</div>{% endif %}
+              <a class="btn btn-outline-secondary btn-sm mt-2" href="{{ url_for('weighing.weighing_history', transaction_id=transaction.id) }}">{{ t("View Weighing History") }}</a>
               <a class="btn btn-outline-primary btn-sm mt-2" href="{{ url_for('weighing.sticker', transaction_id=transaction.id) }}" target="_blank" rel="noopener">{{ t("Reprint Label") }}</a>
               <details class="mt-2"><summary class="btn btn-outline-warning btn-sm">{{ t("Reweigh") }}</summary><form class="mt-2" method="post" action="{{ url_for('weighing.start_reweigh', transaction_id=transaction.id) }}">{{ reweigh_form.csrf_token }}<label class="form-label" for="reweigh-reason-{{ transaction.id }}">{{ t("Reweigh reason") }}</label><textarea class="form-control form-control-sm" id="reweigh-reason-{{ transaction.id }}" name="reason" required minlength="10" maxlength="500"></textarea><div class="form-check mt-2"><input class="form-check-input" id="reweigh-confirm-{{ transaction.id }}" name="confirm" type="checkbox" value="y" required><label class="form-check-label" for="reweigh-confirm-{{ transaction.id }}">{{ t("Confirm Reweigh") }}</label></div><button class="btn btn-warning btn-sm mt-2" type="submit" onclick="return window.confirm({{ t('Confirm Reweigh')|tojson }})">{{ t("Reweigh") }}</button></form></details>
               {% else %}

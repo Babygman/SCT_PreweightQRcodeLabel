@@ -82,8 +82,12 @@
   const show = (form, state = null, overrideReason = null) => {
     const connected = Boolean(state?.connected);
     const reason = overrideReason || (state && activeContext ? reasonFor(state, activeContext) : "BRIDGE_UNAVAILABLE");
-    form.querySelector("[data-scale-connection]").textContent = connected ? messages.connected : messages.disconnected;
-    form.querySelector("[data-scale-stability]").textContent = state ? (state.stable ? messages.stable : messages.unstable) : "—";
+    const connection = form.querySelector("[data-scale-connection]");
+    connection.textContent = `${connected ? "●" : "✕"} ${connected ? messages.connected : messages.disconnected}`;
+    connection.dataset.state = connected ? "connected" : "disconnected";
+    const stability = form.querySelector("[data-scale-stability]");
+    stability.textContent = state ? `${state.stable ? "●" : "▲"} ${state.stable ? messages.stable : messages.unstable}` : "—";
+    stability.dataset.state = state ? (state.stable ? "stable" : "unstable") : "unknown";
     form.querySelector("[data-scale-gross]").textContent = state?.gross ?? "—";
     form.querySelector("[data-scale-tare]").textContent = state?.tare ?? "—";
     form.querySelector("[data-scale-actual]").textContent = state?.actual ?? "—";
@@ -101,11 +105,14 @@
     form.querySelector("[data-scale-difference]").textContent = deviationResult.error ? "—" : deviationResult.difference;
     form.querySelector("[data-scale-percentage]").textContent = deviationResult.error ? "—" : `${deviationResult.percentage}%`;
     const deviation = form.querySelector("[data-scale-deviation-status]");
-    deviation.className = "col-6 mb-1 fw-bold";
+    deviation.className = "";
     if (deviationResult.error) deviation.textContent = "—";
     else if (deviationResult.status === "UNDER") { deviation.textContent = messages.under; deviation.classList.add("text-warning"); }
     else if (deviationResult.status === "OVER") { deviation.textContent = messages.over; deviation.classList.add("text-danger"); }
     else { deviation.textContent = messages.onTarget; deviation.classList.add("text-success"); }
+    form.querySelector("[data-operator-state]").dataset.operatorState = reason || deviationResult.status || "PENDING";
+    if (reason === "READING_STALE") stability.dataset.state = "stale";
+    if (reason === "OVERLOAD") stability.dataset.state = "overload";
   };
 
   const refresh = async () => {

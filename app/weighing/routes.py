@@ -51,6 +51,72 @@ def _current_transaction_for_selected_station(transaction_id):
     return transaction
 
 
+def _replacement_display_context(transactions):
+    """Load display-only provenance for active replacement transactions."""
+    replaced_ids = {
+        transaction.replaces_transaction_id
+        for transaction in transactions
+        if transaction.replaces_transaction_id is not None
+    }
+    replaced = (
+        db.session.scalars(
+            select(WeighingTransaction).where(WeighingTransaction.id.in_(replaced_ids))
+        ).all()
+        if replaced_ids
+        else []
+    )
+    user_ids = {
+        transaction.weighed_by_user_id
+        for transaction in transactions
+        if transaction.replaces_transaction_id is not None
+    }
+    users = (
+        db.session.scalars(select(User).where(User.id.in_(user_ids))).all()
+        if user_ids
+        else []
+    )
+    return (
+        {transaction.id: transaction for transaction in replaced},
+        {user.id: user for user in users},
+    )
+
+
+def _replacement_chain(transaction):
+    """Follow only persisted replacement links; never infer historical links."""
+    seen = set()
+    current = transaction
+    while current.replaces_transaction_id is not None:
+        if current.id in seen:
+            abort(409)
+        seen.add(current.id)
+        predecessor = db.session.get(
+            WeighingTransaction, current.replaces_transaction_id
+        )
+        if predecessor is None:
+            abort(409)
+        current = predecessor
+
+    chain = []
+    while current is not None:
+        if current.id in {entry.id for entry in chain}:
+            abort(409)
+        if (
+            current.station_id != transaction.station_id
+            or current.production_order_id != transaction.production_order_id
+            or current.formula_item_id != transaction.formula_item_id
+        ):
+            abort(404)
+        chain.append(current)
+        current = (
+            db.session.get(
+                WeighingTransaction, current.superseded_by_transaction_id
+            )
+            if current.superseded_by_transaction_id is not None
+            else None
+        )
+    return sorted(chain, key=lambda entry: (entry.weighed_at_utc, entry.id), reverse=True)
+
+
 @bp.get("/order/<int:po_id>")
 @login_required
 @station_required
@@ -69,11 +135,16 @@ def order(po_id):
     transactions_by_item = {
         transaction.formula_item_id: transaction for transaction in transactions
     }
+    replaced_transactions_by_id, weighed_users_by_id = _replacement_display_context(
+        transactions
+    )
     return render_template(
         "weighing/order.html",
         order=production_order,
         form=WeighingForm(),
         transactions_by_item=transactions_by_item,
+        replaced_transactions_by_id=replaced_transactions_by_id,
+        weighed_users_by_id=weighed_users_by_id,
         reweigh_form=ReweighForm(),
     )
 
@@ -150,6 +221,37 @@ def sticker(transaction_id):
     )
 
 
+@bp.get("/transaction/<int:transaction_id>/history")
+@login_required
+@station_required
+@roles_required("OPERATOR", "SUPERVISOR", "ADMIN")
+def weighing_history(transaction_id):
+    transaction = _completed_transaction_for_selected_station(transaction_id)
+    chain = _replacement_chain(transaction)
+    users = db.session.scalars(
+        select(User).where(
+            User.id.in_({entry.weighed_by_user_id for entry in chain})
+        )
+    ).all()
+    stations = db.session.scalars(
+        select(Station).where(Station.id.in_({entry.station_id for entry in chain}))
+    ).all()
+    return render_template(
+        "weighing/history.html",
+        chain=chain,
+        production_order=db.session.get(
+            ProductionOrder, transaction.production_order_id
+        ),
+        transactions_by_id={entry.id: entry for entry in chain},
+        users_by_id={user.id: user for user in users},
+        stations_by_id={station.id: station for station in stations},
+        current_transaction=next(
+            (entry for entry in chain if entry.superseded_at_utc is None), None
+        ),
+        reweigh_form=ReweighForm(),
+    )
+
+
 @bp.get("/transaction/<int:transaction_id>/qr.png")
 @login_required
 @station_required
@@ -207,6 +309,27 @@ def cancel_reweigh():
 @roles_required("OPERATOR", "SUPERVISOR", "ADMIN")
 def material_mode():
     overview = active_work_set_overview(session["station_id"])
+    active_order_ids = [order.id for order in overview.orders]
+    reweighed_material_context = {}
+    if active_order_ids:
+        active_replacements = db.session.scalars(
+            select(WeighingTransaction)
+            .where(
+                    WeighingTransaction.production_order_id.in_(active_order_ids),
+                    WeighingTransaction.superseded_at_utc.is_(None),
+                    WeighingTransaction.replaces_transaction_id.is_not(None),
+                )
+            .order_by(WeighingTransaction.weighed_at_utc, WeighingTransaction.id)
+        ).all()
+        replaced_by_id, replacement_users_by_id = _replacement_display_context(
+            active_replacements
+        )
+        for active_replacement in active_replacements:
+            reweighed_material_context[active_replacement.material_code_snapshot] = {
+                "transaction": active_replacement,
+                "replaced": replaced_by_id[active_replacement.replaces_transaction_id],
+                "user": replacement_users_by_id[active_replacement.weighed_by_user_id],
+            }
     requested_material = request.args.get("material", type=str)
     if requested_material is not None:
         selection = build_material_selection(
@@ -246,6 +369,21 @@ def material_mode():
     if queue is not None and not queue.success:
         session.pop("active_material_tag", None)
         queue = None
+    display_items = []
+    if selection is not None:
+        display_items.extend(selection.items)
+    if queue is not None:
+        display_items.extend(queue.items)
+    display_transactions = list(
+        {
+            item.transaction.id: item.transaction
+            for item in display_items
+            if item.transaction is not None
+        }.values()
+    )
+    replaced_transactions_by_id, weighed_users_by_id = _replacement_display_context(
+        display_transactions
+    )
     return render_template(
         "weighing/material.html",
         queue=queue,
@@ -256,6 +394,9 @@ def material_mode():
         reweigh_form=ReweighForm(),
         reweigh_transaction_id=reweigh_transaction_id,
         reweigh_workflow_attempt=session.get("reweigh_workflow_attempt"),
+        replaced_transactions_by_id=replaced_transactions_by_id,
+        weighed_users_by_id=weighed_users_by_id,
+        reweighed_material_context=reweighed_material_context,
     )
 
 

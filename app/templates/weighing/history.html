@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}{{ t("Weighing History") }}{% endblock %}
+{% block content %}
+<header class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
+  <div>
+    <h1 class="h3 mb-1">{{ t("Weighing History") }}</h1>
+    <p class="text-body-secondary mb-0">
+      {{ chain[0].material_code_snapshot }} · {{ production_order.po_no }}
+    </p>
+  </div>
+  <a class="btn btn-outline-secondary" href="{{ url_for('weighing.material_mode', material=chain[0].material_code_snapshot) }}">{{ t("Back to Weighing") }}</a>
+</header>
+<div class="d-grid gap-3" aria-label="{{ t('Weighing History') }}">
+{% for transaction in chain %}
+  {% set predecessor = transactions_by_id.get(transaction.replaces_transaction_id) %}
+  {% set replacement = transactions_by_id.get(transaction.superseded_by_transaction_id) %}
+  {% set actor = users_by_id.get(transaction.weighed_by_user_id) %}
+  {% set station = stations_by_id.get(transaction.station_id) %}
+  <article class="card shadow-sm" data-history-transaction="{{ transaction.id }}">
+    <div class="card-header d-flex justify-content-between align-items-center gap-2 flex-wrap">
+      <strong>{{ transaction.preweight_id }}</strong>
+      <div>
+      {% if transaction.id == current_transaction.id %}
+        <span class="badge text-bg-success">{{ t("Current") }}</span>
+        {% if transaction.replaces_transaction_id %}<span class="badge text-bg-warning">{{ t("Reweighed") }}</span>{% endif %}
+      {% else %}
+        <span class="badge text-bg-danger">{{ t("VOID") }}</span>
+      {% endif %}
+      </div>
+    </div>
+    <div class="card-body">
+      <dl class="row mb-3">
+        <dt class="col-sm-4">{{ t("Target Weight") }}</dt><dd class="col-sm-8">{{ transaction.target_weight_snapshot }} {{ transaction.unit_snapshot }}</dd>
+        <dt class="col-sm-4">{{ t("Recorded Actual Weight") }}</dt><dd class="col-sm-8">{{ transaction.actual_weight }} {{ transaction.unit_snapshot }}</dd>
+        <dt class="col-sm-4">{{ t("Weighed at") }}</dt><dd class="col-sm-8">{{ transaction.weighed_at_utc|local_datetime }}</dd>
+        <dt class="col-sm-4">{{ t("User") }}</dt><dd class="col-sm-8">{{ actor.display_name if actor else "—" }}</dd>
+        <dt class="col-sm-4">{{ t("Station") }}</dt><dd class="col-sm-8">{{ station.code if station else "—" }}</dd>
+        <dt class="col-sm-4">{{ t("Status") }}</dt><dd class="col-sm-8">{{ transaction.status|status_label }}</dd>
+        {% if predecessor %}
+        <dt class="col-sm-4">{{ t("Replaces") }}</dt><dd class="col-sm-8">{{ predecessor.preweight_id }}</dd>
+        <dt class="col-sm-4">{{ t("Reweigh reason") }}</dt><dd class="col-sm-8">{{ predecessor.supersede_reason }}</dd>
+        {% endif %}
+        {% if replacement %}
+        <dt class="col-sm-4">{{ t("Replaced by") }}</dt><dd class="col-sm-8">{{ replacement.preweight_id }}</dd>
+        <dt class="col-sm-4">{{ t("Reweigh reason") }}</dt><dd class="col-sm-8">{{ transaction.supersede_reason }}</dd>
+        {% endif %}
+      </dl>
+      {% if transaction.id == current_transaction.id %}
+      <div class="d-flex gap-2 flex-wrap">
+        <a class="btn btn-outline-primary btn-sm" href="{{ url_for('weighing.sticker', transaction_id=transaction.id) }}" target="_blank" rel="noopener">{{ t("Reprint Label") }}</a>
+        <details><summary class="btn btn-outline-warning btn-sm">{{ t("Reweigh") }}</summary><form class="mt-2" method="post" action="{{ url_for('weighing.start_reweigh', transaction_id=transaction.id) }}">{{ reweigh_form.csrf_token }}<label class="form-label" for="history-reweigh-reason-{{ transaction.id }}">{{ t("Reweigh reason") }}</label><textarea class="form-control form-control-sm" id="history-reweigh-reason-{{ transaction.id }}" name="reason" required minlength="10" maxlength="500"></textarea><div class="form-check mt-2"><input class="form-check-input" id="history-reweigh-confirm-{{ transaction.id }}" name="confirm" type="checkbox" value="y" required><label class="form-check-label" for="history-reweigh-confirm-{{ transaction.id }}">{{ t("Confirm Reweigh") }}</label></div><button class="btn btn-warning btn-sm mt-2" type="submit" onclick="return window.confirm({{ t('Confirm Reweigh')|tojson }})">{{ t("Reweigh") }}</button></form></details>
+      </div>
+      {% endif %}
+    </div>
+  </article>
+{% endfor %}
+</div>
+{% endblock %}
