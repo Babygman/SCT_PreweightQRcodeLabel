@@ -243,6 +243,52 @@ def test_superseded_transaction_cannot_start_another_reweigh(app, client):
         assert AuditLog.query.filter_by(event_type="WEIGHING_REPLACED").count() == 1
 
 
+def test_completed_material_reweigh_renders_pending_controls_without_mutation(app, client):
+    with app.app_context():
+        user, station, order, items = seed_weighing_data()
+        order.work_set_station_id = station.id
+        order.work_set_active = True
+        db.session.commit()
+        original = save_weighing(
+            order.id, items[0].id, MATERIAL_TAG, "5.125", user.id, station.id
+        ).transaction
+        original_id = original.id
+        original_preweight_id = original.preweight_id
+        station_id = station.id
+
+    _login_for_weighing(client, station_id)
+    response = client.post(
+        f"/weighing/transaction/{original_id}/reweigh",
+        data={
+            "reason": "Container was replaced for verification.",
+            "confirm": "y",
+        },
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+    page = response.get_data(as_text=True)
+    with client.session_transaction() as session:
+        workflow_attempt = session["reweigh_workflow_attempt"]
+
+    assert "data-scale-weighing-form" in page
+    assert f'data-workflow-attempt="{workflow_attempt}"' in page
+    assert 'class="form-control actual-weight"' in page
+    assert "readonly required aria-readonly=\"true\"" in page
+    assert 'class="btn btn-primary save-weighing" type="submit" disabled' in page
+    assert "Capture Tare before saving" in page
+    assert "ยกเลิกน้ำหนักภาชนะ / Cancel Tare" in page
+    assert "ยกเลิกการชั่งใหม่ / Cancel Reweigh" in page
+
+    with app.app_context():
+        original = db.session.get(WeighingTransaction, original_id)
+        assert WeighingTransaction.query.count() == 1
+        assert original.preweight_id == original_preweight_id
+        assert original.status == "COMPLETED"
+        assert original.superseded_at_utc is None
+        assert original.superseded_by_transaction_id is None
+        assert AuditLog.query.filter_by(event_type="WEIGHING_REPLACED").count() == 0
+
+
 def test_superseded_label_is_void_and_not_reprintable(app, client):
     with app.app_context():
         user, station, order, items = seed_weighing_data()
