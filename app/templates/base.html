@@ -22,6 +22,7 @@
   <nav class="navbar navbar-dark bg-dark {% block nav_class %}{% endblock %}">
     <div class="container">
       <a class="navbar-brand" href="{{ url_for('index') }}">SCT Preweight</a>
+      {% block nav_context %}{% endblock %}
       <div class="d-flex align-items-center gap-3 text-white">
         <span>{{ current_user.display_name }}{% if selected_station %} · {{ selected_station.code }}{% endif %}</span>
         <form method="post" action="{{ url_for('auth.logout') }}">

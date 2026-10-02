@@ -1,4 +1,5 @@
 import json
+from dataclasses import replace
 from io import BytesIO
 from uuid import uuid4
 
@@ -369,6 +370,16 @@ def material_mode():
     if queue is not None and not queue.success:
         session.pop("active_material_tag", None)
         queue = None
+    if queue is not None:
+        queue = replace(
+            queue,
+            items=tuple(
+                sorted(
+                    queue.items,
+                    key=lambda item: item.transaction is not None,
+                )
+            ),
+        )
     display_items = []
     if selection is not None:
         display_items.extend(selection.items)

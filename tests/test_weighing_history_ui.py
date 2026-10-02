@@ -123,7 +123,14 @@ def test_operator_view_has_bounded_responsive_first_viewport_controls():
         encoding="utf-8"
     )
 
-    assert "grid-template-columns: minmax(17rem, 1fr) minmax(0, 3fr)" in template
+    assert "grid-template-columns: minmax(16rem, 1fr) minmax(0, 3fr)" in template
+    assert "height: 100dvh" in template
+    assert "grid-template-columns: repeat(12, minmax(0, 1fr))" in template
+    assert ".operator-metrics .actual { grid-column: 1 / 5; grid-row: 1" in template
+    assert ".operator-metrics .target-state { grid-column: 8 / 13; grid-row: 2" in template
+    assert "operator-match-strip" in template
+    assert "operator-nav-context" in template
+    assert "min-height: clamp(4rem, 7vh, 4.5rem)" in template
     assert "queue-disclosure" in template and "<details" in template
     assert "overflow-x: hidden" in template
     assert "clamp(4.5rem, 5vw, 6rem)" in template

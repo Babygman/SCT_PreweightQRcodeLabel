@@ -3,68 +3,81 @@
 {% block body_class %}operator-weighing-page{% endblock %}
 {% block nav_class %}operator-nav{% endblock %}
 {% block main_class %}operator-main{% endblock %}
+{% block nav_context %}<div class="operator-nav-context"><span aria-hidden="true">|</span><strong>{{ t("Material-centric Weighing") }}</strong><a href="{{ url_for('preparation.prepare') }}" aria-label="{{ t('Back to Production Order Preparation') }}" title="{{ t('Back to Production Order Preparation') }}">{{ t("Back") }}</a></div>{% endblock %}
 {% block content %}
 <style>
-  .operator-weighing-page { overflow-x: hidden; }
-  .operator-nav { --bs-navbar-padding-y: .3rem; }
-  .operator-main { max-width: none; padding: clamp(.45rem, 1vw, 1rem) clamp(.5rem, 1.2vw, 1.5rem) !important; }
-  .operator-main > .alert { margin-bottom: .45rem; padding: .45rem .75rem; }
-  .operator-topbar { min-height: 2.5rem; }
-  .operator-topbar h1 { font-size: clamp(1.1rem, 1.5vw, 1.75rem); }
-  .operator-session-strip { display: flex; gap: clamp(.75rem, 2vw, 2rem); align-items: center; padding: .45rem .75rem; font-size: clamp(.82rem, 1vw, 1rem); }
-  .operator-session-strip strong { white-space: nowrap; }
-  .operator-workflow { margin-bottom: .45rem !important; }
-  .operator-workflow .list-group-item { padding: .25rem .55rem; font-size: .78rem; }
-  .material-workspace { display: grid; grid-template-columns: minmax(17rem, 1fr) minmax(0, 3fr); gap: clamp(.5rem, 1vw, 1rem); align-items: start; }
+  .operator-weighing-page { height: 100dvh; overflow: hidden; }
+  .operator-nav { --bs-navbar-padding-y: .28rem; min-height: 3.25rem; }
+  .operator-nav .container { max-width: none; padding-inline: clamp(.65rem, 1vw, 1.25rem); }
+  .operator-nav .navbar-brand { font-size: clamp(1rem, 1.3vw, 1.35rem); font-weight: 800; }
+  .operator-nav-context { display: flex; align-items: center; gap: .8rem; color: white; margin-right: auto; font-size: clamp(.78rem, .95vw, 1rem); }
+  .operator-nav-context a { color: rgba(255,255,255,.82); font-size: .82em; }
+  .operator-main { height: calc(100dvh - 3.25rem); max-width: none; padding: clamp(.35rem, .55vw, .65rem) clamp(.45rem, .65vw, .8rem) !important; display: flex; flex-direction: column; overflow: hidden; }
+  .operator-main > .alert { flex: 0 0 auto; margin-bottom: .35rem; padding: .35rem .7rem; }
+  .operator-match-strip { flex: 0 0 auto; display: flex; align-items: center; gap: .65rem; min-height: 2.85rem; margin-bottom: .45rem; padding: .38rem .75rem; border: 1px solid var(--bs-success-border-subtle); border-radius: .55rem; color: var(--bs-success-text-emphasis); background: var(--bs-success-bg-subtle); font-size: clamp(.85rem, 1.1vw, 1.15rem); overflow: hidden; }
+  .operator-match-icon { flex: 0 0 auto; display: inline-grid; place-items: center; width: 2rem; height: 2rem; border-radius: 50%; background: var(--bs-success); color: white; font-weight: 900; }
+  .operator-match-strip span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .material-workspace { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(16rem, 1fr) minmax(0, 3fr); gap: clamp(.45rem, .65vw, .75rem); align-items: stretch; }
   .material-workspace > * { min-width: 0; }
-  .material-queue-pane { min-width: 0; }
-  .queue-disclosure > summary { cursor: pointer; font-weight: 700; padding: .7rem .85rem; list-style-position: inside; }
-  .material-list { max-height: max(14rem, calc(100vh - 18rem)); overflow-y: auto; overscroll-behavior: contain; padding: .2rem; margin: -.2rem; }
-  .weighing-workspace { min-width: 0; overflow: hidden; }
-  .weighing-workspace > .card-body { padding: clamp(.6rem, 1vw, 1rem); }
+  .material-queue-pane, .weighing-workspace { min-width: 0; min-height: 0; overflow: hidden; }
+  .queue-disclosure { height: 100%; }
+  .queue-disclosure > summary { cursor: pointer; font-size: clamp(1rem, 1.25vw, 1.45rem); font-weight: 800; padding: .55rem .75rem; list-style-position: inside; }
+  .queue-disclosure > .card-body { height: calc(100% - 3rem); display: flex; flex-direction: column; padding: 0 .7rem .65rem; }
+  .queue-controls { flex: 0 0 auto; }
+  .material-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; padding: .15rem; margin: -.15rem; }
+  .weighing-workspace > .card-body { height: 100%; padding: clamp(.45rem, .65vw, .75rem); overflow-y: auto; overflow-x: hidden; }
   .material-choice { width: 100%; text-align: left; border: 1px solid var(--bs-border-color); background: white; }
   .material-choice[aria-current="true"] { border-color: var(--bs-primary); box-shadow: 0 0 0 .2rem rgba(13,110,253,.18); }
   .material-choice:focus-visible { outline: .2rem solid var(--bs-warning); outline-offset: .15rem; }
-  .po-work-card { min-width: 0; }
-  .po-details { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .4rem .75rem; padding: .45rem .6rem; background: var(--bs-tertiary-bg); border-radius: .4rem; }
+  [data-po-work-cards] { display: grid; gap: .5rem !important; }
+  .po-work-card { min-width: 0; border: 0; }
+  .po-work-card > .card-header { padding: .25rem .3rem .45rem; background: transparent; border: 0; }
+  .po-work-card > .card-header h3 { font-size: clamp(1.35rem, 2vw, 2.4rem); font-weight: 800; }
+  .po-work-card > .card-body { padding: 0; }
+  .po-details { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; padding: .45rem .6rem; background: var(--bs-tertiary-bg); border: 1px solid var(--bs-border-color); border-radius: .5rem; }
+  .po-details > div { padding-inline: .65rem; border-right: 1px solid var(--bs-border-color); }
+  .po-details > div:last-child { border-right: 0; }
   .po-details dd { overflow-wrap: anywhere; }
-  .po-action { display: grid; grid-template-columns: minmax(7rem, .6fr) minmax(0, 3fr); gap: .75rem; align-items: start; }
+  .po-action { display: grid; grid-template-columns: minmax(7rem, .6fr) minmax(0, 3fr); gap: .55rem; align-items: start; }
+  .material-queue-form { display: block; }
   .weight-entry { display: grid; grid-template-columns: minmax(8rem, 1fr) auto; gap: .5rem; align-items: center; }
   .weight-entry .form-control, .po-action .btn { min-width: 0; width: 100%; }
-  .operator-status-row { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
-  .operator-status-pill { border: 2px solid currentColor; border-radius: 999px; padding: .35rem .7rem; text-align: center; font-size: clamp(1rem, 1.5vw, 1.45rem); font-weight: 800; }
+  .scale-status { padding: .55rem !important; margin-bottom: .55rem !important; border: 0 !important; }
+  .operator-status-row { display: grid; grid-template-columns: 1fr 1fr; gap: .55rem; }
+  .operator-status-pill { display: flex; align-items: center; justify-content: center; min-height: clamp(3.5rem, 5.5vh, 4.65rem); border: 2px solid currentColor; border-radius: .55rem; padding: .3rem .65rem; text-align: center; font-size: clamp(1rem, 1.6vw, 1.75rem); font-weight: 800; }
   .operator-status-pill[data-state="connected"], .operator-status-pill[data-state="stable"] { color: var(--bs-success-text-emphasis); background: var(--bs-success-bg-subtle); }
   .operator-status-pill[data-state="disconnected"], .operator-status-pill[data-state="overload"], .operator-status-pill[data-state="stale"] { color: var(--bs-danger-text-emphasis); background: var(--bs-danger-bg-subtle); }
   .operator-status-pill[data-state="unstable"] { color: var(--bs-warning-text-emphasis); background: var(--bs-warning-bg-subtle); }
-  .operator-metrics { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: .45rem; }
-  .operator-metrics .metric { border: 1px solid var(--bs-border-color); border-radius: .45rem; padding: clamp(.35rem, .6vw, .65rem); min-width: 0; }
+  .operator-metrics { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: .5rem; }
+  .operator-metrics .metric { border: 1px solid var(--bs-border-color); border-radius: .5rem; padding: clamp(.35rem, .6vw, .65rem); min-width: 0; background: white; }
   .operator-metrics dt { font-size: clamp(.72rem, .85vw, .95rem); color: var(--bs-secondary-color); }
   .operator-metrics dd { margin: 0; font-weight: 800; line-height: 1.05; overflow-wrap: anywhere; }
-  .operator-metrics .gross dd, .operator-metrics .tare dd, .operator-metrics .target dd { font-size: clamp(2rem, 2.15vw, 2.65rem); }
-  .operator-metrics .actual { grid-column: span 3; border-width: 3px; border-color: var(--bs-primary); }
-  .operator-metrics .actual dd { font-size: clamp(4.5rem, 5vw, 6rem); }
-  .operator-metrics .difference, .operator-metrics .percentage { grid-column: span 1; }
+  .operator-metrics .actual { grid-column: 1 / 5; grid-row: 1; border-width: 2px; border-color: var(--bs-primary); background: var(--bs-primary-bg-subtle); }
+  .operator-metrics .gross { grid-column: 5 / 8; grid-row: 1; }
+  .operator-metrics .tare { grid-column: 8 / 11; grid-row: 1; }
+  .operator-metrics .target { grid-column: 11 / 13; grid-row: 1; }
+  .operator-metrics .difference { grid-column: 1 / 5; grid-row: 2; }
+  .operator-metrics .percentage { grid-column: 5 / 8; grid-row: 2; }
+  .operator-metrics .target-state { grid-column: 8 / 13; grid-row: 2; }
+  .operator-metrics .gross dd, .operator-metrics .tare dd, .operator-metrics .target dd { font-size: clamp(2rem, 2.2vw, 2.65rem); }
+  .operator-metrics .actual dd { font-size: clamp(4.5rem, 5vw, 6rem); color: var(--bs-primary); }
   .operator-metrics .difference dd, .operator-metrics .percentage dd, .operator-metrics .target-state dd { font-size: clamp(2.25rem, 2.6vw, 3rem); }
-  .operator-metrics .target-state { grid-column: span 1; }
   .operator-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .6rem; }
-  .operator-actions .btn { min-height: clamp(4rem, 4.5vw, 4.5rem); font-size: clamp(1rem, 1.35vw, 1.35rem); font-weight: 700; }
+  .operator-actions .btn { min-height: clamp(4rem, 7vh, 4.5rem); font-size: clamp(1rem, 1.35vw, 1.4rem); font-weight: 800; }
   [data-operator-state="UNDER"] .target-state { background: var(--bs-warning-bg-subtle); }
   [data-operator-state="ON_TARGET"] .target-state { background: var(--bs-success-bg-subtle); }
   [data-operator-state="OVER"] .target-state, [data-operator-state="OVERLOAD"] .target-state { background: var(--bs-danger-bg-subtle); }
-  @media (max-width: 1199.98px) { .po-action { grid-template-columns: minmax(0, 1fr); } .operator-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); } .operator-metrics .actual { grid-column: span 3; } }
-  @media (max-width: 991.98px) { .material-workspace { grid-template-columns: minmax(0, 1fr); } .material-list { max-height: 14rem; } .po-details { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-  @media (max-width: 575.98px) { .operator-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } .operator-metrics .actual { grid-column: span 2; } .operator-actions { grid-template-columns: 1fr; } .operator-status-row { grid-template-columns: 1fr; } }
+  @media (max-height: 960px) and (min-width: 992px) { .operator-status-pill { min-height: 3.4rem; } .operator-metrics .metric { padding-block: .3rem; } .operator-actions .btn { min-height: 4rem; } }
+  @media (max-width: 1199.98px) { .po-details { font-size: .88rem; } .operator-metrics .actual dd { font-size: clamp(4rem, 6vw, 5.25rem); } }
+  @media (max-width: 991.98px) { .operator-weighing-page { height: auto; min-height: 100dvh; overflow-y: auto; } .operator-main { height: auto; min-height: calc(100dvh - 3.25rem); overflow: visible; } .material-workspace { grid-template-columns: minmax(0, 1fr); } .material-queue-pane { min-height: 3rem; } .queue-disclosure > .card-body { height: auto; } .material-list { max-height: 16rem; } .weighing-workspace > .card-body { overflow: visible; } .po-details { grid-template-columns: repeat(2, minmax(0, 1fr)); } .po-details > div { border-right: 0; } }
+  @media (max-width: 767.98px) { .operator-nav-context span, .operator-nav-context a { display: none; } .operator-nav .navbar-brand { display: none; } .operator-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } .operator-metrics .actual, .operator-metrics .gross, .operator-metrics .tare, .operator-metrics .target, .operator-metrics .difference, .operator-metrics .percentage, .operator-metrics .target-state { grid-column: span 1; grid-row: auto; } .operator-metrics .actual { grid-column: span 2; } .operator-actions { grid-template-columns: 1fr; } .operator-status-row { grid-template-columns: 1fr; } }
+  @media (max-width: 575.98px) { .po-details { grid-template-columns: minmax(0, 1fr); } .operator-metrics .actual dd { font-size: clamp(3.5rem, 18vw, 4.5rem); } }
 </style>
-<header class="operator-topbar mb-2 d-flex justify-content-between align-items-center gap-2 flex-wrap">
-  <div><h1 class="mb-0">{{ t("Material-centric Weighing") }}</h1><p class="visually-hidden">{{ t("Choose a material, scan its physical tag, then weigh its prepared Production Orders.") }}</p></div>
-  <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('preparation.prepare') }}">{{ t("Back to Production Order Preparation") }}</a>
-</header>
-{% set current_step = 3 if overview.is_complete else 2 %}<div class="operator-workflow">{% include "_material_workflow_steps.html" %}</div>
-<section class="card shadow-sm mb-2 operator-session-strip" aria-label="{{ t('Production Orders for This Weighing Session') }}"><strong>{{ t("Session ID") }}: {{ overview.session_code }}</strong><span>{{ overview.orders|length }} Production Order(s)</span><span>{{ t("Overall progress") }} {{ overview.completed_count }} / {{ overview.required_count }}</span></section>
+<div class="visually-hidden"><h1>{{ t("Material-centric Weighing") }}</h1><p>{{ t("Choose a material, scan its physical tag, then weigh its prepared Production Orders.") }}</p>{% set current_step = 3 if overview.is_complete else 2 %}{% include "_material_workflow_steps.html" %}<span>{{ t("Production Orders for This Weighing Session") }}</span><span>{{ overview.orders|length }} Production Order(s)</span><span>{{ t("Overall progress") }} {{ overview.completed_count }} / {{ overview.required_count }}</span></div>
+{% if queue %}<section class="operator-match-strip" aria-label="{{ t('MATCH') }}"><span class="operator-match-icon" aria-hidden="true">✓</span><span><strong>{{ t("MATCH") }}</strong>: {{ t("Detected Material") }} {{ queue.material.code }} · {{ queue.completed_count }} / {{ queue.items|length }} {{ t("Production Orders completed") }}</span></section>{% endif %}
 <div class="material-workspace">
   <aside class="card shadow-sm material-queue-pane" aria-labelledby="materials-heading"><details class="queue-disclosure" open><summary id="materials-heading">{{ t("Material Queue") }}</summary><div class="card-body pt-0">
-    <label class="form-label" for="material-search">{{ t("Search code or description") }}</label><input class="form-control mb-2" id="material-search" type="search" autocomplete="off">
-    <label class="form-label" for="material-filter">{{ t("Filter by status") }}</label><select class="form-select mb-3" id="material-filter"><option value="all">{{ t("All") }}</option><option value="not-started">{{ t("Not started") }}</option><option value="in-progress">{{ t("In progress") }}</option><option value="completed">{{ t("Completed") }}</option></select>
+    <div class="queue-controls"><label class="form-label small mb-1" for="material-search">{{ t("Search code or description") }}</label><input class="form-control form-control-sm mb-2" id="material-search" type="search" autocomplete="off"><label class="form-label small mb-1" for="material-filter">{{ t("Filter by status") }}</label><select class="form-select form-select-sm mb-2" id="material-filter"><option value="all">{{ t("All") }}</option><option value="not-started">{{ t("Not started") }}</option><option value="in-progress">{{ t("In progress") }}</option><option value="completed">{{ t("Completed") }}</option></select></div>
     <div class="d-grid gap-2 material-list" id="material-list">
     {% for summary in overview.materials %}{% set status_key = 'completed' if summary.status == 'Completed' else ('in-progress' if summary.completed_count else 'not-started') %}{% set reweighed = reweighed_material_context.get(summary.material.code) %}
       <a class="btn material-choice p-3" href="{{ url_for('weighing.weighing_history', transaction_id=reweighed.transaction.id) if reweighed else url_for('weighing.material_mode', material=summary.material.code) }}" data-material-choice data-search="{{ summary.material.code|lower }} {{ summary.material.name|lower }}" data-status="{{ status_key }}" data-selected="{{ 'true' if selection and selection.material.code == summary.material.code else 'false' }}" aria-current="{{ 'true' if selection and selection.material.code == summary.material.code else 'false' }}">
@@ -80,7 +93,7 @@
   {% elif selection.pending_count == 0 and not reweigh_transaction_id %}<h2 class="h4" id="workspace-heading">{{ selection.material.code }} — {{ selection.material.name }}</h2><p><span class="badge text-bg-success">{{ t("Completed") }}</span> {{ selection.completed_count }} of {{ selection.items|length }} Production Orders completed</p>{% set display_queue = selection %}{% include "weighing/_material_queue_table.html" %}
   {% elif not queue %}<h2 class="h4" id="workspace-heading">{{ selection.material.code }} — {{ selection.material.name }}</h2><p><span class="badge text-bg-{{ 'warning' if selection.completed_count else 'secondary' }}">{{ 'In progress' if selection.completed_count else 'Not started' }}</span> {{ selection.completed_count }} of {{ selection.items|length }} Production Orders completed</p>
     <p class="text-muted">{{ t("Scan the physical Material Tag for the selected Material before entering a weight.") }}</p><label class="form-label" for="material-session-tag">{{ t("Material Tag QR") }}</label><input class="form-control" id="material-session-tag" autocomplete="off" autofocus maxlength="2000"><div id="material-session-result" class="fw-bold mt-2 text-muted" aria-live="polite">{{ t("Scan Material Tag to validate") }}</div><div id="material-mismatch-detail" class="small text-danger mt-1" aria-live="polite"></div>
-  {% else %}<h2 class="h4" id="workspace-heading">{{ queue.material.code }} — {{ queue.material.name }}</h2><div class="alert alert-success"><strong>{{ t("MATCH") }}</strong> · {{ t("Detected Material") }} {{ queue.material.code }} · {{ queue.completed_count }} / {{ queue.items|length }} {{ t("Production Orders completed") }}</div>{% set display_queue = queue %}{% include "weighing/_material_queue_table.html" %}{% endif %}
+  {% else %}<h2 class="visually-hidden" id="workspace-heading">{{ queue.material.code }} — {{ queue.material.name }}</h2>{% set display_queue = queue %}{% include "weighing/_material_queue_table.html" %}{% endif %}
   </div></section>
 </div>
 {% if queue %}<div id="scale-bridge-config" hidden data-base-url="http://127.0.0.1:8765" data-messages='{{ {
@@ -100,6 +113,7 @@
 {% if reweigh_transaction_id %}<form class="mt-3" method="post" action="{{ url_for('weighing.cancel_reweigh') }}">{{ reweigh_form.csrf_token }}<button class="btn btn-outline-danger" type="submit">{{ t("Cancel Reweigh") }}</button></form>{% endif %}
 <script>
 (() => {
+  const queueDisclosure = document.querySelector(".queue-disclosure"); if (queueDisclosure && window.matchMedia("(max-width: 991.98px)").matches) queueDisclosure.open = false;
   const search = document.getElementById("material-search"); const filter = document.getElementById("material-filter"); const choices = [...document.querySelectorAll("[data-material-choice]")]; const empty = document.getElementById("material-filter-empty");
   const applyFilters = () => { const term = search.value.trim().toLowerCase(); let visible = 0; choices.forEach((choice) => { const matches = choice.dataset.search.includes(term) && (filter.value === "all" || choice.dataset.status === filter.value); const show = matches || choice.dataset.selected === "true"; choice.classList.toggle("d-none", !show); visible += show ? 1 : 0; }); empty.classList.toggle("d-none", visible !== 0); };
   search.addEventListener("input", applyFilters); filter.addEventListener("change", applyFilters);
