@@ -37,7 +37,8 @@ def test_material_queue_uses_read_only_bridge_weight_and_bilingual_status(app, c
     assert 'data-base-url="http://127.0.0.1:8765"' in rendered
     assert 'name="actual_weight" type="text" inputmode="none" readonly' in rendered
     assert 'aria-readonly="true"' in rendered
-    assert "บันทึกน้ำหนักภาชนะ / Tare" in rendered
+    assert "บันทึกน้ำหนักภาชนะ" in rendered
+    assert '<span lang="en">Tare</span>' in rendered
     assert "สถานะเครื่องชั่ง / Scale status" in rendered
     messages_match = re.search(r"data-messages='([^']+)'", rendered)
     assert messages_match is not None
@@ -66,7 +67,7 @@ def test_material_queue_sends_exact_context_and_keeps_save_gated(app, client):
     assert 'data-formula-item="1"' in rendered
     assert 'data-station="POWDER-ST"' in rendered
     assert 'data-workflow-attempt=""' in rendered
-    assert 'class="btn btn-primary save-weighing" type="submit" disabled' in rendered
+    assert 'class="btn operator-action save-weighing" type="submit" disabled' in rendered
 
     script = Path("app/static/weighing_scale_bridge.js").read_text(encoding="utf-8")
     assert 'bridgeRequest("/context", {method: "POST"' in script
@@ -153,3 +154,37 @@ console.log(JSON.stringify(cases.map(([actual, target]) => calculateDeviation(ac
         "percentage": "0.40",
         "status": "OVER",
     }
+
+
+def test_target_weight_state_uses_exact_decimal_values_and_units():
+    program = r"""
+const {targetWeightState} = require('./app/static/weighing_scale_bridge.js');
+const cases = [
+  ['3.333', '3.333', 'kg', 'kg'],
+  ['3.3330', '3.333', 'kg', 'kg'],
+  ['3.332', '3.333', 'kg', 'kg'],
+  ['0', '3.333', 'kg', 'kg'],
+  [null, '3.333', 'kg', 'kg'],
+  ['bad', '3.333', 'kg', 'kg'],
+  ['-1', '3.333', 'kg', 'kg'],
+  ['3.333', '3.333', 'g', 'kg']
+];
+console.log(JSON.stringify(cases.map((args) => targetWeightState(...args))));
+"""
+    result = subprocess.run(
+        ["node", "-e", program],
+        cwd=Path.cwd(),
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert json.loads(result.stdout) == [
+        "match",
+        "match",
+        "different",
+        "reference",
+        "reference",
+        "reference",
+        "reference",
+        "reference",
+    ]

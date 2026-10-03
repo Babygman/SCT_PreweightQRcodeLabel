@@ -17,40 +17,52 @@
       </dl>
       {% if queue_item.transaction %}
       {% set replaced = replaced_transactions_by_id.get(queue_item.transaction.replaces_transaction_id) %}
-      {% set reweighed_by = weighed_users_by_id.get(queue_item.transaction.weighed_by_user_id) %}
-      <div class="po-action">
-        <div><div class="small text-body-secondary">{{ t("Target Weight") }}</div><strong>{{ item.target_weight }} {{ item.unit }}</strong></div>
-        <div><div class="small text-body-secondary">{{ t("Recorded Actual Weight") }}</div>
-          <strong>{{ queue_item.transaction.actual_weight }} {{ queue_item.transaction.unit_snapshot }}</strong>
+      {% set weighed_by = weighed_users_by_id.get(queue_item.transaction.weighed_by_user_id) %}
+      {% set target_actual_valid = queue_item.transaction.actual_weight > 0 %}
+      {% set target_matches = target_actual_valid and queue_item.transaction.actual_weight == queue_item.transaction.target_weight_snapshot %}
+      <div class="completed-weighing-summary">
+        <dl class="completed-weight-grid mb-2">
+          <div class="completed-weight actual"><dt>{{ t("Recorded Actual Weight") }}</dt><dd>{{ queue_item.transaction.actual_weight }} <small>{{ queue_item.transaction.unit_snapshot }}</small></dd></div>
+          <div class="completed-weight target {{ 'target-match' if target_matches else ('target-different' if target_actual_valid else '') }}"><dt>{{ t("Target Weight") }}</dt><dd>{{ queue_item.transaction.target_weight_snapshot }} <small>{{ queue_item.transaction.unit_snapshot }}</small></dd></div>
+        </dl>
+        <div class="completed-weighing-evidence">
           <div class="small text-body-secondary">Preweight ID: {{ queue_item.transaction.preweight_id }}</div>
-          {% if replaced %}<div class="small mt-2"><strong>{{ t("Replaces") }}:</strong> {{ replaced.preweight_id }}</div><div class="small"><strong>{{ t("Reweigh reason") }}:</strong> {{ replaced.supersede_reason }}</div><div class="small"><strong>{{ t("Reweighed at") }}:</strong> {{ queue_item.transaction.weighed_at_utc|local_datetime }}</div><div class="small"><strong>{{ t("Reweighed by") }}:</strong> {{ reweighed_by.display_name if reweighed_by else "—" }}</div>{% endif %}
+          <div class="small"><strong>{{ t("Weighed at") }}:</strong> {{ queue_item.transaction.weighed_at_utc|local_datetime }}</div>
+          <div class="small"><strong>{{ t("User") }}:</strong> {{ weighed_by.display_name if weighed_by else "—" }}</div>
+          {% if replaced %}<div class="small mt-2"><strong>{{ t("Replaces") }}:</strong> {{ replaced.preweight_id }}</div><div class="small"><strong>{{ t("Reweigh reason") }}:</strong> {{ replaced.supersede_reason }}</div>{% endif %}
           <a class="btn btn-outline-secondary btn-sm mt-2" href="{{ url_for('weighing.weighing_history', transaction_id=queue_item.transaction.id) }}">{{ t("View Weighing History") }}</a>
           {% if queue_item.transaction.preweight_id %}<a class="btn btn-outline-primary btn-sm mt-2" href="{{ url_for('weighing.sticker', transaction_id=queue_item.transaction.id) }}" target="_blank" rel="noopener">{{ t("Reprint Label") }}</a>{% endif %}
           <details class="mt-2"><summary class="btn btn-outline-warning btn-sm">{{ t("Reweigh") }}</summary><form class="mt-2" method="post" action="{{ url_for('weighing.start_reweigh', transaction_id=queue_item.transaction.id) }}">{{ reweigh_form.csrf_token }}<label class="form-label" for="reweigh-reason-{{ queue_item.transaction.id }}">{{ t("Reweigh reason") }}</label><textarea class="form-control form-control-sm" id="reweigh-reason-{{ queue_item.transaction.id }}" name="reason" required minlength="10" maxlength="500"></textarea><div class="form-check mt-2"><input class="form-check-input" id="reweigh-confirm-{{ queue_item.transaction.id }}" name="confirm" type="checkbox" value="y" required><label class="form-check-label" for="reweigh-confirm-{{ queue_item.transaction.id }}">{{ t("Confirm Reweigh") }}</label></div><button class="btn btn-warning btn-sm mt-2" type="submit" onclick="return window.confirm({{ t('Confirm Reweigh')|tojson }})">{{ t("Reweigh") }}</button></form></details>
         </div>
       </div>
       {% elif queue %}
-      <form class="po-action material-queue-form" method="post" action="{{ url_for('weighing.weigh_material_queue_item', po_id=order.id, formula_item_id=item.id) }}" data-scale-weighing-form data-material="{{ item.material.code }}" data-production-order="{{ order.po_no }}" data-formula-item="{{ item.id }}" data-station="{{ weighing_station.code }}" data-target-weight="{{ item.target_weight }}" data-workflow-attempt="{{ reweigh_workflow_attempt or '' }}">
+      <form class="po-action material-queue-form" method="post" action="{{ url_for('weighing.weigh_material_queue_item', po_id=order.id, formula_item_id=item.id) }}" data-scale-weighing-form data-material="{{ item.material.code }}" data-production-order="{{ order.po_no }}" data-formula-item="{{ item.id }}" data-station="{{ weighing_station.code }}" data-target-weight="{{ item.target_weight }}" data-unit="{{ item.unit }}" data-workflow-attempt="{{ reweigh_workflow_attempt or '' }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div>
           <div class="scale-status border rounded p-3 mb-3" aria-live="polite" data-operator-state="DISCONNECTED">
-            <strong class="visually-hidden">{{ t("Scale status") }}</strong><div class="operator-status-row"><span class="operator-status-pill" data-scale-connection data-state="disconnected">● {{ t("Scale disconnected") }}</span><span class="operator-status-pill" data-scale-stability data-state="unknown">—</span></div>
+            <div class="operator-status-row">
+              <div class="operator-status-card" data-scale-connection data-state="disconnected"><span class="status-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M10.6 13.4a2 2 0 0 0 2.8 0l3-3a2 2 0 0 0-2.8-2.8l-1 1M13.4 10.6a2 2 0 0 0-2.8 0l-3 3a2 2 0 0 0 2.8 2.8l1-1"/></svg></span><span><small>{{ t("Scale status") }}</small><strong data-scale-connection-text>{{ t("Scale disconnected") }}</strong></span></div>
+              <div class="operator-status-card" data-scale-stability data-state="unknown"><span class="status-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 3 5 6v5c0 4.6 2.9 8.3 7 10 4.1-1.7 7-5.4 7-10V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></svg></span><span><small>{{ t("Reading status") }}</small><strong data-scale-stability-text>—</strong></span></div>
+            </div>
             <dl class="operator-metrics mb-2 mt-2">
-              <div class="metric gross"><dt>{{ t("Gross Weight") }}</dt><dd><span data-scale-gross>—</span> <small data-scale-unit>—</small></dd></div>
-              <div class="metric tare"><dt>{{ t("Tare Weight") }}</dt><dd><span data-scale-tare>—</span> <small data-scale-unit>—</small></dd></div>
               <div class="metric actual"><dt>{{ t("Actual Weight") }}</dt><dd><span data-scale-actual>—</span> <small data-scale-unit>—</small></dd></div>
               <div class="metric target" data-target-label="{{ item.target_weight }} {{ item.unit }}"><dt>{{ t("Target Weight") }}</dt><dd>{{ item.target_weight }} <small>{{ item.unit }}</small></dd></div>
+              <div class="metric tare"><dt>{{ t("Tare Weight") }}</dt><dd><span data-scale-tare>—</span> <small data-scale-unit>—</small></dd></div>
+              <div class="metric gross"><dt>{{ t("Gross Weight") }}</dt><dd><span data-scale-gross>—</span> <small data-scale-unit>—</small></dd></div>
+            </dl>
+            <dl class="comparison-strip mb-2">
               <div class="metric difference"><dt>{{ t("Difference") }}</dt><dd><span data-scale-difference>—</span> <small data-scale-unit>—</small></dd></div>
               <div class="metric percentage"><dt>{{ t("Difference Percentage") }}</dt><dd><span data-scale-percentage>—</span></dd></div>
-              <div class="metric target-state"><dt>{{ t("Target status") }}</dt><dd data-scale-deviation-status>—</dd></div>
+              <div class="metric target-state"><span class="target-status-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg></span><div><dt>{{ t("Target status") }}</dt><dd data-scale-deviation-status>—</dd></div></div>
             </dl>
             <div class="small text-danger" data-scale-reason>{{ t("Scale Bridge unavailable") }}</div>
           </div>
           <div class="visually-hidden"><label for="actual-weight-{{ order.id }}-{{ item.id }}">{{ t("Actual Weight") }}</label><input class="form-control actual-weight" id="actual-weight-{{ order.id }}-{{ item.id }}" name="actual_weight" type="text" inputmode="none" readonly required aria-readonly="true"></div>
           <div class="operator-actions">
-            <button class="btn btn-outline-secondary capture-tare" type="button">{{ t("Tare") }}</button>
-            <button class="btn btn-outline-danger cancel-tare" type="button" disabled>{{ t("Cancel Tare") }}</button>
-            <button class="btn btn-primary save-weighing" type="submit" disabled aria-label="{{ t('Save Weighing') }} — {{ item.material.code }} / {{ order.po_no }}">{{ t("Save Weighing") }} — {{ order.po_no }}</button>
+            {% set tare_label = t("Tare").split(" / ") %}{% set cancel_label = t("Cancel Tare").split(" / ") %}{% set save_label = t("Save Weighing").split(" / ") %}
+            <button class="btn operator-action capture-tare" type="button"><span class="action-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M4 20h16M8 20l2-13h4l2 13M6 9h12M3 9l3-5 3 5M15 9l3-5 3 5"/></svg></span><span class="action-copy"><strong lang="th">{{ tare_label[0] }}</strong><span lang="en">{{ tare_label[1] }}</span></span></button>
+            <button class="btn operator-action cancel-tare" type="button" disabled><span class="action-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg></span><span class="action-copy"><strong lang="th">{{ cancel_label[0] }}</strong><span lang="en">{{ cancel_label[1] }}</span></span></button>
+            <button class="btn operator-action save-weighing" type="submit" disabled aria-label="{{ t('Save Weighing') }} — {{ item.material.code }} / {{ order.po_no }}"><span class="action-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M5 3h12l2 2v16H5V3Zm3 0v6h8V3M8 21v-8h8v8"/></svg></span><span class="action-copy"><strong lang="th">{{ save_label[0] }}</strong><span lang="en">{{ save_label[1] }} — {{ order.po_no }}</span></span></button>
           </div>
         </div>
       </form>

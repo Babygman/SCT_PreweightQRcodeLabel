@@ -31,7 +31,15 @@
     };
   };
 
-  if (typeof module !== "undefined" && module.exports) module.exports = {calculateDeviation};
+  const targetWeightState = (actualValue, targetValue, actualUnit, targetUnit) => {
+    const actual = scaledDecimal(actualValue);
+    const target = scaledDecimal(targetValue);
+    if (actual === null || actual <= 0n || target === null || target <= 0n) return "reference";
+    if (String(actualUnit || "") !== String(targetUnit || "")) return "reference";
+    return actual === target ? "match" : "different";
+  };
+
+  if (typeof module !== "undefined" && module.exports) module.exports = {calculateDeviation, targetWeightState};
   if (typeof document === "undefined") return;
 
   const config = document.getElementById("scale-bridge-config");
@@ -79,19 +87,32 @@
     return state.save_block_reason || null;
   };
 
+  const updateTargetCard = (form, state) => {
+    const targetCard = form.querySelector(".metric.target");
+    targetCard.classList.remove("target-match", "target-different");
+    const targetState = targetWeightState(
+      state?.actual,
+      form.dataset.targetWeight,
+      state?.unit,
+      form.dataset.unit,
+    );
+    if (targetState !== "reference") targetCard.classList.add(`target-${targetState}`);
+  };
+
   const show = (form, state = null, overrideReason = null) => {
     const connected = Boolean(state?.connected);
     const reason = overrideReason || (state && activeContext ? reasonFor(state, activeContext) : "BRIDGE_UNAVAILABLE");
     const connection = form.querySelector("[data-scale-connection]");
-    connection.textContent = `${connected ? "●" : "✕"} ${connected ? messages.connected : messages.disconnected}`;
+    connection.querySelector("[data-scale-connection-text]").textContent = connected ? messages.connected : messages.disconnected;
     connection.dataset.state = connected ? "connected" : "disconnected";
     const stability = form.querySelector("[data-scale-stability]");
-    stability.textContent = state ? `${state.stable ? "●" : "▲"} ${state.stable ? messages.stable : messages.unstable}` : "—";
+    stability.querySelector("[data-scale-stability-text]").textContent = state ? (state.stable ? messages.stable : messages.unstable) : "—";
     stability.dataset.state = state ? (state.stable ? "stable" : "unstable") : "unknown";
     form.querySelector("[data-scale-gross]").textContent = state?.gross ?? "—";
     form.querySelector("[data-scale-tare]").textContent = state?.tare ?? "—";
     form.querySelector("[data-scale-actual]").textContent = state?.actual ?? "—";
     form.querySelectorAll("[data-scale-unit]").forEach((unit) => { unit.textContent = state?.unit ?? "—"; });
+    updateTargetCard(form, state);
     form.querySelector("[data-scale-reason]").textContent = reason ? (messages[reason] || messages.BRIDGE_UNAVAILABLE) : "";
     const weight = form.querySelector(".actual-weight");
     weight.value = !reason && state?.actual ? state.actual : "";

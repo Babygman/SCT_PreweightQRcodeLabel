@@ -245,7 +245,8 @@ def test_material_mode_ui_gates_weight_and_keeps_active_tag_in_session(app, clie
     assert b"Target Weight" in queue.data and b"1.000 kg" in queue.data
     rendered_queue = queue.get_data(as_text=True)
     assert ">น้ำหนักจริง / Actual Weight</label>" in rendered_queue
-    assert "บันทึกการชั่ง / Save Weighing — PD001" in rendered_queue
+    assert "บันทึกการชั่ง" in rendered_queue
+    assert '<span lang="en">Save Weighing — PD001</span>' in rendered_queue
     assert (
         'aria-label="บันทึกการชั่ง / Save Weighing — MAT-A / PD001"'
     ) in rendered_queue

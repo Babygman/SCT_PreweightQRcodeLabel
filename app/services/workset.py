@@ -98,6 +98,7 @@ def work_set_overview(orders):
             ).where(
                 WeighingTransaction.production_order_id.in_(order_ids),
                 WeighingTransaction.status.in_(("COMPLETED", "CONSUMED")),
+                WeighingTransaction.superseded_at_utc.is_(None),
             )
         ).all()
     )

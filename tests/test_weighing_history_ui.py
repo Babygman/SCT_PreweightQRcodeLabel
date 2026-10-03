@@ -126,12 +126,16 @@ def test_operator_view_has_bounded_responsive_first_viewport_controls():
     assert "grid-template-columns: minmax(16rem, 1fr) minmax(0, 3fr)" in template
     assert "height: 100dvh" in template
     assert "grid-template-columns: repeat(12, minmax(0, 1fr))" in template
-    assert ".operator-metrics .actual { grid-column: 1 / 5; grid-row: 1" in template
-    assert ".operator-metrics .target-state { grid-column: 8 / 13; grid-row: 2" in template
+    assert ".operator-metrics .actual { grid-column: 1 / 5;" in template
+    assert ".operator-metrics .target { grid-column: 5 / 8;" in template
+    assert ".operator-metrics .tare { grid-column: 8 / 11;" in template
+    assert ".operator-metrics .gross { grid-column: 11 / 13;" in template
+    assert ".comparison-strip .target-state" in template
     assert "operator-match-strip" in template
     assert "operator-nav-context" in template
     assert "min-height: clamp(4rem, 7vh, 4.5rem)" in template
-    assert "queue-disclosure" in template and "<details" in template
+    assert 'class="queue-toggle"' in template
+    assert 'aria-controls="material-queue-content"' in template
     assert "overflow-x: hidden" in template
     assert "clamp(4.5rem, 5vw, 6rem)" in template
     assert "@media (max-width: 1199.98px)" in template
@@ -162,5 +166,7 @@ def test_operator_state_text_shape_and_color_are_structurally_present():
         assert state in template or state in script
     for state in ("connected", "disconnected", "stable", "unstable", "stale"):
         assert f'data-state="{state}"' in template or f'"{state}"' in script
-    assert '`${connected ? "●" : "✕"}' in script
-    assert '`${state.stable ? "●" : "▲"}' in script
+    assert "data-scale-connection-text" in script
+    assert "data-scale-stability-text" in script
+    assert "status-icon" in template
+    assert "target-status-icon" in template

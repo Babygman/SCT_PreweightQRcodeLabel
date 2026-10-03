@@ -69,7 +69,6 @@ def _replacement_display_context(transactions):
     user_ids = {
         transaction.weighed_by_user_id
         for transaction in transactions
-        if transaction.replaces_transaction_id is not None
     }
     users = (
         db.session.scalars(select(User).where(User.id.in_(user_ids))).all()
@@ -355,7 +354,28 @@ def material_mode():
             selection = None
 
     active_payload = session.get("active_material_tag")
-    reweigh_transaction_id = session.get("reweigh_original_transaction_id")
+    session_reweigh_transaction_id = session.get("reweigh_original_transaction_id")
+    session_reweigh_transaction = (
+        db.session.get(WeighingTransaction, session_reweigh_transaction_id)
+        if session_reweigh_transaction_id is not None
+        else None
+    )
+    selection_transaction_ids = {
+        item.transaction.id
+        for item in selection.items
+        if item.transaction is not None
+    } if selection is not None else set()
+    reweigh_transaction_id = (
+        session_reweigh_transaction.id
+        if selection is not None
+        and session_reweigh_transaction is not None
+        and session_reweigh_transaction.id in selection_transaction_ids
+        and session_reweigh_transaction.station_id == session["station_id"]
+        and session_reweigh_transaction.material_code_snapshot
+        == selection.material.code
+        and session_reweigh_transaction.superseded_at_utc is None
+        else None
+    )
     queue = (
         build_material_queue(
             session["station_id"],
@@ -404,7 +424,11 @@ def material_mode():
         weighing_station=db.session.get(Station, session["station_id"]),
         reweigh_form=ReweighForm(),
         reweigh_transaction_id=reweigh_transaction_id,
-        reweigh_workflow_attempt=session.get("reweigh_workflow_attempt"),
+        reweigh_workflow_attempt=(
+            session.get("reweigh_workflow_attempt")
+            if reweigh_transaction_id is not None
+            else None
+        ),
         replaced_transactions_by_id=replaced_transactions_by_id,
         weighed_users_by_id=weighed_users_by_id,
         reweighed_material_context=reweighed_material_context,

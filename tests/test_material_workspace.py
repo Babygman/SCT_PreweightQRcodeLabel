@@ -115,11 +115,90 @@ def test_partial_material_resumes_and_completed_material_is_read_only(app, clien
     assert b"Pending tag scan" not in completed.data
     assert b'name="actual_weight"' not in completed.data
     assert b"Recorded Actual Weight" in completed.data
+    assert b"Target Weight" in completed.data
+    assert b"Weighed at" in completed.data
+    assert b"User" in completed.data
+    assert completed.data.count(b'class="completed-weight target target-match"') == 1
+    assert completed.data.count(b'class="completed-weight target target-different"') == 1
     assert b"Preweight ID:" in completed.data
     assert completed.data.count("พิมพ์ฉลากซ้ำ / Reprint Label".encode()) == 2
     assert completed.data.count(b'target="_blank"') == 2
     assert completed.data.count(b'rel="noopener"') == 2
     assert "Save Weighing —".encode() not in completed.data
+
+
+def test_completed_material_ignores_stale_reweigh_session_and_shows_saved_detail(
+    app, client
+):
+    with app.app_context():
+        user, station, _, _, _, orders, items_a, _ = seed_material_workflow(1)
+        prepare_orders(user, station, orders)
+        assert save_material_queue_item(
+            station.id, orders[0].id, items_a[0].id, MATERIAL_A_TAG, "1.250", user.id
+        ).success
+        station_id = station.id
+    login(client, station_id)
+    with client.session_transaction() as session:
+        session["reweigh_original_transaction_id"] = 999999
+        session["reweigh_workflow_attempt"] = "stale-workflow-attempt"
+
+    page = client.get("/weighing/material?material=MAT-A")
+
+    assert page.status_code == 200
+    assert b"1 of 1 Production Orders completed" in page.data
+    assert b"Recorded Actual Weight" in page.data
+    assert b"1.250" in page.data
+    assert b"Pending tag scan" not in page.data
+    assert b'name="actual_weight"' not in page.data
+    assert b"stale-workflow-attempt" not in page.data
+
+
+def test_same_material_reweigh_from_another_work_set_does_not_leak(app, client):
+    with app.app_context():
+        user, station, _, _, _, orders, items_a, _ = seed_material_workflow(2)
+        prepare_orders(user, station, [orders[0]])
+        result = save_material_queue_item(
+            station.id, orders[0].id, items_a[0].id, MATERIAL_A_TAG, "1.000", user.id
+        )
+        assert result.success
+        stale_transaction_id = result.transaction.id
+        orders[0].work_set_active = False
+        db.session.commit()
+        prepare_orders(user, station, [orders[1]])
+        station_id = station.id
+    login(client, station_id)
+    with client.session_transaction() as session:
+        session["reweigh_original_transaction_id"] = stale_transaction_id
+        session["reweigh_workflow_attempt"] = "unrelated-work-set-attempt"
+
+    page = client.get("/weighing/material?material=MAT-A")
+
+    assert page.status_code == 200
+    assert b"0 of 1 Production Orders completed" in page.data
+    assert b"unrelated-work-set-attempt" not in page.data
+    assert "ยกเลิกการชั่งใหม่ / Cancel Reweigh".encode() not in page.data
+
+
+def test_superseded_transaction_is_not_authoritative_completed_state(app, client):
+    with app.app_context():
+        user, station, _, _, _, orders, items_a, _ = seed_material_workflow(1)
+        prepare_orders(user, station, orders)
+        result = save_material_queue_item(
+            station.id, orders[0].id, items_a[0].id, MATERIAL_A_TAG, "1.000", user.id
+        )
+        assert result.success
+        transaction = db.session.get(WeighingTransaction, result.transaction.id)
+        transaction.superseded_at_utc = datetime.now(UTC)
+        db.session.commit()
+        station_id = station.id
+    login(client, station_id)
+
+    page = client.get("/weighing/material?material=MAT-A")
+
+    assert page.status_code == 200
+    assert b"0 of 1 Production Orders completed" in page.data
+    assert b'data-status="not-started"' in page.data
+    assert b"Recorded Actual Weight" not in page.data
 
 
 def test_search_filter_ten_materials_and_unsaved_switch_warning_render(app, client):
@@ -157,6 +236,8 @@ def test_search_filter_ten_materials_and_unsaved_switch_warning_render(app, clie
     assert b"Changing Material will discard unsaved weight input" in page.data
     assert b"focus-visible" in page.data and b"@media (max-width: 991.98px)" in page.data
     assert b"material-list" in page.data and b"overflow-y: auto" in page.data
+    assert b"ResizeObserver" in page.data
+    assert b'aria-controls="material-queue-content"' in page.data
     assert b"queue-table" not in page.data
 
 

@@ -274,9 +274,10 @@ def test_completed_material_reweigh_renders_pending_controls_without_mutation(ap
     assert f'data-workflow-attempt="{workflow_attempt}"' in page
     assert 'class="form-control actual-weight"' in page
     assert "readonly required aria-readonly=\"true\"" in page
-    assert 'class="btn btn-primary save-weighing" type="submit" disabled' in page
+    assert 'class="btn operator-action save-weighing" type="submit" disabled' in page
     assert "Capture Tare before saving" in page
-    assert "ยกเลิกน้ำหนักภาชนะ / Cancel Tare" in page
+    assert "ยกเลิกน้ำหนักภาชนะ" in page
+    assert '<span lang="en">Cancel Tare</span>' in page
     assert "ยกเลิกการชั่งใหม่ / Cancel Reweigh" in page
 
     with app.app_context():
