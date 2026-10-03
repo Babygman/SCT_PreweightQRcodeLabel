@@ -137,7 +137,7 @@ def test_operator_view_has_bounded_responsive_first_viewport_controls():
     assert 'class="queue-toggle"' in template
     assert 'aria-controls="material-queue-content"' in template
     assert "overflow-x: hidden" in template
-    assert "clamp(4.5rem, 5vw, 6rem)" in template
+    assert "clamp(3.25rem, 5vw, 6rem)" in template
     assert "@media (max-width: 1199.98px)" in template
     assert "@media (max-width: 991.98px)" in template
     assert "@media (max-width: 575.98px)" in template
@@ -160,6 +160,9 @@ def test_operator_view_has_bounded_responsive_first_viewport_controls():
 
 def test_operator_state_text_shape_and_color_are_structurally_present():
     template = Path("app/templates/weighing/material.html").read_text(encoding="utf-8")
+    queue = Path("app/templates/weighing/_material_queue_table.html").read_text(
+        encoding="utf-8"
+    )
     script = Path("app/static/weighing_scale_bridge.js").read_text(encoding="utf-8")
 
     for state in ("UNDER", "ON_TARGET", "OVER", "OVERLOAD"):
@@ -170,3 +173,12 @@ def test_operator_state_text_shape_and_color_are_structurally_present():
     assert "data-scale-stability-text" in script
     assert "status-icon" in template
     assert "target-status-icon" in template
+    assert 'data-state="connected"] .status-icon' in template
+    assert 'data-state="stable"] .status-icon' in template
+    assert "background: var(--bs-success)" in template
+    assert "stroke: currentColor" in template
+    assert "background: currentColor" not in template
+    assert 'class="weight-value" data-scale-actual' in queue
+    assert 'class="weight-unit" data-scale-unit' in queue
+    assert 'class="weight-value">{{ queue_item.transaction.actual_weight }}' in queue
+    assert "weight-value-long" in script

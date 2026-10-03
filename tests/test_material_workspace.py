@@ -238,7 +238,28 @@ def test_search_filter_ten_materials_and_unsaved_switch_warning_render(app, clie
     assert b"material-list" in page.data and b"overflow-y: auto" in page.data
     assert b"ResizeObserver" in page.data
     assert b'aria-controls="material-queue-content"' in page.data
+    assert b'aria-current="true"' in page.data
+    assert b'background: #e7f1ff' in page.data
+    assert b'border-color: #084298' in page.data
+    assert b'item.dataset.selected = String(selected)' in page.data
     assert b"queue-table" not in page.data
+
+
+def test_completed_actual_weight_uses_separate_value_and_unit(app, client):
+    with app.app_context():
+        user, station, _, _, _, orders, items_a, _ = seed_material_workflow(1)
+        prepare_orders(user, station, orders)
+        assert save_material_queue_item(
+            station.id, orders[0].id, items_a[0].id, MATERIAL_A_TAG, "1.250", user.id
+        ).success
+        station_id = station.id
+    login(client, station_id)
+
+    page = client.get("/weighing/material?material=MAT-A")
+
+    assert page.status_code == 200
+    assert b'class="weight-value">1.250</span>' in page.data
+    assert b'class="weight-unit">kg</span>' in page.data
 
 
 def test_local_datetime_formats_naive_and_aware_utc_without_mutation():

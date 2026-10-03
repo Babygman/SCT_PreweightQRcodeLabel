@@ -22,7 +22,7 @@
       {% set target_matches = target_actual_valid and queue_item.transaction.actual_weight == queue_item.transaction.target_weight_snapshot %}
       <div class="completed-weighing-summary">
         <dl class="completed-weight-grid mb-2">
-          <div class="completed-weight actual"><dt>{{ t("Recorded Actual Weight") }}</dt><dd>{{ queue_item.transaction.actual_weight }} <small>{{ queue_item.transaction.unit_snapshot }}</small></dd></div>
+          <div class="completed-weight actual"><dt>{{ t("Recorded Actual Weight") }}</dt><dd class="weight-reading"><span class="weight-value">{{ queue_item.transaction.actual_weight }}</span><span class="weight-unit">{{ queue_item.transaction.unit_snapshot }}</span></dd></div>
           <div class="completed-weight target {{ 'target-match' if target_matches else ('target-different' if target_actual_valid else '') }}"><dt>{{ t("Target Weight") }}</dt><dd>{{ queue_item.transaction.target_weight_snapshot }} <small>{{ queue_item.transaction.unit_snapshot }}</small></dd></div>
         </dl>
         <div class="completed-weighing-evidence">
@@ -45,7 +45,7 @@
               <div class="operator-status-card" data-scale-stability data-state="unknown"><span class="status-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 3 5 6v5c0 4.6 2.9 8.3 7 10 4.1-1.7 7-5.4 7-10V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></svg></span><span><small>{{ t("Reading status") }}</small><strong data-scale-stability-text>—</strong></span></div>
             </div>
             <dl class="operator-metrics mb-2 mt-2">
-              <div class="metric actual"><dt>{{ t("Actual Weight") }}</dt><dd><span data-scale-actual>—</span> <small data-scale-unit>—</small></dd></div>
+              <div class="metric actual"><dt>{{ t("Actual Weight") }}</dt><dd class="weight-reading"><span class="weight-value" data-scale-actual>—</span><span class="weight-unit" data-scale-unit>—</span></dd></div>
               <div class="metric target" data-target-label="{{ item.target_weight }} {{ item.unit }}"><dt>{{ t("Target Weight") }}</dt><dd>{{ item.target_weight }} <small>{{ item.unit }}</small></dd></div>
               <div class="metric tare"><dt>{{ t("Tare Weight") }}</dt><dd><span data-scale-tare>—</span> <small data-scale-unit>—</small></dd></div>
               <div class="metric gross"><dt>{{ t("Gross Weight") }}</dt><dd><span data-scale-gross>—</span> <small data-scale-unit>—</small></dd></div>

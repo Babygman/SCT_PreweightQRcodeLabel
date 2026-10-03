@@ -110,7 +110,10 @@
     stability.dataset.state = state ? (state.stable ? "stable" : "unstable") : "unknown";
     form.querySelector("[data-scale-gross]").textContent = state?.gross ?? "—";
     form.querySelector("[data-scale-tare]").textContent = state?.tare ?? "—";
-    form.querySelector("[data-scale-actual]").textContent = state?.actual ?? "—";
+    const actualValue = String(state?.actual ?? "—");
+    const actual = form.querySelector("[data-scale-actual]");
+    actual.textContent = actualValue;
+    actual.classList.toggle("weight-value-long", actualValue.length > 7);
     form.querySelectorAll("[data-scale-unit]").forEach((unit) => { unit.textContent = state?.unit ?? "—"; });
     updateTargetCard(form, state);
     form.querySelector("[data-scale-reason]").textContent = reason ? (messages[reason] || messages.BRIDGE_UNAVAILABLE) : "";

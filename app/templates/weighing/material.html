@@ -29,7 +29,9 @@
   .material-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; touch-action: pan-y; scrollbar-gutter: stable; padding: .15rem .35rem .75rem .15rem; margin: -.15rem -.15rem 0; }
   .weighing-workspace > .card-body { height: 100%; padding: clamp(.45rem, .65vw, .75rem); overflow-y: auto; overflow-x: hidden; }
   .material-choice { width: 100%; text-align: left; border: 1px solid var(--bs-border-color); background: white; }
-  .material-choice[aria-current="true"] { border-color: var(--bs-primary); box-shadow: 0 0 0 .2rem rgba(13,110,253,.18); }
+  .material-choice:hover { background: #f8fbff; }
+  .material-choice[aria-current="true"] { color: inherit; border-color: #084298; background: #e7f1ff; box-shadow: 0 0 0 .12rem rgba(8,66,152,.18); }
+  .material-choice[aria-current="true"]:hover { background: #e7f1ff; }
   .material-choice:focus-visible { outline: .2rem solid var(--bs-warning); outline-offset: .15rem; }
   [data-po-work-cards] { display: grid; gap: .5rem !important; }
   .po-work-card { min-width: 0; border: 0; }
@@ -50,8 +52,11 @@
   .operator-status-card > span:last-child { display: grid; }
   .operator-status-card small { font-size: clamp(.75rem, .85vw, .95rem); }
   .operator-status-card strong { font-size: clamp(1.15rem, 1.7vw, 1.9rem); line-height: 1.05; }
-  .status-icon { flex: 0 0 auto; display: grid; place-items: center; width: clamp(2.5rem, 3.4vw, 3.5rem); height: clamp(2.5rem, 3.4vw, 3.5rem); border-radius: 50%; color: white; background: currentColor; }
-  .status-icon svg { width: 65%; height: 65%; fill: none; stroke: white; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .status-icon { flex: 0 0 auto; display: grid; place-items: center; width: clamp(2.5rem, 3.4vw, 3.5rem); height: clamp(2.5rem, 3.4vw, 3.5rem); border-radius: 50%; color: white; background: var(--bs-secondary); }
+  .status-icon svg { display: block; width: 65%; height: 65%; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .operator-status-card[data-state="connected"] .status-icon, .operator-status-card[data-state="stable"] .status-icon { background: var(--bs-success); }
+  .operator-status-card[data-state="disconnected"] .status-icon, .operator-status-card[data-state="overload"] .status-icon, .operator-status-card[data-state="stale"] .status-icon { background: var(--bs-danger); }
+  .operator-status-card[data-state="unstable"] .status-icon { color: #111; background: var(--bs-warning); }
   .operator-status-card[data-state="connected"], .operator-status-card[data-state="stable"] { color: var(--bs-success-text-emphasis); background: var(--bs-success-bg-subtle); }
   .operator-status-card[data-state="disconnected"], .operator-status-card[data-state="overload"], .operator-status-card[data-state="stale"] { color: var(--bs-danger-text-emphasis); background: var(--bs-danger-bg-subtle); }
   .operator-status-card[data-state="unstable"] { color: var(--bs-warning-text-emphasis); background: var(--bs-warning-bg-subtle); }
@@ -64,7 +69,12 @@
   .operator-metrics .tare { grid-column: 8 / 11; }
   .operator-metrics .gross { grid-column: 11 / 13; }
   .operator-metrics .gross dd, .operator-metrics .tare dd, .operator-metrics .target dd { font-size: clamp(2rem, 2.2vw, 2.65rem); }
-  .operator-metrics .actual dd { font-size: clamp(4.5rem, 5vw, 6rem); color: #064bb4; }
+  .weight-reading { display: flex; align-items: baseline; gap: .35rem; min-width: 0; white-space: nowrap; }
+  .weight-reading .weight-value { min-width: 0; font-variant-numeric: tabular-nums; letter-spacing: -.035em; }
+  .weight-reading .weight-unit { flex: 0 0 auto; font-size: clamp(1rem, 1.35vw, 1.55rem); font-weight: 700; letter-spacing: 0; }
+  .operator-metrics .actual dd { color: #064bb4; }
+  .operator-metrics .actual .weight-value { font-size: clamp(3.25rem, 5vw, 6rem); }
+  .operator-metrics .actual .weight-value.weight-value-long { font-size: clamp(2rem, 3vw, 3.25rem); }
   .metric.target.target-match, .completed-weight.target.target-match { color: white; background: #087638; border-color: #087638; }
   .metric.target.target-match dt, .completed-weight.target.target-match dt { color: white; }
   .metric.target.target-different, .completed-weight.target.target-different { color: #111; background: #fff2b8; border-color: #e3bc35; }
@@ -94,11 +104,12 @@
   .completed-weight.actual { color: #064bb4; background: var(--bs-primary-bg-subtle); }
   .completed-weight dt { color: var(--bs-secondary-color); font-size: .85rem; }
   .completed-weight dd { margin: 0; font-size: clamp(1.8rem, 2.4vw, 2.6rem); font-weight: 800; }
+  .completed-weight.actual .weight-unit { font-size: clamp(.9rem, 1.15vw, 1.15rem); }
   @media (max-height: 960px) and (min-width: 992px) { .operator-status-card { min-height: 3.4rem; } .operator-metrics .metric { padding-block: .3rem; } .operator-actions .btn { min-height: 4rem; } }
-  @media (max-width: 1199.98px) { .po-details { font-size: .88rem; } .operator-metrics .actual dd { font-size: clamp(4rem, 6vw, 5.25rem); } }
+  @media (max-width: 1199.98px) { .po-details { font-size: .88rem; } .operator-metrics .actual .weight-value { font-size: clamp(3.25rem, 6vw, 5.25rem); } }
   @media (max-width: 991.98px) { .operator-weighing-page { height: auto; min-height: 100dvh; overflow-y: auto; } .operator-main { height: auto; min-height: calc(100dvh - 3.25rem); overflow: visible; } .material-workspace { grid-template-columns: minmax(0, 1fr); } .material-queue-pane { min-height: 3rem; } .queue-content { flex: 0 1 auto; } .material-list { max-height: 16rem; } .weighing-workspace > .card-body { overflow: visible; } .po-details { grid-template-columns: repeat(2, minmax(0, 1fr)); } .po-details > div { border-right: 0; } }
   @media (max-width: 767.98px) { .operator-nav-context span, .operator-nav-context a { display: none; } .operator-nav .navbar-brand { display: none; } .operator-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } .operator-metrics .actual, .operator-metrics .gross, .operator-metrics .tare, .operator-metrics .target { grid-column: span 1; } .operator-metrics .actual { grid-column: span 2; } .comparison-strip { grid-template-columns: 1fr; } .comparison-strip .metric + .metric { border-left: 0; border-top: 1px solid var(--bs-border-color); } .operator-actions { grid-template-columns: 1fr; } .operator-status-row { grid-template-columns: 1fr; } .completed-weight-grid { grid-template-columns: 1fr; } }
-  @media (max-width: 575.98px) { .po-details { grid-template-columns: minmax(0, 1fr); } .operator-metrics .actual dd { font-size: clamp(3.5rem, 18vw, 4.5rem); } }
+  @media (max-width: 575.98px) { .po-details { grid-template-columns: minmax(0, 1fr); } .operator-metrics .actual .weight-value { font-size: clamp(3rem, 17vw, 4.5rem); } }
 </style>
 <div class="visually-hidden"><h1>{{ t("Material-centric Weighing") }}</h1><p>{{ t("Choose a material, scan its physical tag, then weigh its prepared Production Orders.") }}</p>{% set current_step = 3 if overview.is_complete else 2 %}{% include "_material_workflow_steps.html" %}<span>{{ t("Production Orders for This Weighing Session") }}</span><span>{{ overview.orders|length }} Production Order(s)</span><span>{{ t("Overall progress") }} {{ overview.completed_count }} / {{ overview.required_count }}</span></div>
 {% if queue %}<section class="operator-match-strip" aria-label="{{ t('MATCH') }}"><span class="operator-match-icon" aria-hidden="true">✓</span><span><strong>{{ t("MATCH") }}</strong>: {{ t("Detected Material") }} {{ queue.material.code }} · {{ queue.completed_count }} / {{ queue.items|length }} {{ t("Production Orders completed") }}</span></section>{% endif %}
@@ -150,7 +161,7 @@
   queueToggle.addEventListener("click", () => setQueueExpanded(queueToggle.getAttribute("aria-expanded") !== "true"));
   const applyFilters = () => { const term = search.value.trim().toLowerCase(); let visible = 0; choices.forEach((choice) => { const matches = choice.dataset.search.includes(term) && (filter.value === "all" || choice.dataset.status === filter.value); const show = matches || choice.dataset.selected === "true"; choice.classList.toggle("d-none", !show); visible += show ? 1 : 0; }); empty.classList.toggle("d-none", visible !== 0); restoreQueueScroll(); };
   search.addEventListener("input", applyFilters); filter.addEventListener("change", applyFilters);
-  choices.forEach((choice) => choice.addEventListener("click", (event) => { const dirty = [...document.querySelectorAll(".actual-weight")].some((input) => input.value.trim()); if (dirty && !window.confirm({{ t("Changing Material will discard unsaved weight input. Continue?")|tojson }})) event.preventDefault(); }));
+  choices.forEach((choice) => choice.addEventListener("click", (event) => { const dirty = [...document.querySelectorAll(".actual-weight")].some((input) => input.value.trim()); if (dirty && !window.confirm({{ t("Changing Material will discard unsaved weight input. Continue?")|tojson }})) { event.preventDefault(); return; } choices.forEach((item) => { const selected = item === choice; item.dataset.selected = String(selected); item.setAttribute("aria-current", String(selected)); }); }));
   const tagInput = document.getElementById("material-session-tag"); if (!tagInput) return; const result = document.getElementById("material-session-result"); const detail = document.getElementById("material-mismatch-detail"); let timer;
   const validate = async () => { const materialTag = tagInput.value.trim(); if (!materialTag) return; result.className = "fw-bold mt-2 text-muted"; result.textContent = {{ t("Validating…")|tojson }}; detail.textContent = "";
     try { const response = await fetch("{{ url_for('weighing.validate_material_mode') }}", {method: "POST", headers: {"Content-Type": "application/json", "X-CSRFToken": "{{ csrf_token() }}"}, body: JSON.stringify({material_tag: materialTag, selected_material_code: "{{ selection.material.code if selection else '' }}"})}); const validation = await response.json(); if (tagInput.value.trim() !== materialTag) return;
